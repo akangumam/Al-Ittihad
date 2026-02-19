@@ -1,0 +1,42 @@
+
+> materialize-mui-nextjs-admin-template@6.0.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx
+
+
+E:\WebProgramming\al_ittihad\src\app\[lang]\(dashboard)\admin\migrate\page.tsx
+  113:9  error  'runMigration' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\app\[lang]\(dashboard)\clear-storage\page.tsx
+  3:10  error  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\app\[lang]\(dashboard)\simple-test\page.tsx
+  124:32  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+E:\WebProgramming\al_ittihad\src\app\api\seed\route.ts
+  13:13  error  'includeTestData' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\components\ui\input.tsx
+  5:18  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+E:\WebProgramming\al_ittihad\src\contexts\AppContext.tsx
+  276:10  error  'isDataLoaded' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  276:24  error  'setIsDataLoaded' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\utils\clearLocalStorage.tsx
+  3:10  error  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\views\akademik\EditStudentForm.tsx
+  82:1   error  `react-toastify` import should occur before type import of `@configs/i18n`  import/order
+  93:10  error  'error' is assigned a value but never used                                  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\views\akademik\TeacherDetail.tsx
+  33:7  error  'initialData' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\views\pengaturan\BankAccountTable.tsx
+  133:5  warning  React Hook useMemo has missing dependencies: 'handleDelete' and 'handleToggleStatus'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\WebProgramming\al_ittihad\src\views\spp\SPPRateTable.tsx
+  4:29  error  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 13 problems (12 errors, 1 warning)
+

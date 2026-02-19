@@ -1,0 +1,12 @@
+
+E:\WebProgramming\al_ittihad\src\views\pages\account-settings\account\AccountDetails.tsx
+   26:8   error  'Chip' is defined but never used                           @typescript-eslint/no-unused-vars
+   78:7   error  'languageData' is assigned a value but never used          @typescript-eslint/no-unused-vars
+   82:17  error  'session' is assigned a value but never used               @typescript-eslint/no-unused-vars
+   90:10  error  'language' is assigned a value but never used              @typescript-eslint/no-unused-vars
+  141:9   error  'handleDelete' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  145:9   error  'handleChange' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  225:9   error  'handleFileInputReset' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 7 problems (7 errors, 0 warnings)
+

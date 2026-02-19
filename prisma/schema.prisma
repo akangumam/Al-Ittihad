@@ -1,0 +1,779 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-arm64-openssl-1.1.x", "rhel-openssl-3.0.x", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                  String                @id @default(cuid())
+  name                String?
+  email               String?               @unique
+  emailVerified       DateTime?
+  image               String?
+  address             String?
+  city                String?
+  kecamatan           String?
+  kelurahan           String?
+  phoneNumber         String?
+  postalCode          String?
+  province            String?
+  role                String?               @default("member")
+  rt                  String?
+  rw                  String?
+  password            String?
+  organization        String?
+  accounts            Account[]
+  activityLogs        ActivityLog[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Student {
+  id               String          @id @default(cuid())
+  nis              String          @unique
+  nisn             String          @unique
+  name             String
+  nickname         String?
+  grade            String
+  class            String
+  birthPlace       String?
+  birthDate        String
+  gender           String
+  religion         String?
+  address          String
+  rt               String?
+  rw               String?
+  kelurahan        String?
+  kecamatan        String?
+  city             String?
+  province         String?
+  postalCode       String?
+  parentName       String
+  fatherName       String?
+  motherName       String?
+  guardianName     String?
+  guardianRelation String?
+  phone            String?
+  parentPhone      String
+  email            String?
+  enrollmentDate   String?
+  sppStartDate     String?
+  previousSchool   String?
+  status           String
+  photo            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  feePayments      FeePayment[]
+  feePaymentsNew   FeePaymentNew[]
+  sppPayments      SPPPayment[]
+  studentFees      StudentFee[]
+  studentFeesNew   StudentFeeNew[]
+
+  @@index([nis])
+  @@index([grade, class])
+  @@index([status])
+}
+
+model Class {
+  id              String   @id @default(cuid())
+  grade           String
+  className       String
+  capacity        Int
+  currentStudents Int
+  teacher         String
+  academicYear    String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([grade, className, academicYear])
+  @@index([academicYear])
+}
+
+model AcademicYear {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  startDate String
+  endDate   String
+  semester  String   @default("Ganjil")
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Teacher {
+  id          String              @id @default(cuid())
+  nip         String              @unique
+  nuptk       String
+  name        String
+  subject     String
+  position    String
+  gender      String
+  birthPlace  String?
+  birthDate   String?
+  phone       String
+  email       String
+  address     String
+  education   String?
+  status      String
+  photo       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  attendances TeacherAttendance[]
+  schedules   TeachingSchedule[]
+
+  @@index([nip])
+  @@index([status])
+}
+
+model TeachingSchedule {
+  id           String   @id @default(cuid())
+  teacherId    String
+  teacherName  String
+  subject      String
+  day          String
+  startTime    String
+  endTime      String
+  grade        String
+  class        String
+  academicYear String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  notes        String?
+  room         String?
+  teacher      Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId])
+  @@index([grade, class])
+}
+
+model TeacherAttendance {
+  id                 String   @id @default(cuid())
+  teacherId          String
+  teacherName        String
+  nip                String
+  date               String
+  day                String
+  status             String
+  scheduledStartTime String
+  checkInTime        String?
+  checkOutTime       String?
+  isLate             Boolean  @default(false)
+  lateMinutes        Int      @default(0)
+  notes              String?
+  recordedBy         String?
+  academicYear       String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  teacher            Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, date])
+  @@index([date])
+  @@index([teacherId])
+  @@index([status])
+  @@index([academicYear])
+  @@index([isLate])
+}
+
+model TransactionCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String
+  description String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+}
+
+model BankAccount {
+  id             String          @id @default(cuid())
+  accountName    String
+  accountNumber  String
+  bankName       String
+  accountType    String
+  balance        Float           @default(0)
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  mutationsTo    CashMutation[]  @relation("ToAccount")
+  mutationsFrom  CashMutation[]  @relation("FromAccount")
+  expenses       Expense[]
+  feePayments    FeePayment[]
+  feePaymentsNew FeePaymentNew[]
+  incomes        Income[]
+  sppPayments    SPPPayment[]
+
+  @@index([accountType])
+}
+
+model Income {
+  id            String      @id @default(cuid())
+  date          String
+  category      String
+  description   String
+  amount        Float
+  account       String
+  paymentMethod String
+  referenceNo   String      @unique
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  bankAccount   BankAccount @relation(fields: [account], references: [id])
+
+  @@index([date])
+  @@index([category])
+}
+
+model Expense {
+  id            String      @id @default(cuid())
+  date          String
+  category      String
+  description   String
+  amount        Float
+  account       String
+  paymentMethod String
+  budgetId      String?
+  referenceNo   String      @unique
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  budget        Budget?     @relation(fields: [budgetId], references: [id])
+  bankAccount   BankAccount @relation(fields: [account], references: [id])
+
+  @@index([date])
+  @@index([category])
+  @@index([budgetId])
+}
+
+model CashMutation {
+  id              String      @id @default(cuid())
+  date            String
+  fromAccount     String
+  toAccount       String
+  amount          Float
+  description     String
+  referenceNo     String      @unique
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  toBankAccount   BankAccount @relation("ToAccount", fields: [toAccount], references: [id])
+  fromBankAccount BankAccount @relation("FromAccount", fields: [fromAccount], references: [id])
+
+  @@index([date])
+}
+
+model FeeTemplate {
+  id           String          @id @default(cuid())
+  name         String
+  type         FeeTemplateType
+  academicYear String
+  grade        String?
+  description  String?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  components   FeeComponent[]
+  studentFees  StudentFeeNew[]
+
+  @@index([academicYear])
+  @@index([type])
+  @@index([isActive])
+}
+
+model FeeComponent {
+  id          String                @id @default(cuid())
+  templateId  String
+  name        String
+  amount      Float
+  priority    Int
+  description String?
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  allocations ComponentAllocation[]
+  template    FeeTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([priority])
+}
+
+model StudentFeeNew {
+  id           String                @id @default(cuid())
+  studentId    String
+  templateId   String
+  totalAmount  Float
+  paidAmount   Float                 @default(0)
+  status       String                @default("BELUM_LUNAS")
+  academicYear String
+  dueDate      String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  allocations  ComponentAllocation[]
+  payments     FeePaymentNew[]
+  template     FeeTemplate           @relation(fields: [templateId], references: [id])
+  student      Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, templateId, academicYear])
+  @@index([studentId])
+  @@index([status])
+  @@index([academicYear])
+}
+
+model FeePaymentNew {
+  id            String                @id @default(cuid())
+  studentFeeId  String
+  studentId     String
+  amount        Float
+  paymentDate   String
+  paymentMethod String
+  account       String
+  receiptNo     String                @unique
+  notes         String?
+  paidBy        String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  allocations   ComponentAllocation[]
+  bankAccount   BankAccount           @relation(fields: [account], references: [id])
+  student       Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentFee    StudentFeeNew         @relation(fields: [studentFeeId], references: [id], onDelete: Cascade)
+
+  @@index([studentFeeId])
+  @@index([studentId])
+  @@index([paymentDate])
+}
+
+model ComponentAllocation {
+  id                String        @id @default(cuid())
+  paymentId         String
+  studentFeeId      String
+  componentId       String
+  amount            Float
+  componentName     String
+  componentPriority Int
+  createdAt         DateTime      @default(now())
+  component         FeeComponent  @relation(fields: [componentId], references: [id])
+  studentFee        StudentFeeNew @relation(fields: [studentFeeId], references: [id], onDelete: Cascade)
+  payment           FeePaymentNew @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([studentFeeId])
+  @@index([componentId])
+}
+
+model PaymentCategory {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  amount      Float
+  priority    Int          @default(0)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  studentFees StudentFee[]
+}
+
+model StudentFee {
+  id                String          @id @default(cuid())
+  studentId         String
+  paymentCategoryId String
+  amountDue         Float
+  amountPaid        Float           @default(0)
+  status            String          @default("Belum Lunas")
+  academicYear      String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  allocations       FeeAllocation[]
+  category          PaymentCategory @relation(fields: [paymentCategoryId], references: [id], onDelete: Cascade)
+  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, paymentCategoryId, academicYear])
+  @@index([studentId])
+}
+
+model FeePayment {
+  id            String          @id @default(cuid())
+  studentId     String
+  amount        Float
+  paymentDate   String
+  account       String
+  paymentMethod String
+  receiptNo     String          @unique
+  notes         String?
+  status        String          @default("Lunas")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  allocations   FeeAllocation[]
+  bankAccount   BankAccount     @relation(fields: [account], references: [id])
+  student       Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([paymentDate])
+}
+
+model FeeAllocation {
+  id           String     @id @default(cuid())
+  paymentId    String
+  studentFeeId String
+  amount       Float
+  createdAt    DateTime   @default(now())
+  studentFee   StudentFee @relation(fields: [studentFeeId], references: [id], onDelete: Cascade)
+  payment      FeePayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+model SPPRate {
+  id           String       @id @default(cuid())
+  grade        String
+  academicYear String
+  amount       Float
+  description  String?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  sppPayments  SPPPayment[]
+
+  @@unique([grade, academicYear])
+  @@index([grade])
+  @@index([academicYear])
+}
+
+model SPPPayment {
+  id            String       @id @default(cuid())
+  studentId     String
+  studentName   String
+  grade         String
+  class         String
+  sppRateId     String
+  month         String
+  year          String
+  academicYear  String
+  amount        Float
+  paymentDate   String?
+  status        String       @default("Belum Lunas")
+  paymentMethod String?
+  transactionId String?
+  notes         String?
+  paidBy        String?
+  receiptNo     String?      @unique
+  account       String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  bankAccount   BankAccount? @relation(fields: [account], references: [id])
+  student       Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sppRate       SPPRate      @relation(fields: [sppRateId], references: [id])
+
+  @@unique([studentId, month, year, academicYear])
+  @@index([studentId])
+  @@index([status])
+  @@index([month])
+  @@index([academicYear])
+}
+
+model Budget {
+  id          String    @id @default(cuid())
+  budgetCode  String    @unique
+  name        String
+  category    String
+  amount      Float
+  source      String
+  fiscalYear  String
+  status      String
+  realization Float     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  expenses    Expense[]
+
+  @@index([fiscalYear])
+  @@index([status])
+}
+
+model ActivityLog {
+  id           String   @id @default(cuid())
+  timestamp    DateTime @default(now())
+  userId       String?
+  username     String?
+  activityType String
+  description  String   @db.Text
+  metadata     String?  @db.Text
+  status       String
+  createdAt    DateTime @default(now())
+  user         User?    @relation(fields: [userId], references: [id])
+
+  @@index([timestamp])
+  @@index([userId])
+  @@index([activityType])
+}
+
+model PPDBApplication {
+  id               String    @id @default(cuid())
+  noPendaftaran    String    @unique
+  namaLengkap      String
+  namaPanggilan    String?
+  jenisKelamin     String
+  tempatLahir      String
+  tanggalLahir     String
+  agama            String
+  anakKe           Int
+  jumlahSaudara    Int
+  alamat           String
+  rt               String?
+  rw               String?
+  kelurahan        String
+  kecamatan        String
+  kabupaten        String
+  provinsi         String
+  kodePos          String?
+  asalSekolah      String
+  nsnSekolahAsal   String?
+  alamatSekolah    String?
+  namaAyah         String
+  pekerjaanAyah    String?
+  pendidikanAyah   String?
+  penghasilanAyah  String?
+  namaIbu          String
+  pekerjaanIbu     String?
+  pendidikanIbu    String?
+  penghasilanIbu   String?
+  namaWali         String?
+  pekerjaanWali    String?
+  hubunganWali     String?
+  noHpOrtu         String
+  email            String?
+  dokumenKK        String?
+  dokumenAkteLahir String?
+  dokumenIjazah    String?
+  fotoSiswa        String?
+  status           String    @default("Pending")
+  statusVerifikasi String    @default("Belum")
+  catatanAdmin     String?
+  tahunAjaran      String
+  jalurPendaftaran String    @default("Reguler")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  verifiedAt       DateTime?
+  acceptedAt       DateTime?
+
+  @@index([noPendaftaran])
+  @@index([status])
+  @@index([tahunAjaran])
+  @@index([createdAt])
+}
+
+model PortalUser {
+  id                 String    @id @default(cuid())
+  username           String    @unique
+  password           String
+  nama               String
+  role               String
+  siswaId            String?
+  email              String?
+  noHp               String?
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  lastLogin          DateTime?
+  loginAttempts      Int       @default(0)
+  lockedUntil        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([username])
+  @@index([siswaId])
+  @@index([role])
+}
+
+model NewsArticle {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  excerpt     String?
+  content     String
+  coverImage  String?
+  category    String    @default("Umum")
+  author      String
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  viewCount   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([category])
+  @@index([isPublished])
+  @@index([publishedAt])
+}
+
+model SchoolInfo {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  title     String
+  content   String
+  category  String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@index([category])
+}
+
+model Facility {
+  id        String   @id @default(cuid())
+  nama      String
+  deskripsi String
+  kategori  String
+  kapasitas Int?
+  kondisi   String   @default("Baik")
+  foto      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([kategori])
+}
+
+model PPDBSettings {
+  id               String   @id @default(cuid())
+  tahunAjaran      String   @unique
+  tanggalMulai     String
+  tanggalAkhir     String
+  quotaTotal       Int
+  quotaRegular     Int
+  quotaPrestasi    Int
+  quotaKhusus      Int
+  isOpen           Boolean  @default(false)
+  biayaPendaftaran Float?
+  pengumuman       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tahunAjaran])
+}
+
+model PPDBRegistration {
+  id                 String   @id @default(cuid())
+  registrationNumber String   @unique
+  jalur              String
+  namaLengkap        String
+  nik                String
+  nisn               String
+  jenisKelamin       String
+  tempatLahir        String
+  tanggalLahir       String
+  alamatRumah        String
+  desa               String
+  kecamatan          String
+  kota               String
+  noKartuKeluarga    String
+  namaAyah           String
+  nikAyah            String
+  tempatLahirAyah    String
+  tanggalLahirAyah   String
+  pekerjaanAyah      String
+  penghasilanAyah    String
+  namaIbu            String
+  nikIbu             String
+  tempatLahirIbu     String
+  tanggalLahirIbu    String
+  pekerjaanIbu       String
+  penghasilanIbu     String
+  alamatOrangTua     String
+  noWhatsApp         String
+  email              String?
+  namaSekolah        String
+  statusSekolah      String
+  nsmNss             String?
+  npsn               String?
+  alamatSekolah      String
+  kartuKeluarga      String?
+  ijazah             String?
+  skhun              String?
+  pasFoto            String?
+  status             String   @default("Pending")
+  reviewNote         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([jalur])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model HomeSettings {
+  id               String   @id @default(cuid())
+  heroTitle        String   @default("Selamat Datang di Al-Ittihad")
+  heroSubtitle     String?
+  heroDescription  String?
+  heroImage        String?
+  principalName    String?
+  principalTitle   String?
+  principalPhoto   String?
+  principalMessage String?
+  aboutTitle       String?
+  aboutDescription String?
+  aboutImage       String?
+  schoolName       String   @default("Al-Ittihad")
+  schoolAddress    String?
+  schoolPhone      String?
+  schoolEmail      String?
+  schoolWebsite    String?
+  facebookUrl      String?
+  instagramUrl     String?
+  twitterUrl       String?
+  youtubeUrl       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+enum FeeTemplateType {
+  REGISTRATION
+  ANNUAL_REREGISTRATION
+  GRADUATION
+  CLASS_SPECIFIC
+  EXAM
+  ACTIVITY
+  OTHER
+}

@@ -1,0 +1,45 @@
+
+> materialize-mui-nextjs-admin-template@6.0.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx
+
+
+E:\WebProgramming\al_ittihad\scripts\testPaymentAllocation.ts
+  11:3  error  'processPaymentWithAllocation' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\app\api\fee-payments\route.ts
+  33:12  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\app\api\fees\templates\[id]\route.ts
+  46:13  error  'template' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\app\api\payment-categories\[id]\route.ts
+  19:12  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  41:12  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\components\layout\front-pages\Footer.tsx
+  14:31  error  Unable to resolve path to module '@views/front-pages/styles.module.css'  import/no-unresolved
+
+E:\WebProgramming\al_ittihad\src\services\feeAllocationService.ts
+  381:1  warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+E:\WebProgramming\al_ittihad\src\views\biaya\CategoryTable.tsx
+    8:8   error    'CardContent' is defined but never used                                                                                                 @typescript-eslint/no-unused-vars
+   20:8   error    'IconButton' is defined but never used                                                                                                  @typescript-eslint/no-unused-vars
+   50:17  error    'locale' is assigned a value but never used                                                                                             @typescript-eslint/no-unused-vars
+   58:14  error    'error' is defined but never used                                                                                                       @typescript-eslint/no-unused-vars
+  201:5   warning  React Hook useMemo has missing dependencies: 'handleDelete' and 'handleOpenDialog'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+E:\WebProgramming\al_ittihad\src\views\biaya\FeeTemplateTable.tsx
+  443:9  error  'formatInputNumber' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  456:9  error  'parseInputNumber' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\views\biaya\StudentFeeTable.tsx
+   49:10  error  'isLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   76:14  error  'error' is defined but never used               @typescript-eslint/no-unused-vars
+  115:14  error  'error' is defined but never used               @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\views\financial\fees\TemplateForm.tsx
+  62:6  warning  React Hook useEffect has missing dependencies: 'academicYearAPI_call' and 'loadTemplate'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+Γ£û 18 problems (15 errors, 3 warnings)
+

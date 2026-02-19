@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug Routes</title>
+    <style>
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 900px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+      }
+      .container {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      }
+      h1 {
+        color: #333;
+        margin-bottom: 30px;
+        border-bottom: 3px solid #667eea;
+        padding-bottom: 10px;
+      }
+      h2 {
+        color: #667eea;
+        margin-top: 30px;
+      }
+      .route-list {
+        list-style: none;
+        padding: 0;
+      }
+      .route-item {
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .route-path {
+        font-family: 'Courier New', monospace;
+        color: #333;
+        font-weight: bold;
+      }
+      .test-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s;
+      }
+      .test-btn:hover {
+        background: #5568d3;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      }
+      .status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 10px;
+      }
+      .status.success {
+        background: #d4edda;
+        color: #155724;
+      }
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      .status.pending {
+        background: #fff3cd;
+        color: #856404;
+      }
+      .info-box {
+        background: #e7f3ff;
+        border-left: 4px solid #2196f3;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 4px;
+      }
+      .current-url {
+        background: #1e1e1e;
+        color: #4ec9b0;
+        padding: 10px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔍 Debug Routes - Al-Ittihad School</h1>
+
+      <div class="info-box">
+        <strong>Current URL:</strong>
+        <div class="current-url" id="currentUrl"></div>
+      </div>
+
+      <h2>🏠 Main Routes</h2>
+      <ul class="route-list">
+        <li class="route-item">
+          <span class="route-path">/</span>
+          <button class="test-btn" onclick="testRoute('/')">Test</button>
+          <span class="status pending" id="status-root">Pending</span>
+        </li>
+        <li class="route-item">
+          <span class="route-path">/id</span>
+          <button class="test-btn" onclick="testRoute('/id')">Test</button>
+          <span class="status pending" id="status-id">Pending</span>
+        </li>
+        <li class="route-item">
+          <span class="route-path">/id/login</span>
+          <button class="test-btn" onclick="testRoute('/id/login')">Test</button>
+          <span class="status pending" id="status-login">Pending</span>
+        </li>
+      </ul>
+
+      <h2>📊 Dashboard Routes</h2>
+      <ul class="route-list">
+        <li class="route-item">
+          <span class="route-path">/id/apps/academy/dashboard</span>
+          <button class="test-btn" onclick="testRoute('/id/apps/academy/dashboard')">Test</button>
+          <span class="status pending" id="status-dashboard">Pending</span>
+        </li>
+        <li class="route-item">
+          <span class="route-path">/id/apps/calendar</span>
+          <button class="test-btn" onclick="testRoute('/id/apps/calendar')">Test</button>
+          <span class="status pending" id="status-calendar">Pending</span>
+        </li>
+      </ul>
+
+      <h2>👥 User Management Routes</h2>
+      <ul class="route-list">
+        <li class="route-item">
+          <span class="route-path">/id/apps/roles</span>
+          <button class="test-btn" onclick="testRoute('/id/apps/roles')">Test</button>
+          <span class="status pending" id="status-roles">Pending</span>
+        </li>
+      </ul>
+
+      <h2>⚙️ Settings Routes</h2>
+      <ul class="route-list">
+        <li class="route-item">
+          <span class="route-path">/id/pengaturan/kategori-transaksi</span>
+          <button class="test-btn" onclick="testRoute('/id/pengaturan/kategori-transaksi')">Test</button>
+          <span class="status pending" id="status-kategori">Pending</span>
+        </li>
+        <li class="route-item">
+          <span class="route-path">/id/pengaturan/akun-kas-bank</span>
+          <button class="test-btn" onclick="testRoute('/id/pengaturan/akun-kas-bank')">Test</button>
+          <span class="status pending" id="status-kasbank">Pending</span>
+        </li>
+      </ul>
+
+      <h2>📚 Academic Routes</h2>
+      <ul class="route-list">
+        <li class="route-item">
+          <span class="route-path">/id/akademik/data-siswa</span>
+          <button class="test-btn" onclick="testRoute('/id/akademik/data-siswa')">Test</button>
+          <span class="status pending" id="status-siswa">Pending</span>
+        </li>
+        <li class="route-item">
+          <span class="route-path">/id/akademik/data-guru</span>
+          <button class="test-btn" onclick="testRoute('/id/akademik/data-guru')">Test</button>
+          <span class="status pending" id="status-guru">Pending</span>
+        </li>
+      </ul>
+
+      <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 8px">
+        <h3 style="margin-top: 0; color: #856404">💡 Tips:</h3>
+        <ul style="color: #856404">
+          <li>Jika route menampilkan 404, cek folder structure di <code>src/app/[lang]</code></li>
+          <li>Pastikan sudah login untuk akses route yang memerlukan authentication</li>
+          <li>Buka browser console (F12) untuk melihat error detail</li>
+          <li>Status "Success" artinya route tersedia (200 atau redirect)</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      // Display current URL
+      document.getElementById('currentUrl').textContent = window.location.href
+
+      async function testRoute(path) {
+        const statusId = path.replace(/\//g, '-').slice(1) || 'root'
+        const statusElement = document.getElementById(`status-${statusId}`)
+
+        if (!statusElement) return
+
+        // Set to pending
+        statusElement.textContent = 'Testing...'
+        statusElement.className = 'status pending'
+
+        try {
+          const response = await fetch(path, {
+            method: 'HEAD',
+            redirect: 'manual' // Don't follow redirects
+          })
+
+          console.log(`Route: ${path}`, {
+            status: response.status,
+            statusText: response.statusText,
+            type: response.type
+          })
+
+          // Check status
+          if (response.status === 200 || response.status === 0) {
+            statusElement.textContent = '✅ Available'
+            statusElement.className = 'status success'
+          } else if (response.status === 302 || response.status === 307 || response.status === 308) {
+            const location = response.headers.get('location')
+            statusElement.textContent = `↪️ Redirect to ${location}`
+            statusElement.className = 'status success'
+          } else if (response.status === 404) {
+            statusElement.textContent = '❌ 404 Not Found'
+            statusElement.className = 'status error'
+          } else if (response.status === 401 || response.status === 403) {
+            statusElement.textContent = '🔒 Auth Required'
+            statusElement.className = 'status pending'
+          } else {
+            statusElement.textContent = `⚠️ ${response.status}`
+            statusElement.className = 'status error'
+          }
+        } catch (error) {
+          console.error(`Error testing ${path}:`, error)
+          statusElement.textContent = '⚠️ Error'
+          statusElement.className = 'status error'
+        }
+      }
+
+      // Auto-test important routes on load
+      setTimeout(() => {
+        console.log('Starting auto-test...')
+        testRoute('/')
+        testRoute('/id')
+        testRoute('/id/login')
+        testRoute('/id/apps/academy/dashboard')
+        testRoute('/id/apps/roles')
+      }, 500)
+    </script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+
+E:\WebProgramming\al_ittihad\src\views\pages\account-settings\account\AccountDetails.tsx
+    8:1   error  There should be at least one empty line between import groups             import/order
+    9:1   error  `next/navigation` import should occur before import of `next-auth/react`  import/order
+   25:8   error  'Chip' is defined but never used                                          @typescript-eslint/no-unused-vars
+   77:7   error  'languageData' is assigned a value but never used                         @typescript-eslint/no-unused-vars
+   81:17  error  'session' is assigned a value but never used                              @typescript-eslint/no-unused-vars
+   89:10  error  'language' is assigned a value but never used                             @typescript-eslint/no-unused-vars
+  140:9   error  'handleDelete' is assigned a value but never used                         @typescript-eslint/no-unused-vars
+  144:9   error  'handleChange' is assigned a value but never used                         @typescript-eslint/no-unused-vars
+  161:9   error  Expected newline before return statement                                  newline-before-return
+  166:7   error  Expected blank line before this statement                                 padding-line-between-statements
+  175:9   error  Expected blank line before this statement                                 padding-line-between-statements
+  186:11  error  Expected line before comment                                              lines-around-comment
+  187:11  error  Expected blank line before this statement                                 padding-line-between-statements
+  190:11  error  Expected line before comment                                              lines-around-comment
+  191:11  error  Expected blank line before this statement                                 padding-line-between-statements
+  192:11  error  Expected line before comment                                              lines-around-comment
+  194:11  error  Expected line before comment                                              lines-around-comment
+  196:11  error  Expected line before comment                                              lines-around-comment
+  200:11  error  Expected line before comment                                              lines-around-comment
+  213:9   error  'handleFileInputReset' is assigned a value but never used                 @typescript-eslint/no-unused-vars
+  250:9   error  Expected line before comment                                              lines-around-comment
+  251:9   error  Expected blank line before this statement                                 padding-line-between-statements
+  254:9   error  Expected line before comment                                              lines-around-comment
+  255:9   error  Expected blank line before this statement                                 padding-line-between-statements
+
+Γ£û 24 problems (24 errors, 0 warnings)
+  17 errors and 0 warnings potentially fixable with the `--fix` option.
+

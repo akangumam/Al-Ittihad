@@ -1,0 +1,40 @@
+
+> materialize-mui-nextjs-admin-template@6.0.0 test-email
+> dotenv -e .env -- tsx scripts/test-email.ts napsterweb.id@gmail.com
+
+≡ƒº¬ Testing Email System...
+
+≡ƒôº Test email will be sent to: napsterweb.id@gmail.com
+
+1∩╕ÅΓâú Checking environment variables...
+Γ£à RESEND_API_KEY is set
+
+2∩╕ÅΓâú Testing Welcome Email...
+Γ¥î Error: 
+Invalid `prisma.passwordResetToken.create()` invocation in
+E:\WebProgramming\al_ittihad\src\lib\tokens.ts:39:35
+
+  36 const token = generateToken()
+  37 const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+  38 
+ΓåÆ 39 await prisma.passwordResetToken.create(
+Foreign key constraint violated on the foreign key
+PrismaClientKnownRequestError: 
+Invalid `prisma.passwordResetToken.create()` invocation in
+E:\WebProgramming\al_ittihad\src\lib\tokens.ts:39:35
+
+  36 const token = generateToken()
+  37 const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+  38 
+ΓåÆ 39 await prisma.passwordResetToken.create(
+Foreign key constraint violated on the foreign key
+    at ei.handleRequestError (E:\WebProgramming\al_ittihad\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (E:\WebProgramming\al_ittihad\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at ei.request (E:\WebProgramming\al_ittihad\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at async a (E:\WebProgramming\al_ittihad\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:833:24)
+    at async createWelcomeToken (E:\WebProgramming\al_ittihad\src\lib\tokens.ts:39:3)
+    at async testEmailSystem (E:\WebProgramming\al_ittihad\scripts\test-email.ts:37:26) {
+  code: 'P2003',
+  meta: { modelName: 'PasswordResetToken', constraint: null },
+  clientVersion: '6.19.0'
+}

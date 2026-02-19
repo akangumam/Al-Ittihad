@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Clear Theme Settings</title>
+  </head>
+  <body>
+    <h1>Clear Theme Cookie</h1>
+    <button onclick="clearCookie()">Clear Settings & Reload</button>
+
+    <script>
+      function clearCookie() {
+        // Clear the theme settings cookie
+        document.cookie = 'materialize-mui-next-demo-1=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+
+        // Clear localStorage
+        localStorage.clear()
+
+        // Clear sessionStorage
+        sessionStorage.clear()
+
+        alert('Theme settings cleared! Page will reload.')
+
+        // Reload page
+        window.location.reload()
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Environment variables loaded from .env
+Running seed command `tsx prisma/seed.ts` ...
+≡ƒî▒ Starting database seed...
+≡ƒùæ∩╕Å  Clearing existing data...
+≡ƒæÑ Seeding users...
+≡ƒôà Seeding academic years...
+≡ƒÅ½ Seeding classes...
+≡ƒÆ░ Seeding SPP rates...
+≡ƒæ¿ΓÇì≡ƒÄô Seeding students...
+≡ƒÅª Seeding bank accounts...
+≡ƒôè Seeding transaction categories...
+Γ¥î Error seeding database: PrismaClientKnownRequestError: 
+Invalid `prisma.transactionCategory.createMany()` invocation in
+E:\WebProgramming\al_ittihad\prisma\seed.ts:168:36
+
+  165 
+  166 // Seed Transaction Categories
+  167 console.log('≡ƒôè Seeding transaction categories...')
+ΓåÆ 168 await prisma.transactionCategory.createMany(
+Unique constraint failed on the fields: (`name`)
+    at ei.handleRequestError (E:\WebProgramming\al_ittihad\node_modules\@prisma\client\src\runtime\RequestHandler.ts:228:13)
+    at ei.handleAndLogRequestError (E:\WebProgramming\al_ittihad\node_modules\@prisma\client\src\runtime\RequestHandler.ts:174:12)
+    at ei.request (E:\WebProgramming\al_ittihad\node_modules\@prisma\client\src\runtime\RequestHandler.ts:143:12)
+    at async a (E:\WebProgramming\al_ittihad\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:833:24)
+    at async main (E:\WebProgramming\al_ittihad\prisma\seed.ts:168:3) {
+  code: 'P2002',
+  meta: { modelName: 'TransactionCategory', target: [ 'name' ] },
+  clientVersion: '6.19.0'
+}
+
+An error occurred while running the seed command:
+Error: Command failed with exit code 1: tsx prisma/seed.ts

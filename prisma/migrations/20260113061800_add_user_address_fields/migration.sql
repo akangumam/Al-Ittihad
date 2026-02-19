@@ -1,0 +1,11 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "address" TEXT;
+ALTER TABLE "User" ADD COLUMN "city" TEXT;
+ALTER TABLE "User" ADD COLUMN "kecamatan" TEXT;
+ALTER TABLE "User" ADD COLUMN "kelurahan" TEXT;
+ALTER TABLE "User" ADD COLUMN "phoneNumber" TEXT;
+ALTER TABLE "User" ADD COLUMN "postalCode" TEXT;
+ALTER TABLE "User" ADD COLUMN "province" TEXT;
+ALTER TABLE "User" ADD COLUMN "role" TEXT DEFAULT 'member';
+ALTER TABLE "User" ADD COLUMN "rt" TEXT;
+ALTER TABLE "User" ADD COLUMN "rw" TEXT;

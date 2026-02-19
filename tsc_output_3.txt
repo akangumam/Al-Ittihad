@@ -1,0 +1,35 @@
+src/app/[lang]/(dashboard)/(private)/apps/ecommerce/dashboard/page.tsx(93,20): error TS2322: Type 'UsersType[] | { id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[] | undefined'.
+  Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[]'.
+    Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }' is missing the following properties from type 'UsersType': company, country, contact
+src/app/[lang]/(dashboard)/(private)/apps/roles/page.tsx(29,17): error TS2322: Type 'UsersType[] | { id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[] | undefined'.
+  Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[]'.
+    Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }' is missing the following properties from type 'UsersType': company, country, contact
+src/app/[lang]/(dashboard)/(private)/apps/user/list/page.tsx(29,20): error TS2322: Type 'UsersType[] | { id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[] | undefined'.
+  Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[]'.
+    Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }' is missing the following properties from type 'UsersType': company, country, contact
+src/app/api/seed/route.ts(123,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(124,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(125,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(126,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(127,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(128,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(129,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(130,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(131,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(132,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(133,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/seed/route.ts(134,25): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateCreateManyInput'.
+src/app/api/spp-rates/route.ts(38,9): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateWhereInput'.
+src/app/api/spp-rates/route.ts(52,9): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type '(Without<SPPRateCreateInput, SPPRateUncheckedCreateInput> & SPPRateUncheckedCreateInput) | (Without<...> & SPPRateCreateInput)'.
+src/components/layout/horizontal/NavbarContent.tsx(94,32): error TS2322: Type '{ notifications: NotificationsType[]; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'notifications' does not exist on type 'IntrinsicAttributes'.
+src/components/layout/vertical/NavbarContent.tsx(71,32): error TS2322: Type '{ notifications: NotificationsType[]; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'notifications' does not exist on type 'IntrinsicAttributes'.
+src/data/studentGenerator.ts(271,9): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateType'.
+src/views/biaya/FeePaymentForm.tsx(207,48): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/views/financial/fees/StudentFeeAssignment.tsx(91,35): error TS2339: Property 'bulkAssign' does not exist on type '{ getByStudentId: (studentId: string, academicYear?: string | undefined) => Promise<any[]>; assignBulk: (data: { studentIds: string[]; templateId: string; academicYear: string; }) => Promise<...>; }'.
+src/views/spp/ImportSPPPaymentModal.tsx(66,21): error TS2339: Property 'addSPPPayment' does not exist on type 'AppContextType'.
+src/views/spp/SPPRateTable.tsx(77,7): error TS2353: Object literal may only specify known properties, and 'class' does not exist in type 'SPPRateType'.
+src/views/spp/SPPRateTable.tsx(108,29): error TS2345: Argument of type '"class"' is not assignable to parameter of type '"id" | "description" | "academicYear" | "grade" | "amount" | "isActive" | AccessorFn<SPPRateType>'.
+src/views/spp/SPPRateTable.tsx(110,54): error TS2339: Property 'class' does not exist on type 'SPPRateType'.

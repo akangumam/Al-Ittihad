@@ -1,0 +1,6 @@
+src/app/(public)/page.tsx(26,33): error TS2322: Type '{ mode: SystemMode; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'mode' does not exist on type 'IntrinsicAttributes'.
+src/app/[lang]/page.tsx(26,33): error TS2322: Type '{ mode: SystemMode; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'mode' does not exist on type 'IntrinsicAttributes'.
+src/app/front-pages/landing-page/page.tsx(11,30): error TS2322: Type '{ mode: SystemMode; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'mode' does not exist on type 'IntrinsicAttributes'.

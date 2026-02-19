@@ -1,0 +1,26 @@
+-- CreateTable
+CREATE TABLE "HomeSettings" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "heroTitle" TEXT NOT NULL DEFAULT 'Selamat Datang di Al-Ittihad',
+    "heroSubtitle" TEXT,
+    "heroDescription" TEXT,
+    "heroImage" TEXT,
+    "principalName" TEXT,
+    "principalTitle" TEXT,
+    "principalPhoto" TEXT,
+    "principalMessage" TEXT,
+    "aboutTitle" TEXT,
+    "aboutDescription" TEXT,
+    "aboutImage" TEXT,
+    "schoolName" TEXT NOT NULL DEFAULT 'Al-Ittihad',
+    "schoolAddress" TEXT,
+    "schoolPhone" TEXT,
+    "schoolEmail" TEXT,
+    "schoolWebsite" TEXT,
+    "facebookUrl" TEXT,
+    "instagramUrl" TEXT,
+    "twitterUrl" TEXT,
+    "youtubeUrl" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);

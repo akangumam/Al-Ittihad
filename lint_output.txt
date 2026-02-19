@@ -1,0 +1,4 @@
+
+> materialize-mui-nextjs-admin-template@6.0.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx
+

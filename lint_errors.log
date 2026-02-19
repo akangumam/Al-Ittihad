@@ -1,0 +1,22 @@
+
+> materialize-mui-nextjs-admin-template@6.0.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx
+
+
+E:\WebProgramming\al_ittihad\src\views\financial\dashboard\IncomeExpenseChart.tsx
+  12:65  error  'Legend' is defined but never used         @typescript-eslint/no-unused-vars
+  34:5   error  Expected newline before return statement   newline-before-return
+  56:5   error  Expected blank line before this statement  padding-line-between-statements
+  56:5   error  Expected newline before return statement   newline-before-return
+
+E:\WebProgramming\al_ittihad\src\views\financial\dashboard\SPPPaymentChart.tsx
+   9:8   error  'Chip' is defined but never used           @typescript-eslint/no-unused-vars
+  13:52  error  'Legend' is defined but never used         @typescript-eslint/no-unused-vars
+  36:7   error  Expected blank line before this statement  padding-line-between-statements
+  36:7   error  Expected newline before return statement   newline-before-return
+  48:5   error  Expected blank line before this statement  padding-line-between-statements
+  48:5   error  Expected newline before return statement   newline-before-return
+
+Γ£û 10 problems (10 errors, 0 warnings)
+  7 errors and 0 warnings potentially fixable with the `--fix` option.
+

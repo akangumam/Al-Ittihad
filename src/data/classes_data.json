@@ -1,0 +1,110 @@
+[
+  {
+    "id": "CLS-001",
+    "grade": "7",
+    "className": "A",
+    "capacity": 32,
+    "currentStudents": 28,
+    "teacher": "Ibu Aminah, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-002",
+    "grade": "7",
+    "className": "B",
+    "capacity": 32,
+    "currentStudents": 27,
+    "teacher": "Bapak Ridwan, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-003",
+    "grade": "7",
+    "className": "C",
+    "capacity": 32,
+    "currentStudents": 29,
+    "teacher": "Ibu Sari, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-004",
+    "grade": "7",
+    "className": "D",
+    "capacity": 32,
+    "currentStudents": 26,
+    "teacher": "Bapak Ahmad, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-005",
+    "grade": "8",
+    "className": "A",
+    "capacity": 32,
+    "currentStudents": 30,
+    "teacher": "Ibu Dewi, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-006",
+    "grade": "8",
+    "className": "B",
+    "capacity": 32,
+    "currentStudents": 28,
+    "teacher": "Bapak Hendra, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-007",
+    "grade": "8",
+    "className": "C",
+    "capacity": 32,
+    "currentStudents": 27,
+    "teacher": "Ibu Fitri, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-008",
+    "grade": "8",
+    "className": "D",
+    "capacity": 32,
+    "currentStudents": 29,
+    "teacher": "Bapak Yanto, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-009",
+    "grade": "9",
+    "className": "A",
+    "capacity": 32,
+    "currentStudents": 26,
+    "teacher": "Ibu Ratna, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-010",
+    "grade": "9",
+    "className": "B",
+    "capacity": 32,
+    "currentStudents": 28,
+    "teacher": "Bapak Doni, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-011",
+    "grade": "9",
+    "className": "C",
+    "capacity": 32,
+    "currentStudents": 30,
+    "teacher": "Ibu Lina, S.Pd",
+    "academicYear": "2024/2025"
+  },
+  {
+    "id": "CLS-012",
+    "grade": "9",
+    "className": "D",
+    "capacity": 32,
+    "currentStudents": 27,
+    "teacher": "Bapak Eko, S.Pd",
+    "academicYear": "2024/2025"
+  }
+]

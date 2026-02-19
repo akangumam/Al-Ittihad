@@ -1,0 +1,12 @@
+
+> materialize-mui-nextjs-admin-template@6.0.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx
+
+
+E:\WebProgramming\al_ittihad\prisma\clear-all-data.ts
+  43:11  error  'kasTunai' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  48:11  error  'bankBSI' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  53:11  error  'bankMandiri' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 3 problems (3 errors, 0 warnings)
+

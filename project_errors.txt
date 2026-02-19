@@ -1,0 +1,33 @@
+
+E:\WebProgramming\al_ittihad\src\app\api\incomes\route.ts
+  63:5  error  Expected blank line before this statement  padding-line-between-statements
+
+E:\WebProgramming\al_ittihad\src\components\theme\ModeChanger.tsx
+   8:10  error  'useMedia' is defined but never used     @typescript-eslint/no-unused-vars
+  14:10  error  'useSettings' is defined but never used  @typescript-eslint/no-unused-vars
+  16:24  error  'systemMode' is defined but never used   @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\components\theme\index.tsx
+  44:9  error  'isDark' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+E:\WebProgramming\al_ittihad\src\utils\activityLogger.ts
+   1:1  error  There should be at least one empty line between import groups  import/order
+  29:5  error  Expected line before comment                                   lines-around-comment
+
+E:\WebProgramming\al_ittihad\src\views\pages\account-settings\security\ChangePasswordCard.tsx
+  40:7  error  Expected newline before return statement  newline-before-return
+  45:7  error  Expected newline before return statement  newline-before-return
+  50:7  error  Expected newline before return statement  newline-before-return
+
+E:\WebProgramming\al_ittihad\src\views\pages\user-profile\profile\AboutOverview.tsx
+  16:7  error  Expected newline before return statement  newline-before-return
+  24:7  error  Expected newline before return statement  newline-before-return
+
+E:\WebProgramming\al_ittihad\src\views\spp\SPPPaymentTable.tsx
+  219:9  error  Expected blank line before this statement                 padding-line-between-statements
+  301:9  error  'handleDeletePayment' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  340:9  error  'handleEditPayment' is assigned a value but never used    @typescript-eslint/no-unused-vars
+
+Γ£û 15 problems (15 errors, 0 warnings)
+  9 errors and 0 warnings potentially fixable with the `--fix` option.
+

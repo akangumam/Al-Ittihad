@@ -1,0 +1,17 @@
+src/app/[lang]/(dashboard)/(private)/apps/ecommerce/dashboard/page.tsx(93,20): error TS2322: Type 'UsersType[] | { id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[] | undefined'.
+  Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[]'.
+    Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }' is missing the following properties from type 'UsersType': company, country, contact
+src/app/[lang]/(dashboard)/(private)/apps/roles/page.tsx(29,17): error TS2322: Type 'UsersType[] | { id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[] | undefined'.
+  Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[]'.
+    Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }' is missing the following properties from type 'UsersType': company, country, contact
+src/app/[lang]/(dashboard)/(private)/apps/user/list/page.tsx(29,20): error TS2322: Type 'UsersType[] | { id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[] | undefined'.
+  Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }[]' is not assignable to type 'UsersType[]'.
+    Type '{ id: string; fullName: string; username: string; email: string; role: string; avatar: string; currentPlan: string; status: string; }' is missing the following properties from type 'UsersType': company, country, contact
+src/components/layout/horizontal/NavbarContent.tsx(94,32): error TS2322: Type '{ notifications: NotificationsType[]; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'notifications' does not exist on type 'IntrinsicAttributes'.
+src/components/layout/vertical/NavbarContent.tsx(71,32): error TS2322: Type '{ notifications: NotificationsType[]; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'notifications' does not exist on type 'IntrinsicAttributes'.
+src/contexts/AppContext.tsx(697,5): error TS2561: Object literal may only specify known properties, but 'addSPPPayment' does not exist in type 'AppContextType'. Did you mean to write 'sppPayments'?
+src/views/biaya/FeePaymentForm.tsx(207,48): error TS2345: Argument of type 'string | number' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/views/spp/ImportSPPPaymentModal.tsx(66,21): error TS2339: Property 'addSPPPayment' does not exist on type 'AppContextType'.

@@ -1,0 +1,9 @@
+list-users.js
+make-superadmin.js
+deploy_alittihad/**
+.next/**
+node_modules/**
+public/**
+scripts/**
+*.ps1
+server.js
