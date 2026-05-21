@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
+import { authOptions } from '@/libs/auth'
 
 // GET all categories
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type')
 
@@ -25,6 +33,12 @@ export async function GET(request: NextRequest) {
 // POST - Create new category
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
 
     // Remove ID if provided as Prisma will generate it or we use cuid

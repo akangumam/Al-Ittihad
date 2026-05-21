@@ -4,17 +4,34 @@ import { existsSync } from 'fs'
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
+import { authOptions } from '@/libs/auth'
 
 // PPDB Registration API
-// Helper to generate registration number
-async function generateRegistrationNumber() {
+// Helper to generate registration number — uses a transaction to prevent race condition
+async function generateRegistrationNumber(): Promise<string> {
   const year = new Date().getFullYear()
-  const count = await prisma.pPDBRegistration.count()
-  const number = String(count + 1).padStart(3, '0')
+  const prefix = `PPDB-${year}-`
 
-  return `PPDB-${year}-${number}`
+  return await prisma.$transaction(async tx => {
+    const last = await tx.pPDBRegistration.findFirst({
+      where: { registrationNumber: { startsWith: prefix } },
+      orderBy: { registrationNumber: 'desc' }
+    })
+
+    let next = 1
+
+    if (last) {
+      const parts = last.registrationNumber.split('-')
+      const lastNum = parseInt(parts[parts.length - 1], 10)
+
+      if (!isNaN(lastNum)) next = lastNum + 1
+    }
+
+    return `${prefix}${String(next).padStart(3, '0')}`
+  })
 }
 
 // Helper to save uploaded file
@@ -157,6 +174,12 @@ export async function POST(request: NextRequest) {
 // GET - Get all registrations (for admin)
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const jalur = searchParams.get('jalur')
     const status = searchParams.get('status')

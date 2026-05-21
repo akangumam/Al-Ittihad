@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 
 import { prisma } from '@/lib/prisma'
+import { authOptions } from '@/libs/auth'
 
 // GET: Fetch all fee templates with components
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const templates = await prisma.feeTemplate.findMany({
       include: {
         components: {
@@ -34,6 +42,12 @@ export async function GET() {
 // POST: Create a new fee template with components
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { name, type, academicYear, grade, description, components } = body
 

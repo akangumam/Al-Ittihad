@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
+import { authOptions } from '@/libs/auth'
 
 // GET all bank accounts
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const accounts = await prisma.bankAccount.findMany({
       orderBy: { accountName: 'asc' }
     })
@@ -21,6 +29,12 @@ export async function GET() {
 // POST - Create new account
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
 
     const account = await prisma.bankAccount.create({

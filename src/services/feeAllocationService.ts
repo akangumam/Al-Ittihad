@@ -10,9 +10,7 @@
  * See PAYMENT_SYSTEM_REDESIGN.md for full documentation
  */
 
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import prisma from '@/lib/prisma'
 
 export interface PaymentAllocationResult {
   success: boolean

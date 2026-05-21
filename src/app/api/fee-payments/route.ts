@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 
 import { prisma } from '@/lib/prisma'
 import { logActivity } from '@/utils/activityLogger'
+import { authOptions } from '@/libs/auth'
 
 export async function GET(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get('studentId')
 
@@ -37,6 +45,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { studentId, amount, paymentDate, account, paymentMethod, academicYear, notes } = body
 

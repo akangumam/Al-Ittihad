@@ -1,12 +1,20 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
 import { logActivity } from '@/utils/activityLogger'
+import { authOptions } from '@/libs/auth'
 
 // GET all budgets
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status')
     const fiscalYear = searchParams.get('fiscalYear')
@@ -32,6 +40,12 @@ export async function GET(request: NextRequest) {
 // POST - Create new budget
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
 
     const budget = await prisma.budget.create({
@@ -49,6 +63,12 @@ export async function POST(request: NextRequest) {
 // DELETE - Cleanup all budgets (for development/testing)
 export async function DELETE() {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const result = await prisma.budget.deleteMany({})
 
     // Log activity

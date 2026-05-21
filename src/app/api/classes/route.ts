@@ -1,11 +1,19 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
+import { authOptions } from '@/libs/auth'
 
 // GET all classes
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const academicYear = searchParams.get('academicYear')
 
@@ -47,6 +55,12 @@ export async function GET(request: NextRequest) {
 // POST - Create new class
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
 
     console.log('📝 Creating class with data:', body)

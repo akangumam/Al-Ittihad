@@ -1,11 +1,19 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
+import { authOptions } from '@/libs/auth'
 
 // GET all expenses
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const category = searchParams.get('category')
     const startDate = searchParams.get('startDate')
@@ -54,6 +62,12 @@ return NextResponse.json({ error: 'Failed to fetch expenses', details: error.mes
 // POST - Create new expense
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
 
     const expense = await prisma.expense.create({
