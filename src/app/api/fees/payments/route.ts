@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
 import {
   processPaymentWithAllocation,
@@ -8,10 +9,11 @@ import {
   simulatePaymentAllocation
 } from '@/services/feeAllocationService'
 
-/**
- * GET: Fetch payment history
- */
+// GET: Fetch payment history
 export async function GET(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const { searchParams } = new URL(request.url)
     const studentFeeId = searchParams.get('studentFeeId')
@@ -59,10 +61,11 @@ export async function GET(request: Request) {
   }
 }
 
-/**
- * POST: Process a new payment or simulate allocation
- */
+// POST: Process a new payment or simulate allocation
 export async function POST(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const body = await request.json()
     const { studentFeeId, amount, paymentData, simulate } = body

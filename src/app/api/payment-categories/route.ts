@@ -1,27 +1,31 @@
 import { NextResponse } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
 // GET: Fetch all payment categories
 export async function GET() {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const categories = await prisma.paymentCategory.findMany({
-      orderBy: {
-        priority: 'asc'
-      }
+      orderBy: { priority: 'asc' }
     })
 
-    
-return NextResponse.json(categories)
-  } catch (error) {
+    return NextResponse.json(categories)
+  } catch (error: unknown) {
     console.error('Error fetching payment categories:', error)
-    
-return NextResponse.json({ error: 'Failed to fetch payment categories' }, { status: 500 })
+
+    return NextResponse.json({ error: 'Failed to fetch payment categories' }, { status: 500 })
   }
 }
 
 // POST: Create a new payment category
 export async function POST(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const body = await request.json()
     const { name, amount, priority } = body
@@ -30,9 +34,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const existing = await prisma.paymentCategory.findUnique({
-      where: { name }
-    })
+    const existing = await prisma.paymentCategory.findUnique({ where: { name } })
 
     if (existing) {
       return NextResponse.json({ error: 'Kategori dengan nama ini sudah ada.' }, { status: 409 })
@@ -48,9 +50,9 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(newCategory, { status: 201 })
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error creating payment category:', error)
-    
-return NextResponse.json({ error: 'Failed to create payment category' }, { status: 500 })
+
+    return NextResponse.json({ error: 'Failed to create payment category' }, { status: 500 })
   }
 }

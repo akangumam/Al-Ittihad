@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 
 import prisma from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
-/**
- * API endpoint to seed initial data to database
- * This creates default categories, academic years, and accounts
- */
 export async function POST() {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     // const body = await request.json()
     // const { includeTestData = false } = body
@@ -151,6 +151,9 @@ export async function POST() {
 
 // GET - Check if data already exists
 export async function GET() {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const counts = {
       students: await prisma.student.count(),

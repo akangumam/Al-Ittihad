@@ -1,26 +1,22 @@
 import { NextResponse } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 import { logActivity } from '@/utils/activityLogger'
 
 // GET: Fetch single fee template with components
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {
     const template = await prisma.feeTemplate.findUnique({
       where: { id },
       include: {
-        components: {
-          orderBy: {
-            priority: 'asc'
-          }
-        },
-        _count: {
-          select: {
-            studentFees: true
-          }
-        }
+        components: { orderBy: { priority: 'asc' } },
+        _count: { select: { studentFees: true } }
       }
     })
 
@@ -29,7 +25,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     return NextResponse.json(template)
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching fee template:', error)
 
     return NextResponse.json({ error: 'Failed to fetch fee template' }, { status: 500 })
@@ -38,46 +34,31 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
 // PUT: Update fee template and components
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {
     const body = await request.json()
     const { name, type, academicYear, grade, description, isActive, components } = body
 
-    // Check if template exists
     const existing = await prisma.feeTemplate.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            studentFees: true
-          }
-        }
-      }
+      include: { _count: { select: { studentFees: true } } }
     })
 
     if (!existing) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
-    // Validate type if provided
-    const validTypes = [
-      'REGISTRATION',
-      'ANNUAL_REREGISTRATION',
-      'GRADUATION',
-      'CLASS_SPECIFIC',
-      'EXAM',
-      'ACTIVITY',
-      'OTHER'
-    ]
+    const validTypes = ['REGISTRATION', 'ANNUAL_REREGISTRATION', 'GRADUATION', 'CLASS_SPECIFIC', 'EXAM', 'ACTIVITY', 'OTHER']
 
     if (type && !validTypes.includes(type)) {
       return NextResponse.json({ error: `Invalid type. Must be one of: ${validTypes.join(', ')}` }, { status: 400 })
     }
 
-    // Update template and components in transaction
     const updatedTemplate = await prisma.$transaction(async tx => {
-      // Update template
       await tx.feeTemplate.update({
         where: { id },
         data: {
@@ -90,16 +71,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         }
       })
 
-      // If components provided, update them
       if (components && Array.isArray(components)) {
-        // Delete existing components
-        await tx.feeComponent.deleteMany({
-          where: { templateId: id }
-        })
+        await tx.feeComponent.deleteMany({ where: { templateId: id } })
 
-        // Create new components
         await tx.feeComponent.createMany({
-          data: components.map((comp: any, index: number) => ({
+          data: components.map((comp: { name: string; amount: number; priority?: number; description?: string; isActive?: boolean }, index: number) => ({
             templateId: id,
             name: comp.name,
             amount: Number(comp.amount),
@@ -110,69 +86,49 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         })
       }
 
-      // Fetch updated template with components
       return await tx.feeTemplate.findUnique({
         where: { id },
         include: {
-          components: {
-            orderBy: {
-              priority: 'asc'
-            }
-          },
-          _count: {
-            select: {
-              studentFees: true
-            }
-          }
+          components: { orderBy: { priority: 'asc' } },
+          _count: { select: { studentFees: true } }
         }
       })
     })
 
     return NextResponse.json(updatedTemplate)
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error updating fee template:', error)
 
     return NextResponse.json({ error: 'Failed to update fee template' }, { status: 500 })
   }
 }
 
-// DELETE: Delete fee template (with cascade to components)
+// DELETE: Delete fee template
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {
-    // Check if template exists and count student fees
     const existing = await prisma.feeTemplate.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            studentFees: true
-          }
-        }
-      }
+      include: { _count: { select: { studentFees: true } } }
     })
 
     if (!existing) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
-    // Check if template is being used by students
     if (existing._count.studentFees > 0) {
       return NextResponse.json(
-        {
-          error: `Template tidak bisa dihapus karena sudah digunakan oleh ${existing._count.studentFees} siswa. Nonaktifkan template jika tidak ingin digunakan lagi.`
-        },
+        { error: `Template tidak bisa dihapus karena sudah digunakan oleh ${existing._count.studentFees} siswa.` },
         { status: 400 }
       )
     }
 
-    // Delete template (components will be deleted automatically with CASCADE)
-    await prisma.feeTemplate.delete({
-      where: { id }
-    })
+    await prisma.feeTemplate.delete({ where: { id } })
 
-    // Log activity
     await logActivity({
       activityType: 'FEE_TEMPLATE_DELETE',
       description: `Menghapus template biaya: ${existing.name} (${existing.academicYear})`,
@@ -180,13 +136,14 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     })
 
     return NextResponse.json({ success: true, message: 'Template berhasil dihapus' })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting fee template:', error)
+    const msg = error instanceof Error ? error.message : 'Unknown error'
 
     await logActivity({
       activityType: 'FEE_TEMPLATE_DELETE',
       description: `Gagal menghapus template biaya dengan ID: ${id}`,
-      metadata: { error: error.message, templateId: id },
+      metadata: { error: msg, templateId: id },
       status: 'failed'
     })
 

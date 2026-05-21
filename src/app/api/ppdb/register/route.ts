@@ -34,27 +34,26 @@ async function generateRegistrationNumber(): Promise<string> {
   })
 }
 
-// Helper to save uploaded file
+// Helper to save uploaded file — stored outside public/ to prevent direct access
 async function saveFile(file: File, folder: string): Promise<string> {
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
 
-  // Create upload directory if not exists
-  const uploadDir = join(process.cwd(), 'public', 'uploads', 'ppdb', folder)
+  // Store in private_uploads (outside public/) so files are not publicly accessible
+  const uploadDir = join(process.cwd(), 'private_uploads', 'ppdb', folder)
 
   if (!existsSync(uploadDir)) {
     await mkdir(uploadDir, { recursive: true })
   }
 
-  // Generate unique filename
   const timestamp = Date.now()
-  const filename = `${timestamp}-${file.name.replace(/\s+/g, '-')}`
+  const filename = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '-')}`
   const filepath = join(uploadDir, filename)
 
   await writeFile(filepath, buffer)
 
-  // Return relative path for database
-  return `/uploads/ppdb/${folder}/${filename}`
+  // Return internal path — served via /api/ppdb/files/[...path] with auth check
+  return `ppdb/${folder}/${filename}`
 }
 
 // POST - Create new PPDB registration
