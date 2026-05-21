@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
 import prisma from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
 // Helper function to get day name in Indonesian
 function getDayName(date: Date): string {
@@ -38,6 +39,9 @@ function calculateLateness(scheduledTime: string, actualTime: string | null) {
 
 // GET - Get teachers who should be present today (based on schedule)
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const searchParams = request.nextUrl.searchParams
     const dateParam = searchParams.get('date') // Format: YYYY-MM-DD
@@ -132,6 +136,9 @@ export async function GET(request: NextRequest) {
 
 // POST - Create or update attendance records
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const body = await request.json()
     const { date, attendances, recordedBy, academicYear } = body
@@ -224,6 +231,9 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Remove attendance record
 export async function DELETE(request: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const searchParams = request.nextUrl.searchParams
     const teacherId = searchParams.get('teacherId')

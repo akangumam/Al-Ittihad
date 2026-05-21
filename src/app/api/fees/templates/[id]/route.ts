@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 import { logActivity } from '@/utils/activityLogger'
 
-/**
- * GET: Fetch a single fee template with its components
- */
+// GET: Fetch a single fee template with its components
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {
@@ -33,10 +35,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-/**
- * PUT: Update a fee template and its components
- */
+// PUT: Update a fee template and its components
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {
@@ -99,10 +102,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-/**
- * DELETE: Soft delete a fee template
- */
+// DELETE: Soft delete a fee template
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {

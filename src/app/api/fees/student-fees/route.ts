@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
-/**
- * GET: Fetch assigned fees for a student
- */
+// GET: Fetch assigned fees for a student
 export async function GET(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const { searchParams } = new URL(request.url)
     const studentId = searchParams.get('studentId')
@@ -50,10 +52,11 @@ export async function GET(request: Request) {
   }
 }
 
-/**
- * POST: Assign a fee template to a student or group of students
- */
+// POST: Assign a fee template to a student or group of students
 export async function POST(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const body = await request.json()
     const { studentIds, templateId, academicYear } = body

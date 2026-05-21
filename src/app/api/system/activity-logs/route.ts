@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import prisma from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
 // GET all activity logs
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const { searchParams } = new URL(request.url)
     const limit = parseInt(searchParams.get('limit') || '100')
@@ -24,6 +28,9 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new activity log
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const body = await request.json()
 

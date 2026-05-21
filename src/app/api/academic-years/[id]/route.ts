@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import prisma from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 import { logActivity } from '@/utils/activityLogger'
 
 // PUT - Update academic year
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {
@@ -42,6 +46,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 // DELETE - Delete academic year
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {

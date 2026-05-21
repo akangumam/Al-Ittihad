@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
-/**
- * GET: Fetch all fee templates with their components
- */
+// GET: Fetch all fee templates with their components
 export async function GET() {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const templates = await prisma.feeTemplate.findMany({
       include: {
@@ -28,10 +30,11 @@ export async function GET() {
   }
 }
 
-/**
- * POST: Create a new fee template with components
- */
+// POST: Create a new fee template with components
 export async function POST(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const body = await request.json()
     const { name, type, academicYear, grade, description, components } = body

@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 
 import prisma from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
 export async function GET() {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const notifications = []
     const today = new Date()

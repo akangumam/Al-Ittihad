@@ -6,54 +6,63 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import prisma from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
-// Helper to generate NIS
-async function generateNIS() {
+// Use findFirst+orderBy to avoid race condition on NIS generation
+async function generateNIS(): Promise<string> {
   const year = new Date().getFullYear().toString().slice(-2)
-  const count = await prisma.student.count()
-  const number = String(count + 1).padStart(4, '0')
+  const prefix = year
 
-  return `${year}${number}`
+  return await prisma.$transaction(async tx => {
+    const last = await tx.student.findFirst({
+      where: { nis: { startsWith: prefix } },
+      orderBy: { nis: 'desc' }
+    })
+
+    let next = 1
+
+    if (last?.nis) {
+      const num = parseInt(last.nis.slice(2), 10)
+
+      if (!isNaN(num)) next = num + 1
+    }
+
+    return `${prefix}${String(next).padStart(4, '0')}`
+  })
 }
 
-// Helper to copy file
-async function copyUploadedFile(sourcePath: string, destFolder: string): Promise<string> {
-  if (!sourcePath) return ''
+// Copy photo from private_uploads (PPDB) to public/uploads/students (for display)
+async function copyUploadedFile(privatePath: string, destFolder: string): Promise<string> {
+  if (!privatePath) return ''
 
-  const publicDir = join(process.cwd(), 'public')
-  const sourceFullPath = join(publicDir, sourcePath)
+  const sourceFullPath = join(process.cwd(), 'private_uploads', privatePath)
 
   if (!existsSync(sourceFullPath)) return ''
 
-  // Create destination directory
-  const destDir = join(publicDir, 'uploads', 'students', destFolder)
+  const destDir = join(process.cwd(), 'public', 'uploads', 'students', destFolder)
 
   if (!existsSync(destDir)) {
     await mkdir(destDir, { recursive: true })
   }
 
-  // Get filename from source
-  const filename = sourcePath.split('/').pop() || ''
+  const filename = privatePath.split('/').pop() || ''
   const destPath = join(destDir, filename)
 
-  // Copy file
   await copyFile(sourceFullPath, destPath)
 
-  // Return relative path
   return `/uploads/students/${destFolder}/${filename}`
 }
 
 // POST - Approve PPDB and create Student
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const { id } = await params
-
     const body = await request.json()
 
-    // Get PPDB registration
-    const ppdb = await prisma.pPDBRegistration.findUnique({
-      where: { id }
-    })
+    const ppdb = await prisma.pPDBRegistration.findUnique({ where: { id } })
 
     if (!ppdb) {
       return NextResponse.json({ success: false, error: 'PPDB registration not found' }, { status: 404 })
@@ -63,30 +72,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: 'PPDB sudah diproses sebelumnya' }, { status: 400 })
     }
 
-    // Generate NIS
     const nis = await generateNIS()
     const enrollmentDate = new Date().toISOString().split('T')[0]
 
-    // Copy photo if exists
     let photoPath = ''
 
     if (ppdb.pasFoto) {
       photoPath = await copyUploadedFile(ppdb.pasFoto, 'photos')
     }
 
-    // Create student record
     const student = await prisma.student.create({
       data: {
         nis,
         nisn: ppdb.nisn,
         name: ppdb.namaLengkap,
-        nickname: ppdb.namaLengkap.split(' ')[0], // First name as nickname
-        grade: body.grade || 'VII', // Default to grade VII
-        class: body.class || 'A', // Default to class A
+        nickname: ppdb.namaLengkap.split(' ')[0],
+        grade: body.grade || 'VII',
+        class: body.class || 'A',
         birthPlace: ppdb.tempatLahir,
         birthDate: ppdb.tanggalLahir,
         gender: ppdb.jenisKelamin === 'Laki-laki' ? 'L' : 'P',
-        religion: 'Islam', // Default
+        religion: 'Islam',
         address: ppdb.alamatRumah,
         rt: '',
         rw: '',
@@ -111,7 +117,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     })
 
-    // Update PPDB status
     await prisma.pPDBRegistration.update({
       where: { id },
       data: {
@@ -124,20 +129,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       {
         success: true,
         message: 'PPDB berhasil di-approve dan siswa telah dibuat',
-        data: {
-          studentId: student.id,
-          nis: student.nis,
-          name: student.name
-        }
+        data: { studentId: student.id, nis: student.nis, name: student.name }
       },
       { status: 200 }
     )
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error approving PPDB:', error)
+    const msg = error instanceof Error ? error.message : 'Unknown error'
 
-    return NextResponse.json(
-      { success: false, error: 'Failed to approve PPDB', details: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, error: 'Failed to approve PPDB', details: msg }, { status: 500 })
   }
 }

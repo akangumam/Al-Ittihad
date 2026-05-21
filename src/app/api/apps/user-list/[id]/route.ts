@@ -3,10 +3,14 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 import { authOptions } from '@/libs/auth'
 import { logActivity } from '@/utils/activityLogger'
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   let id: string | undefined
 
   try {

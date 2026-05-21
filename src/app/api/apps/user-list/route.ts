@@ -6,26 +6,27 @@
  * ! else you can use the server actions or third-party APIs to fetch the data from your database.
  */
 
-// Next Imports
 import { NextResponse } from 'next/server'
-
-// Third-party Imports
 import { hash } from 'bcryptjs'
 
-// Lib Imports
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 import { logActivity } from '@/utils/activityLogger'
 import { createWelcomeToken } from '@/lib/tokens'
 import { sendWelcomeEmail } from '@/lib/email'
-
-// Data Imports
 import { db } from '@/fake-db/apps/userList'
 
 export async function GET() {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   return NextResponse.json(db)
 }
 
 export async function POST(request: Request) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const body = await request.json()
     const { fullName, username, email, password, role, status } = body

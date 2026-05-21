@@ -2,9 +2,13 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
 import prisma from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 
 // GET - Get attendance recap/report
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   try {
     const searchParams = request.nextUrl.searchParams
     const month = searchParams.get('month') // 01-12

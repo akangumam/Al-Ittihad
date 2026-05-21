@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/auth-guard'
 import { logActivity } from '@/utils/activityLogger'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {
@@ -22,6 +26,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
 
   try {
@@ -45,6 +52,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth()
+  if (!auth.authorized) return auth.response
+
   const { id } = await params
   const { searchParams } = new URL(request.url)
   const force = searchParams.get('force') === 'true'
