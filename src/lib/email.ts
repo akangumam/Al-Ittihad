@@ -6,7 +6,11 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 // Email configuration
 const FROM_EMAIL = process.env.EMAIL_FROM || 'onboarding@resend.dev'
 const APP_NAME = process.env.APP_NAME || 'Al-Ittihad School'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL
+
+if (!APP_URL) {
+  throw new Error('NEXT_PUBLIC_APP_URL environment variable is not set')
+}
 
 interface SendEmailParams {
   to: string

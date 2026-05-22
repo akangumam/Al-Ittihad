@@ -82,8 +82,8 @@ const Login = () => {
   } = useForm<FormData>({
     resolver: valibotResolver(schema),
     defaultValues: {
-      email: 'admin@alittihad.com',
-      password: 'admin'
+      email: '',
+      password: ''
     }
   })
 
@@ -128,8 +128,7 @@ const Login = () => {
 
         setErrorState(error)
 
-        // Log failed login
-        logLoginAttempt(logActivity, data.email, false, errorMessage)
+        // Failed login logging omitted — user is not authenticated yet
       }
     }
   }

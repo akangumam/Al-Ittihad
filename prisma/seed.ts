@@ -10,6 +10,10 @@ const studentsData = studentsDataRaw as any[]
 const classesData = classesDataRaw as any[]
 const sppRatesData = sppRatesDataRaw as any[]
 
+if (process.env.NODE_ENV === 'production') {
+  throw new Error('Seed script cannot run in production environment!')
+}
+
 const prisma = new PrismaClient()
 
 async function main() {
@@ -44,7 +48,7 @@ async function main() {
   await prisma.user.createMany({
     data: [
       {
-        email: 'admin@alittihad.com',
+        email: 'admin@alittihad.sch.id',
         name: 'Administrator',
         emailVerified: new Date(),
         password: hashedAdminPassword,

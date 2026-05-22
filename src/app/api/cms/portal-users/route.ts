@@ -1,86 +1,75 @@
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import bcrypt from 'bcryptjs'
+
+import prisma from '@/lib/prisma'
+import { authOptions } from '@/libs/auth'
 
 export async function GET() {
   try {
-    // Mock data for portal users
-    const users = [
-      {
-        id: '1',
-        username: 'admin',
-        email: 'admin@mtsalittihad.sch.id',
-        fullName: 'Administrator Sistem',
-        role: 'admin',
-        status: 'active',
-        lastLogin: '2026-01-06T10:00:00Z',
-        createdAt: '2025-01-01T00:00:00Z'
-      },
-      {
-        id: '2',
-        username: 'kepala_sekolah',
-        email: 'kepsek@mtsalittihad.sch.id',
-        fullName: 'Drs. H. Ahmad Sulaikha, M.Pd.I',
-        role: 'editor',
-        status: 'active',
-        lastLogin: '2026-01-05T14:30:00Z',
-        createdAt: '2025-01-01T00:00:00Z'
-      },
-      {
-        id: '3',
-        username: 'staff_tu',
-        email: 'tu@mtsalittihad.sch.id',
-        fullName: 'Staff Tata Usaha',
-        role: 'editor',
-        status: 'active',
-        lastLogin: '2026-01-04T09:15:00Z',
-        createdAt: '2025-01-01T00:00:00Z'
-      },
-      {
-        id: '4',
-        username: 'guru_piket',
-        email: 'piket@mtsalittihad.sch.id',
-        fullName: 'Guru Piket',
-        role: 'viewer',
-        status: 'active',
-        createdAt: '2025-06-01T00:00:00Z'
-      },
-      {
-        id: '5',
-        username: 'wakakur',
-        email: 'wakakur@mtsalittihad.sch.id',
-        fullName: 'Wakil Kepala Kurikulum',
-        role: 'editor',
-        status: 'inactive',
-        lastLogin: '2025-12-15T16:45:00Z',
-        createdAt: '2025-03-01T00:00:00Z'
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const users = await prisma.portalUser.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        username: true,
+        nama: true,
+        email: true,
+        noHp: true,
+        role: true,
+        isActive: true,
+        lastLogin: true,
+        createdAt: true
       }
-    ]
+    })
 
     return NextResponse.json(users)
   } catch (error) {
-    console.error('Error fetching portal users:', error)
-
     return NextResponse.json({ error: 'Failed to fetch portal users' }, { status: 500 })
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
+    const session = await getServerSession(authOptions)
 
-    // Here you would save to database
-    console.log('Saving portal user:', body)
-
-    // Mock response
-    const newUser = {
-      id: Date.now().toString(),
-      ...body,
-      createdAt: new Date().toISOString()
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    return NextResponse.json(newUser, { status: 201 })
-  } catch (error) {
-    console.error('Error saving portal user:', error)
+    const body = await request.json()
 
+    const hashedPassword = await bcrypt.hash(body.password || 'ChangeMe123!', 10)
+
+    const user = await prisma.portalUser.create({
+      data: {
+        username: body.username,
+        password: hashedPassword,
+        nama: body.fullName ?? body.nama,
+        email: body.email ?? null,
+        noHp: body.noHp ?? null,
+        role: body.role ?? 'viewer',
+        isActive: body.status !== 'inactive',
+        mustChangePassword: true
+      },
+      select: {
+        id: true,
+        username: true,
+        nama: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true
+      }
+    })
+
+    return NextResponse.json(user, { status: 201 })
+  } catch (error) {
     return NextResponse.json({ error: 'Failed to save portal user' }, { status: 500 })
   }
 }
