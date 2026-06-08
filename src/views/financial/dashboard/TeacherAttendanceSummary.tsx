@@ -57,78 +57,76 @@ const TeacherAttendanceSummary = () => {
         const today = new Date().toISOString().split('T')[0]
         const response = await teacherAttendanceAPI.getForDate({ date: today })
 
-        if (response.success && response.data) {
-          // API returns: { teachers: [...], summary: {...} }
-          // Each teacher object: { teacherId, teacherName, nip, attendance: { status, ... } }
-          const teachersData = response.data.teachers || []
+        // API returns raw: { date, day, teachers: [...], summary: {...} }
+        const teachersData = response.teachers || []
 
-          // Extract attendances from teachers array (only those with recorded attendance)
-          const attendances = teachersData.map((t: any) => t.attendance).filter((att: any) => att && att.status) // Only count teachers with status
+        // Extract attendances — only teachers with recorded attendance
+        const attendances = teachersData
+          .map((t: any) => t.attendance)
+          .filter((att: any) => att && att.status)
 
-          const total = teachersData.length
+        const total = teachersData.length
 
-          // Count by status
-          const statusCounts: Record<string, number> = {
-            Hadir: 0,
-            Terlambat: 0,
-            Izin: 0,
-            Sakit: 0,
-            Alpa: 0,
-            'Dinas Luar': 0
-          }
-
-          attendances.forEach((att: any) => {
-            if (att.status && statusCounts[att.status] !== undefined) {
-              statusCounts[att.status]++
-            }
-          })
-
-          // Calculate not yet recorded
-          const recorded = Object.values(statusCounts).reduce((a, b) => a + b, 0)
-          const belumAbsen = Math.max(0, total - recorded)
-
-          // Group stats for cleaner display
-          const statItems: StatItem[] = [
-            {
-              label: 'Hadir',
-              count: statusCounts['Hadir'] + statusCounts['Terlambat'],
-              icon: 'ri-checkbox-circle-fill',
-              color: theme.palette.success.main,
-              bgColor: 'rgba(40, 199, 111, 0.12)'
-            },
-            {
-              label: 'Izin/Sakit',
-              count: statusCounts['Izin'] + statusCounts['Sakit'],
-              icon: 'ri-file-list-3-fill',
-              color: theme.palette.info.main,
-              bgColor: 'rgba(0, 207, 232, 0.12)'
-            },
-            {
-              label: 'Alpa',
-              count: statusCounts['Alpa'],
-              icon: 'ri-close-circle-fill',
-              color: theme.palette.error.main,
-              bgColor: 'rgba(255, 76, 81, 0.12)'
-            },
-            {
-              label: 'Belum Absen',
-              count: belumAbsen,
-              icon: 'ri-time-fill',
-              color: theme.palette.warning.main,
-              bgColor: 'rgba(255, 159, 67, 0.12)'
-            }
-          ]
-
-          setStats(statItems)
-          setTotalTeachers(total)
-          setLastUpdate(new Date())
-
-          // Calculate attendance percentage (Hadir + Terlambat + Dinas Luar = present)
-          const present = statusCounts['Hadir'] + statusCounts['Terlambat'] + statusCounts['Dinas Luar']
-          const percentage = total > 0 ? Math.round((present / total) * 100) : 0
-
-          setAttendancePercentage(percentage)
+        // Count by status
+        const statusCounts: Record<string, number> = {
+          Hadir: 0,
+          Terlambat: 0,
+          Izin: 0,
+          Sakit: 0,
+          Alpa: 0,
+          'Dinas Luar': 0
         }
+
+        attendances.forEach((att: any) => {
+          if (att.status && statusCounts[att.status] !== undefined) {
+            statusCounts[att.status]++
+          }
+        })
+
+        // Calculate not yet recorded
+        const recorded = Object.values(statusCounts).reduce((a, b) => a + b, 0)
+        const belumAbsen = Math.max(0, total - recorded)
+
+        const statItems: StatItem[] = [
+          {
+            label: 'Hadir',
+            count: statusCounts['Hadir'] + statusCounts['Terlambat'],
+            icon: 'ri-checkbox-circle-fill',
+            color: theme.palette.success.main,
+            bgColor: 'rgba(40, 199, 111, 0.12)'
+          },
+          {
+            label: 'Izin/Sakit',
+            count: statusCounts['Izin'] + statusCounts['Sakit'],
+            icon: 'ri-file-list-3-fill',
+            color: theme.palette.info.main,
+            bgColor: 'rgba(0, 207, 232, 0.12)'
+          },
+          {
+            label: 'Alpa',
+            count: statusCounts['Alpa'],
+            icon: 'ri-close-circle-fill',
+            color: theme.palette.error.main,
+            bgColor: 'rgba(255, 76, 81, 0.12)'
+          },
+          {
+            label: 'Belum Absen',
+            count: belumAbsen,
+            icon: 'ri-time-fill',
+            color: theme.palette.warning.main,
+            bgColor: 'rgba(255, 159, 67, 0.12)'
+          }
+        ]
+
+        setStats(statItems)
+        setTotalTeachers(total)
+        setLastUpdate(new Date())
+
+        // Hadir + Terlambat + Dinas Luar = hadir
+        const present = statusCounts['Hadir'] + statusCounts['Terlambat'] + statusCounts['Dinas Luar']
+        const percentage = total > 0 ? Math.round((present / total) * 100) : 0
+
+        setAttendancePercentage(percentage)
       } catch (error) {
         console.error('Error fetching attendance:', error)
       } finally {
