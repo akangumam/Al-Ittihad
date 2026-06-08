@@ -1,12 +1,43 @@
 // Third-party Imports
 import CredentialProvider from 'next-auth/providers/credentials'
-import GoogleProvider from 'next-auth/providers/google'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import type { NextAuthOptions } from 'next-auth'
 import type { Adapter } from 'next-auth/adapters'
 import bcrypt from 'bcryptjs'
 
 import { prisma } from '@/lib/prisma'
+
+// In-memory rate limiter: max 5 failed attempts per email per 15 minutes
+const loginAttempts = new Map<string, { count: number; windowStart: number }>()
+const MAX_ATTEMPTS = 5
+const WINDOW_MS = 15 * 60 * 1000
+
+function isRateLimited(email: string): boolean {
+  const now = Date.now()
+  const record = loginAttempts.get(email)
+
+  if (!record || now - record.windowStart > WINDOW_MS) {
+    loginAttempts.set(email, { count: 0, windowStart: now })
+    return false
+  }
+
+  return record.count >= MAX_ATTEMPTS
+}
+
+function recordFailedAttempt(email: string): void {
+  const now = Date.now()
+  const record = loginAttempts.get(email)
+
+  if (!record || now - record.windowStart > WINDOW_MS) {
+    loginAttempts.set(email, { count: 1, windowStart: now })
+  } else {
+    record.count++
+  }
+}
+
+function clearAttempts(email: string): void {
+  loginAttempts.delete(email)
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
@@ -27,13 +58,15 @@ export const authOptions: NextAuthOptions = {
        */
       credentials: {},
       async authorize(credentials) {
-        /*
-         * Authenticate user by checking password hash from database
-         */
         const { email, password } = credentials as { email: string; password: string }
 
         if (!email || !password) {
           return null
+        }
+
+        // Block brute force: reject if too many failed attempts in window
+        if (isRateLimited(email)) {
+          throw new Error('TooManyAttempts')
         }
 
         // Find user in database
@@ -43,6 +76,7 @@ export const authOptions: NextAuthOptions = {
 
         // Check if user exists and has a password
         if (!user || !user.password) {
+          recordFailedAttempt(email)
           return null
         }
 
@@ -50,8 +84,12 @@ export const authOptions: NextAuthOptions = {
         const isPasswordValid = await bcrypt.compare(password, user.password)
 
         if (!isPasswordValid) {
+          recordFailedAttempt(email)
           return null
         }
+
+        // Clear failed attempts on successful login
+        clearAttempts(email)
 
         // Return user object for session
         return {
@@ -64,12 +102,6 @@ export const authOptions: NextAuthOptions = {
       }
     }),
 
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string
-    })
-
-    // ** ...add more providers here
   ],
 
   // ** Please refer to https://next-auth.js.org/configuration/options#session for more `session` options
@@ -87,7 +119,7 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt',
 
     // ** Seconds - How long until an idle session expires and is no longer valid
-    maxAge: 30 * 24 * 60 * 60 // ** 30 days
+    maxAge: 7 * 24 * 60 * 60 // 7 days
   },
 
   // ** Please refer to https://next-auth.js.org/configuration/options#pages for more `pages` options

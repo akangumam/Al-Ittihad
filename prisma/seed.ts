@@ -40,10 +40,9 @@ async function main() {
   // Seed Users
   console.log('👥 Seeding users...')
 
-  // Hash password for admin
-  const hashedAdminPassword = await bcrypt.hash('admin123', 10)
-  const hashedGuruPassword = await bcrypt.hash('guru123', 10)
-  const hashedQAPassword = await bcrypt.hash('passwordQA123', 10)
+  // Default passwords — WAJIB diganti setelah seed pertama via menu Pengguna & Hak Akses
+  const hashedAdminPassword = await bcrypt.hash('AlIttihad@2025!', 10)
+  const hashedGuruPassword = await bcrypt.hash('Guru@AlIttihad25!', 10)
 
   await prisma.user.createMany({
     data: [
@@ -60,13 +59,6 @@ async function main() {
         emailVerified: new Date(),
         password: hashedGuruPassword,
         role: 'teacher'
-      },
-      {
-        email: 'qa.tester@alittihad.sch.id',
-        name: 'QA Tester',
-        emailVerified: new Date(),
-        password: hashedQAPassword,
-        role: 'admin'
       }
     ]
   })

@@ -43,16 +43,61 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
     const body = await request.json()
 
+    const str = (v: unknown) => (v !== undefined && v !== null && v !== '' ? String(v) : null)
+    const req = (v: unknown) => (v !== undefined && v !== null ? String(v) : '')
+
     const student = await prisma.student.update({
       where: { id },
-      data: body
+      data: {
+        nis: req(body.nis),
+        nisn: req(body.nisn),
+        name: req(body.name),
+        nickname: str(body.nickname),
+        grade: req(body.grade),
+        class: req(body.class),
+        birthPlace: str(body.birthPlace),
+        birthDate: req(body.birthDate),
+        gender: req(body.gender),
+        religion: str(body.religion),
+        address: req(body.address),
+        rt: str(body.rt),
+        rw: str(body.rw),
+        kelurahan: str(body.kelurahan),
+        kecamatan: str(body.kecamatan),
+        city: str(body.city),
+        province: str(body.province),
+        postalCode: str(body.postalCode),
+        parentName: req(body.parentName),
+        fatherName: str(body.fatherName),
+        motherName: str(body.motherName),
+        guardianName: str(body.guardianName),
+        guardianRelation: str(body.guardianRelation),
+        phone: str(body.phone),
+        parentPhone: req(body.parentPhone),
+        email: str(body.email),
+        enrollmentDate: str(body.enrollmentDate),
+        sppStartDate: str(body.sppStartDate),
+        previousSchool: str(body.previousSchool),
+        status: req(body.status),
+        photo: body.photo && typeof body.photo === 'string' ? body.photo : undefined
+      }
     })
 
     return NextResponse.json(student, { status: 200 })
   } catch (error: unknown) {
     console.error('Error updating student:', error)
+    const code = (error as any)?.code
+    const msg = error instanceof Error ? error.message : 'Unknown error'
 
-    return NextResponse.json({ error: 'Failed to update student' }, { status: 500 })
+    if (code === 'P2002') {
+      return NextResponse.json({ error: 'NIS atau NISN sudah digunakan siswa lain' }, { status: 400 })
+    }
+
+    if (code === 'P2025') {
+      return NextResponse.json({ error: 'Data siswa tidak ditemukan' }, { status: 404 })
+    }
+
+    return NextResponse.json({ error: 'Gagal memperbarui data siswa', details: msg }, { status: 500 })
   }
 }
 

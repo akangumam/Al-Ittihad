@@ -76,7 +76,7 @@ const TeacherDetail = ({ teacherId }: { teacherId: string }) => {
           <Card>
             <CardContent className='flex flex-col sm:flex-row items-center sm:items-start gap-6'>
               <CustomAvatar
-                src='/images/avatars/1.png'
+                src={teacher.photo || '/images/avatars/1.png'}
                 variant='rounded'
                 alt={teacher.name}
                 size={120}

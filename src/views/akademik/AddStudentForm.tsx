@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 
 // Next Imports
 import { useRouter, useParams } from 'next/navigation'
@@ -27,7 +27,6 @@ import FormLabel from '@mui/material/FormLabel'
 import Chip from '@mui/material/Chip'
 
 // Third-party Imports
-import { useDropzone } from 'react-dropzone'
 import { toast } from 'react-toastify'
 
 // Type Imports
@@ -37,6 +36,9 @@ import type { StudentType } from '@/contexts/AppContext'
 // Utils Imports
 import { academicYearAPI, classAPI } from '@/services/api'
 import { getLocalizedUrl } from '@/utils/i18n'
+import ImageCropDialog from '@/components/ImageCropDialog'
+
+
 
 type StudentFormData = {
   nis: string
@@ -87,6 +89,8 @@ const AddStudentForm = () => {
   const { lang: locale } = useParams()
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState<StudentFormData>({
     nis: '',
@@ -162,25 +166,14 @@ const AddStudentForm = () => {
     }
   }, [availableClasses, formData.class])
 
-  const { getRootProps, getInputProps } = useDropzone({
-    accept: {
-      'image/*': ['.png', '.jpg', '.jpeg']
-    },
-    maxFiles: 1,
-    onDrop: acceptedFiles => {
-      const file = acceptedFiles[0]
+  const openFilePicker = () => fileInputRef.current?.click()
 
-      if (file) {
-        const reader = new FileReader()
+  const handleFileSelected = (file: File) => {
+    const reader = new FileReader()
 
-        reader.onload = () => {
-          setPhotoPreview(reader.result as string)
-        }
-
-        reader.readAsDataURL(file)
-      }
-    }
-  })
+    reader.onload = () => setCropSrc(reader.result as string)
+    reader.readAsDataURL(file)
+  }
 
   // Loading and error states
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -354,33 +347,66 @@ const AddStudentForm = () => {
             <Grid container spacing={5}>
               {/* Photo Upload */}
               <Grid size={{ xs: 12 }}>
-                <Typography variant='body2' className='mbe-2'>
-                  Foto Siswa (Opsional)
-                </Typography>
-                <div
-                  {...getRootProps({
-                    className:
-                      'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors'
-                  })}
-                >
-                  <input {...getInputProps()} />
+                <div className='flex flex-col items-center gap-3'>
                   {photoPreview ? (
-                    <div className='flex flex-col items-center gap-4'>
-                      <img src={photoPreview} alt='Preview' className='w-32 h-32 object-cover rounded-lg' />
-                      <Typography variant='body2' color='text.secondary'>
-                        Klik untuk ganti foto
-                      </Typography>
-                    </div>
+                    <img
+                      src={photoPreview}
+                      alt='Foto Siswa'
+                      className='w-32 h-32 object-cover rounded-full border-2 border-primary'
+                    />
                   ) : (
-                    <div className='flex flex-col items-center gap-2'>
-                      <i className='ri-upload-cloud-line text-4xl text-textSecondary' />
-                      <Typography variant='body2' color='text.secondary'>
-                        Klik atau drag foto siswa ke sini
-                      </Typography>
-                      <Typography variant='caption' color='text.disabled'>
-                        Format: JPG, PNG (Max 2MB)
-                      </Typography>
+                    <div className='w-32 h-32 rounded-full bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300'>
+                      <i className='ri-user-line text-4xl text-gray-400' />
                     </div>
+                  )}
+                  <div className='flex gap-2'>
+                    <Button
+                      variant='outlined'
+                      size='small'
+                      startIcon={<i className='ri-upload-2-line' />}
+                      onClick={openFilePicker}
+                    >
+                      {photoPreview ? 'Ganti Foto' : 'Upload Foto'}
+                    </Button>
+                    {photoPreview && (
+                      <Button
+                        variant='outlined'
+                        size='small'
+                        color='error'
+                        startIcon={<i className='ri-delete-bin-line' />}
+                        onClick={() => setPhotoPreview(null)}
+                      >
+                        Hapus
+                      </Button>
+                    )}
+                  </div>
+                  <Typography variant='caption' color='text.secondary'>
+                    JPG, PNG · Maks 5MB · Akan di-crop otomatis
+                  </Typography>
+
+                  <input
+                    ref={fileInputRef}
+                    type='file'
+                    accept='image/*'
+                    hidden
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+
+                      if (file) handleFileSelected(file)
+                      e.target.value = ''
+                    }}
+                  />
+
+                  {cropSrc && (
+                    <ImageCropDialog
+                      open={!!cropSrc}
+                      imageSrc={cropSrc}
+                      onComplete={cropped => {
+                        setPhotoPreview(cropped)
+                        setCropSrc(null)
+                      }}
+                      onClose={() => setCropSrc(null)}
+                    />
                   )}
                 </div>
               </Grid>

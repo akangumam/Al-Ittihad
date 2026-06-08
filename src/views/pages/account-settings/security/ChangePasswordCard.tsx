@@ -47,8 +47,8 @@ return
 return
     }
 
-    if (newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Password minimal 6 karakter' })
+    if (newPassword.length < 8) {
+      setMessage({ type: 'error', text: 'Password minimal 8 karakter' })
       
 return
     }
@@ -192,7 +192,7 @@ return
               <div className='flex flex-col gap-4'>
                 <div className='flex items-center gap-2.5'>
                   <i className='ri-checkbox-blank-circle-fill text-[8px]' />
-                  Minimum 6 characters long - the more, the better
+                  Minimal 8 karakter - semakin panjang semakin baik
                 </div>
                 <div className='flex items-center gap-2.5'>
                   <i className='ri-checkbox-blank-circle-fill text-[8px]' />

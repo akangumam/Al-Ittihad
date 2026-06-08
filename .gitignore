@@ -46,4 +46,12 @@ lint-output.txt
 lint-full.txt
 lint-final.txt
 lint-verify.txt
+tsc_output.txt
 deploy_alittihad
+*.zip
+
+# Claude Code memory (local only)
+.claude/
+
+# User uploaded files (runtime, not source)
+public/uploads/

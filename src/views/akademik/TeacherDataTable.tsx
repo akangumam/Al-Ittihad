@@ -77,6 +77,7 @@ type TeacherType = {
   email: string
   address: string
   status: 'Aktif' | 'Cuti' | 'Pensiun' | 'Keluar'
+  photo?: string | null
 }
 
 const fuzzyFilter: FilterFn<any> = (row, columnId, value, addMeta) => {
@@ -268,6 +269,7 @@ const TeacherDataTable = () => {
         cell: ({ row }) => (
           <div className='flex items-center gap-3'>
             <Avatar
+              src={row.original.photo || undefined}
               sx={{
                 width: 40,
                 height: 40,

@@ -125,6 +125,32 @@ const BOSReport = () => {
 
   const totalUsage = data.reduce((acc, curr) => acc + curr.amount, 0)
 
+  const handlePrint = () => window.print()
+
+  const handleExportCSV = () => {
+    const fmt = (n: number) => new Intl.NumberFormat('id-ID').format(n)
+    const rows = [
+      ['Tanggal', 'No Referensi', 'Komponen BOS', 'Keterangan', 'Jumlah'],
+      ...data.map(d => [
+        new Date(d.date).toLocaleDateString('id-ID'),
+        d.referenceNo,
+        d.component,
+        d.description,
+        fmt(d.amount)
+      ]),
+      ['', '', '', 'TOTAL', fmt(totalUsage)]
+    ]
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+
+    a.href = url
+    a.download = `laporan-dana-bos-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <Card>
       <CardContent>
@@ -132,11 +158,11 @@ const BOSReport = () => {
           <div className='flex justify-between items-center flex-wrap gap-4'>
             <Typography variant='h5'>Laporan Penggunaan Dana BOS</Typography>
             <div className='flex gap-2'>
-              <Button variant='outlined' startIcon={<i className='ri-printer-line' />}>
+              <Button variant='outlined' startIcon={<i className='ri-printer-line' />} onClick={handlePrint}>
                 Cetak Format K7
               </Button>
-              <Button variant='contained' startIcon={<i className='ri-download-line' />}>
-                Export Excel
+              <Button variant='contained' startIcon={<i className='ri-download-line' />} onClick={handleExportCSV}>
+                Export CSV
               </Button>
             </div>
           </div>

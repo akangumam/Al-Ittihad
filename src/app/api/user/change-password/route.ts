@@ -29,9 +29,9 @@ export async function POST(request: Request) {
     }
 
     // Validate password length
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       return NextResponse.json(
-        { success: false, error: 'New password must be at least 6 characters long' },
+        { success: false, error: 'Password minimal 8 karakter' },
         { status: 400 }
       )
     }

@@ -238,6 +238,7 @@ const StudentDataTable = () => {
         cell: ({ row }) => (
           <div className='flex items-center gap-3'>
             <Avatar
+              src={row.original.photo || undefined}
               sx={{
                 width: 34,
                 height: 34,

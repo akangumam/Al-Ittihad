@@ -22,6 +22,9 @@ export async function GET(request: NextRequest) {
     if (month) where.month = month
     if (year) where.year = year
 
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? parseInt(limitParam) : 2000
+
     const payments = await prisma.sPPPayment.findMany({
       where,
       include: {
@@ -29,7 +32,8 @@ export async function GET(request: NextRequest) {
           select: { id: true, nis: true, name: true, grade: true, class: true }
         }
       },
-      orderBy: { paymentDate: 'desc' }
+      orderBy: { paymentDate: 'desc' },
+      take: limit
     })
 
     return NextResponse.json(payments, { status: 200 })

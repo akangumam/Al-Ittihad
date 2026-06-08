@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { createContext, useContext, useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 
 // Types Imports
 import type { ActivityLogType, ActivityType } from '@/types/activityLog'
@@ -372,7 +373,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined)
 // ==================== PROVIDER ====================
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [isLoading, setIsLoading] = useState(true)
+  const { status } = useSession()
+  const [isLoading, setIsLoading] = useState(false)
 
   const [students, setStudents] = useState<StudentType[]>([])
   const [classes, setClasses] = useState<ClassType[]>([])
@@ -401,102 +403,81 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsLoading(true)
 
       const {
-        studentAPI,
-        classAPI,
-        teacherAPI,
-        incomeAPI,
-        expenseAPI,
-        accountAPI,
-        teachingScheduleAPI,
-        categoryAPI,
-        academicYearAPI,
-        activityLogAPI,
-        budgetAPI,
-        mutationAPI,
-        paymentCategoryAPI,
-        studentFeeAPI,
-        feePaymentAPI,
-        priorityFeeTemplateAPI,
-        priorityStudentFeeAPI,
-        priorityFeePaymentAPI,
-        sppRateAPI,
-        sppPaymentAPI
+        studentAPI, classAPI, teacherAPI, incomeAPI, expenseAPI,
+        accountAPI, teachingScheduleAPI, categoryAPI, academicYearAPI,
+        activityLogAPI, budgetAPI, mutationAPI, paymentCategoryAPI,
+        studentFeeAPI, feePaymentAPI, priorityFeeTemplateAPI,
+        priorityStudentFeeAPI, priorityFeePaymentAPI, sppRateAPI, sppPaymentAPI
       } = await import('@/services/api')
 
+      // Tier 1 — data kritis untuk dashboard & navigasi (load pertama)
       const [
-        apiStudents,
-        apiClasses,
-        apiTeachers,
-        apiIncomes,
-        apiExpenses,
-        apiAccounts,
-        apiSchedules,
-        apiCategories,
-        apiAcademicYears,
-        apiLogs,
-        apiBudgets,
-        apiMutations,
-        apiPaymentCategories,
-        apiFeePayments,
-        apiStudentFees,
-        apiFeeTemplates,
-        apiPriorityStudentFees,
-        apiPriorityFeePayments,
-        apiSppRates,
-        apiSppPayments
+        apiAccounts, apiAcademicYears, apiCategories, apiPaymentCategories,
+        apiSppRates, apiStudents, apiClasses, apiTeachers, apiBudgets
       ] = await Promise.all([
+        accountAPI.getAll(),
+        academicYearAPI.getAll(),
+        categoryAPI.getAll(),
+        paymentCategoryAPI.getAll(),
+        sppRateAPI.getAll(),
         studentAPI.getAll(),
         classAPI.getAll(),
         teacherAPI.getAll(),
+        budgetAPI.getAll()
+      ])
+
+      setAccounts(apiAccounts || [])
+      setAcademicYears(apiAcademicYears || [])
+      setCategories(apiCategories || [])
+      setPaymentCategories(apiPaymentCategories || [])
+      setSppRates(apiSppRates || [])
+      setStudents(apiStudents || [])
+      setClasses(apiClasses || [])
+      setTeachers(apiTeachers || [])
+      setBudgets(apiBudgets || [])
+      setIsLoading(false) // UI sudah bisa dipakai setelah tier 1
+
+      // Tier 2 — data transaksi berat (load di background)
+      const [
+        apiIncomes, apiExpenses, apiMutations, apiSchedules,
+        apiLogs, apiFeePayments, apiStudentFees, apiFeeTemplates,
+        apiPriorityStudentFees, apiPriorityFeePayments, apiSppPayments
+      ] = await Promise.all([
         incomeAPI.getAll(),
         expenseAPI.getAll(),
-        accountAPI.getAll(),
-        teachingScheduleAPI.getAll(),
-        categoryAPI.getAll(),
-        academicYearAPI.getAll(),
-        activityLogAPI.getAll({ limit: 100 }),
-        budgetAPI.getAll(),
         mutationAPI.getAll(),
-        paymentCategoryAPI.getAll(),
+        teachingScheduleAPI.getAll(),
+        activityLogAPI.getAll({ limit: 100 }),
         feePaymentAPI.getAll(),
         studentFeeAPI.getByStudentId('all'),
         priorityFeeTemplateAPI.getAll(),
         priorityStudentFeeAPI.getByStudentId('all'),
         priorityFeePaymentAPI.getAll(),
-        sppRateAPI.getAll(),
         sppPaymentAPI.getAll()
       ])
 
-      setStudents(apiStudents || [])
-      setClasses(apiClasses || [])
-      setTeachers(apiTeachers || [])
       setIncomes(apiIncomes || [])
       setExpenses(apiExpenses || [])
-      setAccounts(apiAccounts || [])
-      setTeachingSchedules(apiSchedules || [])
-      setCategories(apiCategories || [])
-      setAcademicYears(apiAcademicYears || [])
-      setActivityLogs(apiLogs || [])
-      setBudgets(apiBudgets || [])
       setMutations(apiMutations || [])
-      setPaymentCategories(apiPaymentCategories || [])
-      setStudentFees(apiStudentFees || [])
+      setTeachingSchedules(apiSchedules || [])
+      setActivityLogs(apiLogs || [])
       setFeePayments(apiFeePayments || [])
+      setStudentFees(apiStudentFees || [])
       setFeeTemplates(apiFeeTemplates || [])
       setPriorityStudentFees(apiPriorityStudentFees || [])
       setPriorityFeePayments(apiPriorityFeePayments || [])
-      setSppRates(apiSppRates || [])
       setSppPayments(apiSppPayments || [])
     } catch (error) {
       console.error('Error loading data:', error)
-    } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    refreshData()
-  }, [])
+    if (status === 'authenticated') {
+      refreshData()
+    }
+  }, [status])
 
   const generateReferenceNo = (prefix: string) => `${prefix}-${Date.now()}`
 
@@ -572,20 +553,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     userOverride?: { id?: string; username?: string }
   ) => {
     try {
-      const { activityLogAPI } = await import('@/services/api')
-
-      const savedLog = await activityLogAPI.create({
-        activityType: type,
-        description: desc,
-        metadata: meta,
-        status,
-        userId: userOverride?.id,
-        username: userOverride?.username
+      const res = await fetch('/api/system/activity-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activityType: type,
+          description: desc,
+          metadata: meta,
+          status,
+          userId: userOverride?.id,
+          username: userOverride?.username
+        })
       })
 
-      setActivityLogs(prev => [savedLog, ...prev])
-    } catch (error) {
-      console.error('Failed to log activity:', error)
+      if (res.ok) {
+        const savedLog = await res.json()
+
+        setActivityLogs(prev => [savedLog, ...prev])
+      }
+    } catch {
+      // Activity logging is non-critical — silently ignore network/DB errors
     }
   }
 

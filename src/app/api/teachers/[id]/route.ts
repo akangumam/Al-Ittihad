@@ -43,16 +43,40 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
     const { id } = params
     const body = await request.json()
 
+    const str = (v: unknown) => (v !== undefined && v !== null && v !== '' ? String(v) : null)
+    const req = (v: unknown) => (v !== undefined && v !== null ? String(v) : '')
+
     const teacher = await prisma.teacher.update({
       where: { id },
-      data: body
+      data: {
+        nip: req(body.nip),
+        nuptk: req(body.nuptk),
+        name: req(body.name),
+        subject: req(body.subject),
+        position: req(body.position),
+        gender: req(body.gender),
+        birthPlace: str(body.birthPlace),
+        birthDate: str(body.birthDate),
+        phone: req(body.phone),
+        email: req(body.email),
+        address: req(body.address),
+        education: str(body.education),
+        status: req(body.status),
+        photo: body.photo && typeof body.photo === 'string' ? body.photo : undefined
+      }
     })
 
     return NextResponse.json(teacher, { status: 200 })
   } catch (error: unknown) {
     console.error('Error updating teacher:', error)
+    const code = (error as any)?.code
+    const msg = error instanceof Error ? error.message : 'Unknown error'
 
-    return NextResponse.json({ error: 'Failed to update teacher' }, { status: 500 })
+    if (code === 'P2002') {
+      return NextResponse.json({ error: 'NIP sudah digunakan guru lain' }, { status: 400 })
+    }
+
+    return NextResponse.json({ error: 'Gagal memperbarui data guru', details: msg }, { status: 500 })
   }
 }
 

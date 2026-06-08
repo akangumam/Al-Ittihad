@@ -30,6 +30,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? parseInt(limitParam) : 2000
+
     const expenses = await prisma.expense.findMany({
       where,
       include: {
@@ -48,7 +51,8 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      orderBy: { date: 'desc' }
+      orderBy: { date: 'desc' },
+      take: limit
     })
 
     return NextResponse.json(expenses, { status: 200 })
@@ -70,36 +74,60 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
-    const expense = await prisma.expense.create({
-      data: body
-    })
+    // Support both field name conventions from different forms
+    const accountId = body.account || body.accountId
+    const category = body.category || body.categoryId
+    const amount = Number(body.amount)
 
-    // Update account balance
-    await prisma.bankAccount.update({
-      where: { id: body.account },
-      data: {
-        balance: {
-          decrement: body.amount
-        }
-      }
-    })
-
-    // Update budget realization if linked
-    if (body.budgetId) {
-      await prisma.budget.update({
-        where: { id: body.budgetId },
-        data: {
-          realization: {
-            increment: body.amount
-          }
-        }
-      })
+    if (!accountId || !category || !amount || !body.date) {
+      return NextResponse.json({ error: 'Field wajib: date, amount, category/categoryId, account/accountId' }, { status: 400 })
     }
 
-    return NextResponse.json(expense, { status: 201 })
+    // Generate referenceNo if not provided
+    let referenceNo = body.referenceNo
+    if (!referenceNo) {
+      const dateStr = new Date(body.date).toISOString().slice(0, 10).replace(/-/g, '')
+      const last = await prisma.expense.findFirst({
+        where: { referenceNo: { startsWith: `EXP-${dateStr}` } },
+        orderBy: { createdAt: 'desc' }
+      })
+      const seq = last ? parseInt(last.referenceNo.split('-')[2] || '0') + 1 : 1
+      referenceNo = `EXP-${dateStr}-${seq.toString().padStart(3, '0')}`
+    }
+
+    const result = await prisma.$transaction(async tx => {
+      const expense = await tx.expense.create({
+        data: {
+          date: new Date(body.date).toISOString(),
+          category,
+          description: body.description || '',
+          amount,
+          account: accountId,
+          paymentMethod: body.paymentMethod || 'Tunai',
+          referenceNo,
+          budgetId: body.budgetId || null
+        }
+      })
+
+      await tx.bankAccount.update({
+        where: { id: accountId },
+        data: { balance: { decrement: amount } }
+      })
+
+      if (body.budgetId) {
+        await tx.budget.update({
+          where: { id: body.budgetId },
+          data: { realization: { increment: amount } }
+        })
+      }
+
+      return expense
+    })
+
+    return NextResponse.json(result, { status: 201 })
   } catch (error: any) {
     console.error('Error creating expense:', error)
-    
-return NextResponse.json({ error: 'Failed to create expense', details: error.message }, { status: 500 })
+
+    return NextResponse.json({ error: 'Failed to create expense', details: error.message }, { status: 500 })
   }
 }

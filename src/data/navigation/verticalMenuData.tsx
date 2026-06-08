@@ -150,13 +150,36 @@ const verticalMenuData = (): VerticalMenuDataType[] => [
       },
       {
         label: 'Tunggakan Siswa',
-        href: '/laporan/tunggakan',
+        href: '/laporan/tunggakan-spp',
         icon: 'ri-file-warning-line'
       },
       {
         label: 'Neraca Keuangan',
         href: '/laporan/neraca',
         icon: 'ri-scales-3-line'
+      }
+    ]
+  },
+
+  // Rencana Anggaran Belanja (RAB)
+  {
+    label: 'Rencana Anggaran (RAB)',
+    icon: 'ri-pie-chart-2-line',
+    children: [
+      {
+        label: 'Rencana Tahunan',
+        href: '/rab/rencana-tahunan',
+        icon: 'ri-file-list-3-line'
+      },
+      {
+        label: 'Realisasi Anggaran',
+        href: '/rab/realisasi',
+        icon: 'ri-bar-chart-grouped-line'
+      },
+      {
+        label: 'Persetujuan',
+        href: '/rab/approval',
+        icon: 'ri-checkbox-circle-line'
       }
     ]
   },

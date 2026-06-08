@@ -4,7 +4,6 @@ import { hash } from 'bcryptjs'
 
 import { prisma } from '@/lib/prisma'
 import { verifyResetToken, consumeResetToken } from '@/lib/tokens'
-import { sendPasswordChangedEmail } from '@/lib/email'
 import { logActivity } from '@/utils/activityLogger'
 
 export async function POST(request: Request) {
@@ -55,11 +54,6 @@ export async function POST(request: Request) {
 
     // Consume (delete) the token
     await consumeResetToken(token)
-
-    // Send confirmation email
-    if (user.email) {
-      await sendPasswordChangedEmail(user.email, user.name || 'User')
-    }
 
     // Log activity
     await logActivity({

@@ -89,15 +89,12 @@ export const logLogout = async (
     status?: 'success' | 'failed',
     userOverride?: { id?: string; username?: string }
   ) => void,
-  sessionUser?: { name?: string | null; email?: string | null } | null
+  sessionUser?: { id?: string | null; name?: string | null; email?: string | null } | null
 ) => {
-  const userData = getCurrentUser()
+  // Use NextAuth session data only — no localStorage dependency
+  const username = sessionUser?.email || sessionUser?.name || 'Unknown'
+  const userId = sessionUser?.id || null
 
-  // Determine username from session or localStorage
-  const username = sessionUser?.email || sessionUser?.name || userData?.username || 'Unknown'
-  const userId = userData?.id || null
-
-  // Log logout activity (non-blocking)
   logActivity(
     'user_logout',
     `User "${username}" logout dari sistem`,
@@ -107,9 +104,8 @@ export const logLogout = async (
       logoutTime: new Date().toISOString()
     },
     'success',
-    { id: userId, username } // Pass override
+    { id: userId ?? undefined, username }
   )
 
-  // Clear user data
   clearCurrentUser()
 }

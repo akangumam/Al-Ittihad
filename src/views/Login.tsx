@@ -55,7 +55,7 @@ const schema = object({
   password: pipe(
     string(),
     nonEmpty('This field is required'),
-    minLength(5, 'Password must be at least 5 characters long')
+    minLength(8, 'Password minimal 8 karakter')
   )
 })
 
@@ -107,7 +107,12 @@ const Login = () => {
       logLoginAttempt(logActivity, data.email, true)
 
       // Vars
-      const redirectURL = searchParams.get('redirectTo') ?? '/apps/academy/dashboard'
+      // Validate redirectTo is a relative path to prevent open redirect attacks
+      const rawRedirect = searchParams.get('redirectTo') ?? '/apps/academy/dashboard'
+      const redirectURL =
+        rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') && !rawRedirect.startsWith('/\\')
+          ? rawRedirect
+          : '/apps/academy/dashboard'
 
       // Add 2 second delay for loading screen
       setTimeout(() => {
@@ -122,13 +127,16 @@ const Login = () => {
           errorMessage = 'Email atau password yang Anda masukkan salah.'
         } else if (res.error === 'SessionRequired') {
           errorMessage = 'Silakan login terlebih dahulu.'
+        } else if (res.error === 'TooManyAttempts') {
+          errorMessage = 'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.'
         }
 
         const error = { message: [errorMessage] }
 
         setErrorState(error)
 
-        // Failed login logging omitted — user is not authenticated yet
+        // Log failed login attempt for audit trail
+        logLoginAttempt(logActivity, data.email, false, errorMessage)
       }
     }
   }

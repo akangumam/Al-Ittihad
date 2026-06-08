@@ -739,7 +739,7 @@ async function main() {
   console.log('   📧 Email: tu@alittihad.sch.id')
   console.log('   📧 Email: guru@alittihad.sch.id')
   console.log('')
-  console.log('   🔑 Password (same for all): password123')
+  console.log('   🔑 Password: lihat di atas (INITIAL LOGIN CREDENTIALS)')
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('')
   console.log('📋 Next steps:')

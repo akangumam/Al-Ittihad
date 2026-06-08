@@ -12,8 +12,6 @@ import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-guard'
 import { logActivity } from '@/utils/activityLogger'
-import { createWelcomeToken } from '@/lib/tokens'
-import { sendWelcomeEmail } from '@/lib/email'
 import { db } from '@/fake-db/apps/userList'
 
 export async function GET() {
@@ -67,19 +65,6 @@ export async function POST(request: Request) {
       description: `Menambahkan pengguna baru: ${fullName}`,
       metadata: { userId: newUser.id, username, name: fullName }
     })
-
-    // Kirim welcome email dengan link set password (jika email valid)
-    if (email && !email.includes('@internal.local')) {
-      try {
-        const welcomeToken = await createWelcomeToken(newUser.id)
-
-        await sendWelcomeEmail(email, fullName, username, welcomeToken)
-      } catch (emailError) {
-        console.error('Failed to send welcome email:', emailError)
-
-        // Don't fail the user creation if email fails
-      }
-    }
 
     return NextResponse.json(
       {

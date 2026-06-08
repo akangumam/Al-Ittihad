@@ -1,10 +1,6 @@
-'use client'
-
 // MUI Imports
 import Grid from '@mui/material/Grid'
 import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
-import TextField from '@mui/material/TextField'
 import IconButton from '@mui/material/IconButton'
 
 // Third-party Imports
@@ -13,14 +9,28 @@ import classnames from 'classnames'
 // Component Imports
 import Link from '@components/Link'
 import FrontLogo from '@components/layout/shared/FrontLogo'
+import NewsletterForm from './NewsletterForm'
+
+// Lib Imports
+import { prisma } from '@/lib/prisma'
 
 // Util Imports
 import { frontLayoutClasses } from '@layouts/utils/layoutClasses'
 
-// Styles Imports
-import styles from './styles.module.css'
+const Footer = async () => {
+  // @ts-ignore
+  const settings = await prisma.homeSettings.findFirst().catch(() => null)
 
-const Footer = () => {
+  const address = settings?.schoolAddress || 'Jl. Syeh Nawawi Tanara Kp Pesisir Ds. Pedaleman, Kab. Serang - Banten'
+  const phone = settings?.schoolPhone || null
+  const email = settings?.schoolEmail || null
+  const facebook = settings?.facebookUrl || null
+  const instagram = settings?.instagramUrl || null
+  const twitter = settings?.twitterUrl || null
+  const youtube = settings?.youtubeUrl || null
+
+  const hasSocialLinks = facebook || instagram || twitter || youtube
+
   return (
     <footer className={frontLayoutClasses.footer}>
       <div className='relative'>
@@ -40,29 +50,7 @@ const Footer = () => {
                   Sekolah Al-Ittihad adalah lembaga pendidikan Islam terpadu yang menggabungkan kurikulum nasional
                   dengan nilai-nilai kepesantrenan untuk membentuk generasi Qur&apos;ani yang berprestasi.
                 </Typography>
-                <div className='flex gap-4'>
-                  <TextField
-                    id='footer-newsletter-email'
-                    size='small'
-                    className={styles.inputBorder}
-                    label='Berlangganan Berita'
-                    placeholder='Email Anda'
-                    sx={{
-                      ' & .MuiInputBase-root:hover:not(.Mui-focused) fieldset': {
-                        borderColor: 'rgb(var(--mui-mainColorChannels-dark) / 0.6) !important'
-                      },
-                      '& .MuiInputBase-root.Mui-focused fieldset': {
-                        borderColor: 'var(--mui-palette-primary-main)!important'
-                      },
-                      '& .MuiFormLabel-root.Mui-focused': {
-                        color: 'var(--mui-palette-primary-main) !important'
-                      }
-                    }}
-                  />
-                  <Button variant='contained' color='primary'>
-                    Kirim
-                  </Button>
-                </div>
+                <NewsletterForm />
               </div>
             </Grid>
             <Grid size={{ xs: 12, sm: 3, lg: 2 }}>
@@ -110,24 +98,26 @@ const Footer = () => {
               <div className='flex flex-col gap-4'>
                 <div className='flex items-start gap-3'>
                   <i className='ri-map-pin-line text-xl' />
-                  <div>
-                    <Typography variant='body2' color='white' className='opacity-[0.92]'>
-                      Jl. Syeh Nawawi Tanara Kp Pesisir Ds. Pedaleman No. 123, Kab. Serang - Banten
+                  <Typography variant='body2' color='white' className='opacity-[0.92]'>
+                    {address}
+                  </Typography>
+                </div>
+                {phone && (
+                  <div className='flex items-center gap-3'>
+                    <i className='ri-phone-line text-xl' />
+                    <Typography color='white' className='opacity-[0.92]'>
+                      {phone}
                     </Typography>
                   </div>
-                </div>
-                <div className='flex items-center gap-3'>
-                  <i className='ri-phone-line text-xl' />
-                  <Typography color='white' className='opacity-[0.92]'>
-                    (021) 1234-5678
-                  </Typography>
-                </div>
-                <div className='flex items-center gap-3'>
-                  <i className='ri-mail-line text-xl' />
-                  <Typography color='white' className='opacity-[0.92]'>
-                    info@al-ittihad.sch.id
-                  </Typography>
-                </div>
+                )}
+                {email && (
+                  <div className='flex items-center gap-3'>
+                    <i className='ri-mail-line text-xl' />
+                    <Typography color='white' className='opacity-[0.92]'>
+                      {email}
+                    </Typography>
+                  </div>
+                )}
                 <div className='flex items-center gap-3'>
                   <i className='ri-time-line text-xl' />
                   <Typography color='white' className='opacity-[0.92]'>
@@ -149,20 +139,30 @@ const Footer = () => {
               Khaerul Umam
             </Link>
           </Typography>
-          <div className='flex gap-1.5 items-center opacity-[0.78]'>
-            <IconButton component={Link} size='small' href='https://github.com/pixinvent' target='_blank'>
-              <i className='ri-github-fill text-white text-lg' />
-            </IconButton>
-            <IconButton component={Link} size='small' href='https://www.facebook.com/pixinvents/' target='_blank'>
-              <i className='ri-facebook-fill text-white text-lg' />
-            </IconButton>
-            <IconButton component={Link} size='small' href='https://twitter.com/pixinvents' target='_blank'>
-              <i className='ri-twitter-fill text-white text-lg' />
-            </IconButton>
-            <IconButton component={Link} size='small' href='https://www.linkedin.com/company/pixinvent' target='_blank'>
-              <i className='ri-linkedin-fill text-white text-lg' />
-            </IconButton>
-          </div>
+          {hasSocialLinks && (
+            <div className='flex gap-1.5 items-center opacity-[0.78]'>
+              {facebook && (
+                <IconButton component={Link} size='small' href={facebook} target='_blank'>
+                  <i className='ri-facebook-fill text-white text-lg' />
+                </IconButton>
+              )}
+              {instagram && (
+                <IconButton component={Link} size='small' href={instagram} target='_blank'>
+                  <i className='ri-instagram-line text-white text-lg' />
+                </IconButton>
+              )}
+              {twitter && (
+                <IconButton component={Link} size='small' href={twitter} target='_blank'>
+                  <i className='ri-twitter-x-fill text-white text-lg' />
+                </IconButton>
+              )}
+              {youtube && (
+                <IconButton component={Link} size='small' href={youtube} target='_blank'>
+                  <i className='ri-youtube-fill text-white text-lg' />
+                </IconButton>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </footer>

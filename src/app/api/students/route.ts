@@ -34,9 +34,13 @@ export async function GET(request: NextRequest) {
     if (classParam) where.class = classParam
     if (status) where.status = status
 
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? parseInt(limitParam) : 1000
+
     const students = await prisma.student.findMany({
       where,
-      orderBy: [{ grade: 'asc' }, { class: 'asc' }, { name: 'asc' }]
+      orderBy: [{ grade: 'asc' }, { class: 'asc' }, { name: 'asc' }],
+      take: limit
     })
 
     return NextResponse.json(students, { status: 200 })

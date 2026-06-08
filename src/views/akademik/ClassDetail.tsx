@@ -1,13 +1,10 @@
 'use client'
 
-// React Imports
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
-// Next Imports
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
-// MUI Imports
 import Card from '@mui/material/Card'
 import CardHeader from '@mui/material/CardHeader'
 import CardContent from '@mui/material/CardContent'
@@ -20,8 +17,9 @@ import IconButton from '@mui/material/IconButton'
 import Tooltip from '@mui/material/Tooltip'
 import LinearProgress from '@mui/material/LinearProgress'
 import Box from '@mui/material/Box'
+import CircularProgress from '@mui/material/CircularProgress'
+import Alert from '@mui/material/Alert'
 
-// Third-party Imports
 import {
   createColumnHelper,
   flexRender,
@@ -32,83 +30,62 @@ import {
 import type { ColumnDef } from '@tanstack/react-table'
 import classnames from 'classnames'
 
-// Style Imports
 import tableStyles from '@core/styles/table.module.css'
-
-// Utils Imports
 import { getLocalizedUrl } from '@/utils/i18n'
 import type { Locale } from '@configs/i18n'
+
+type ClassDataType = {
+  id: string
+  grade: string
+  className: string
+  academicYear: string
+  teacher: string
+  capacity: number
+  currentStudents: number
+}
 
 type StudentType = {
   id: string
   nis: string
   name: string
-  gender: 'L' | 'P'
-  status: 'Aktif' | 'Cuti' | 'Keluar'
-  paymentStatus: 'Lunas' | 'Menunggak'
+  gender: string
+  status: string
 }
-
-// Dummy Data Siswa di Kelas
-const initialStudents: StudentType[] = [
-  {
-    id: 'STU-001',
-    nis: '2024001',
-    name: 'Ahmad Fauzi Rahman',
-    gender: 'L',
-    status: 'Aktif',
-    paymentStatus: 'Lunas'
-  },
-  {
-    id: 'STU-002',
-    nis: '2024002',
-    name: 'Budi Santoso',
-    gender: 'L',
-    status: 'Aktif',
-    paymentStatus: 'Menunggak'
-  },
-  {
-    id: 'STU-003',
-    nis: '2024003',
-    name: 'Citra Dewi',
-    gender: 'P',
-    status: 'Aktif',
-    paymentStatus: 'Lunas'
-  },
-  {
-    id: 'STU-004',
-    nis: '2024004',
-    name: 'Dewi Sartika',
-    gender: 'P',
-    status: 'Cuti',
-    paymentStatus: 'Lunas'
-  },
-  {
-    id: 'STU-005',
-    nis: '2024005',
-    name: 'Eko Prasetyo',
-    gender: 'L',
-    status: 'Aktif',
-    paymentStatus: 'Menunggak'
-  }
-]
 
 const columnHelper = createColumnHelper<StudentType>()
 
 const ClassDetail = ({ classId }: { classId: string }) => {
   const { lang: locale } = useParams()
-  const [data] = useState(initialStudents)
+  const [classData, setClassData] = useState<ClassDataType | null>(null)
+  const [students, setStudents] = useState<StudentType[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Dummy Class Data
-  const classData = {
-    id: classId,
-    name: '7A',
-    grade: '7',
-    academicYear: '2024/2025',
-    homeRoomTeacher: 'Ibu Siti Aminah, S.Pd',
-    totalStudents: data.length,
-    maxCapacity: 36,
-    status: 'Aktif'
-  }
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setIsLoading(true)
+        const classRes = await fetch(`/api/classes/${classId}`)
+
+        if (!classRes.ok) throw new Error('Kelas tidak ditemukan')
+        const cls: ClassDataType = await classRes.json()
+
+        setClassData(cls)
+
+        const studentRes = await fetch(`/api/students?grade=${cls.grade}&class=${cls.className}&limit=200`)
+
+        if (studentRes.ok) {
+          setStudents(await studentRes.json())
+        }
+      } catch (err: any) {
+        setError(err.message)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    load()
+  }, [classId])
 
   const columns = useMemo<ColumnDef<StudentType, any>[]>(
     () => [
@@ -120,7 +97,11 @@ const ClassDetail = ({ classId }: { classId: string }) => {
         header: 'Nama Siswa',
         cell: ({ row }) => (
           <div className='flex items-center gap-3'>
-            <Avatar className='w-8 h-8' sx={{ bgcolor: 'primary.light', color: 'primary.main' }}>
+            <Avatar
+              src={(row.original as any).photo || undefined}
+              className='w-8 h-8'
+              sx={{ bgcolor: 'primary.light', color: 'primary.main' }}
+            >
               {row.original.name.charAt(0)}
             </Avatar>
             <div className='flex flex-col'>
@@ -145,17 +126,6 @@ const ClassDetail = ({ classId }: { classId: string }) => {
           />
         )
       }),
-      columnHelper.accessor('paymentStatus', {
-        header: 'Status SPP',
-        cell: ({ row }) => (
-          <Chip
-            label={row.original.paymentStatus}
-            size='small'
-            color={row.original.paymentStatus === 'Lunas' ? 'success' : 'error'}
-            variant='tonal'
-          />
-        )
-      }),
       columnHelper.display({
         id: 'actions',
         header: 'Aksi',
@@ -170,11 +140,6 @@ const ClassDetail = ({ classId }: { classId: string }) => {
                 <i className='ri-eye-line text-textSecondary' />
               </IconButton>
             </Tooltip>
-            <Tooltip title='Pindahkan Siswa'>
-              <IconButton size='small'>
-                <i className='ri-arrow-left-right-line text-textSecondary' />
-              </IconButton>
-            </Tooltip>
           </div>
         )
       })
@@ -183,20 +148,29 @@ const ClassDetail = ({ classId }: { classId: string }) => {
   )
 
   const table = useReactTable({
-    data,
+    data: students,
     columns,
-    filterFns: {
-      fuzzy: () => false
-    },
+    filterFns: { fuzzy: () => false },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel()
   })
 
-  const capacityPercentage = (classData.totalStudents / classData.maxCapacity) * 100
+  if (isLoading) {
+    return (
+      <div className='flex justify-center items-center py-20'>
+        <CircularProgress />
+      </div>
+    )
+  }
+
+  if (error || !classData) {
+    return <Alert severity='error'>{error || 'Kelas tidak ditemukan'}</Alert>
+  }
+
+  const capacityPercentage = Math.min((students.length / classData.capacity) * 100, 100)
 
   return (
     <Grid container spacing={6}>
-      {/* Header Info */}
       <Grid size={{ xs: 12 }}>
         <Card>
           <CardContent>
@@ -207,20 +181,22 @@ const ClassDetail = ({ classId }: { classId: string }) => {
                 </div>
                 <div>
                   <div className='flex items-center gap-2'>
-                    <Typography variant='h4'>Kelas {classData.name}</Typography>
-                    <Chip label={classData.status} color='success' size='small' variant='tonal' />
+                    <Typography variant='h4'>
+                      Kelas {classData.grade}-{classData.className}
+                    </Typography>
+                    <Chip label='Aktif' color='success' size='small' variant='tonal' />
                   </div>
                   <Typography color='text.secondary'>Tahun Ajaran {classData.academicYear}</Typography>
                 </div>
               </div>
-              <div className='flex gap-2'>
-                <Button variant='outlined' startIcon={<i className='ri-pencil-line' />}>
-                  Edit Kelas
-                </Button>
-                <Button variant='contained' startIcon={<i className='ri-user-add-line' />}>
-                  Tambah Siswa
-                </Button>
-              </div>
+              <Button
+                variant='outlined'
+                startIcon={<i className='ri-arrow-left-line' />}
+                component={Link}
+                href={getLocalizedUrl('/akademik/data-kelas', locale as Locale)}
+              >
+                Kembali
+              </Button>
             </div>
 
             <Grid container spacing={6} className='mbs-6'>
@@ -231,7 +207,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
                   </Avatar>
                   <div>
                     <Typography variant='caption'>Wali Kelas</Typography>
-                    <Typography className='font-medium'>{classData.homeRoomTeacher}</Typography>
+                    <Typography className='font-medium'>{classData.teacher || '-'}</Typography>
                   </div>
                 </div>
               </Grid>
@@ -244,7 +220,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
                     <div className='flex justify-between items-center mb-1'>
                       <Typography variant='caption'>Kapasitas Kelas</Typography>
                       <Typography variant='caption' className='font-medium'>
-                        {classData.totalStudents} / {classData.maxCapacity}
+                        {students.length} / {classData.capacity}
                       </Typography>
                     </div>
                     <Box sx={{ width: '100%' }}>
@@ -256,11 +232,13 @@ const ClassDetail = ({ classId }: { classId: string }) => {
               <Grid size={{ xs: 12, md: 4 }}>
                 <div className='flex items-center gap-3 p-4 border rounded-lg'>
                   <Avatar variant='rounded' className='bg-action-hover text-textPrimary'>
-                    <i className='ri-money-dollar-circle-line' />
+                    <i className='ri-team-line' />
                   </Avatar>
                   <div>
-                    <Typography variant='caption'>Status Pembayaran</Typography>
-                    <Typography className='font-medium'>80% Lunas</Typography>
+                    <Typography variant='caption'>Total Siswa Aktif</Typography>
+                    <Typography className='font-medium'>
+                      {students.filter(s => s.status === 'Aktif').length} siswa
+                    </Typography>
                   </div>
                 </div>
               </Grid>
@@ -269,17 +247,34 @@ const ClassDetail = ({ classId }: { classId: string }) => {
         </Card>
       </Grid>
 
-      {/* Student List */}
       <Grid size={{ xs: 12 }}>
         <Card>
           <CardHeader
             title='Daftar Siswa'
+            subheader={`${students.length} siswa ditemukan`}
             action={
-              <div className='flex gap-2'>
-                <Button variant='text' startIcon={<i className='ri-download-line' />}>
-                  Export
-                </Button>
-              </div>
+              <Button
+                variant='text'
+                startIcon={<i className='ri-download-line' />}
+                onClick={() => {
+                  const csv = [
+                    ['NIS', 'Nama', 'Jenis Kelamin', 'Status'],
+                    ...students.map(s => [s.nis, s.name, s.gender === 'L' ? 'Laki-laki' : 'Perempuan', s.status])
+                  ]
+                    .map(r => r.map(v => `"${v}"`).join(','))
+                    .join('\n')
+                  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+
+                  a.href = url
+                  a.download = `kelas-${classData.grade}${classData.className}-${classData.academicYear}.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                }}
+              >
+                Export
+              </Button>
             }
           />
           <div className='overflow-x-auto'>
@@ -312,7 +307,7 @@ const ClassDetail = ({ classId }: { classId: string }) => {
               <tbody>
                 {table.getRowModel().rows.length === 0 ? (
                   <tr>
-                    <td colSpan={table.getVisibleFlatColumns().length} className='text-center'>
+                    <td colSpan={table.getVisibleFlatColumns().length} className='text-center py-8'>
                       Belum ada siswa di kelas ini
                     </td>
                   </tr>

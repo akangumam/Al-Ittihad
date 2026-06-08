@@ -30,6 +30,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? parseInt(limitParam) : 2000
+
     const incomes = await prisma.income.findMany({
       where,
       include: {
@@ -41,7 +44,8 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      orderBy: { date: 'desc' }
+      orderBy: { date: 'desc' },
+      take: limit
     })
 
     return NextResponse.json(incomes, { status: 200 })

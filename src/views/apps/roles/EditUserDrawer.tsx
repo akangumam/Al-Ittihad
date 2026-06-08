@@ -6,6 +6,7 @@ import Button from '@mui/material/Button'
 import Drawer from '@mui/material/Drawer'
 import FormControl from '@mui/material/FormControl'
 import IconButton from '@mui/material/IconButton'
+import InputAdornment from '@mui/material/InputAdornment'
 import InputLabel from '@mui/material/InputLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
@@ -42,6 +43,9 @@ const EditUserDrawer = (props: Props) => {
 
   // States
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [isResettingPassword, setIsResettingPassword] = useState(false)
 
   // Hooks
   const {
@@ -115,7 +119,41 @@ const EditUserDrawer = (props: Props) => {
   }
 
   const handleReset = () => {
+    setNewPassword('')
     handleClose()
+  }
+
+  const handleResetPassword = async () => {
+    if (!user || !newPassword) return
+
+    if (newPassword.length < 8) {
+      toast.error('Password minimal 8 karakter')
+
+      return
+    }
+
+    try {
+      setIsResettingPassword(true)
+
+      const response = await fetch(`/api/system/users/${user.id}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword })
+      })
+
+      if (response.ok) {
+        toast.success('Password berhasil direset')
+        setNewPassword('')
+      } else {
+        const error = await response.json()
+
+        toast.error(error.error || 'Gagal mereset password')
+      }
+    } catch {
+      toast.error('Terjadi kesalahan saat mereset password')
+    } finally {
+      setIsResettingPassword(false)
+    }
   }
 
   return (
@@ -218,6 +256,46 @@ const EditUserDrawer = (props: Props) => {
             </Button>
           </div>
         </form>
+
+        <Divider className='my-5' />
+
+        <div className='flex flex-col gap-3'>
+          <Typography variant='subtitle2' className='font-semibold'>
+            Reset Password
+          </Typography>
+          <Typography variant='caption' color='text.secondary'>
+            Isi password baru untuk pengguna ini, lalu klik Reset.
+          </Typography>
+          <TextField
+            fullWidth
+            size='small'
+            label='Password Baru'
+            placeholder='Minimal 8 karakter'
+            type={showNewPassword ? 'text' : 'password'}
+            value={newPassword}
+            onChange={e => setNewPassword(e.target.value)}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position='end'>
+                    <IconButton size='small' onClick={() => setShowNewPassword(!showNewPassword)} edge='end'>
+                      <i className={showNewPassword ? 'ri-eye-off-line' : 'ri-eye-line'} />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }
+            }}
+          />
+          <Button
+            variant='outlined'
+            color='warning'
+            disabled={!newPassword || isResettingPassword}
+            onClick={handleResetPassword}
+            startIcon={<i className='ri-lock-password-line' />}
+          >
+            {isResettingPassword ? 'Mereset...' : 'Reset Password'}
+          </Button>
+        </div>
       </div>
     </Drawer>
   )

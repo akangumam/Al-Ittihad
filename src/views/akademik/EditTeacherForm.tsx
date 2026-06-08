@@ -1,7 +1,7 @@
 'use client'
 
 // React Imports
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 
 // Next Imports
 import { useRouter, useParams } from 'next/navigation'
@@ -31,13 +31,15 @@ import { teacherAPI } from '@/services/api'
 
 // Util Imports
 import { getLocalizedUrl } from '@/utils/i18n'
+import ImageCropDialog from '@/components/ImageCropDialog'
 
 const EditTeacherForm = ({ teacherId }: { teacherId: string }) => {
   const router = useRouter()
   const { lang: locale } = useParams()
   const [isLoading, setIsLoading] = useState(true)
-  const [file, setFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isManualSubject, setIsManualSubject] = useState(false)
 
   const subjects = useMemo(
@@ -141,21 +143,13 @@ const EditTeacherForm = ({ teacherId }: { teacherId: string }) => {
     }
   }
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const openFilePicker = () => fileInputRef.current?.click()
 
-    if (file) {
-      setFile(file)
+  const handleFileSelected = (file: File) => {
+    const reader = new FileReader()
 
-      // Create preview
-      const reader = new FileReader()
-
-      reader.onload = () => {
-        setPhotoPreview(reader.result as string)
-      }
-
-      reader.readAsDataURL(file)
-    }
+    reader.onload = () => setCropSrc(reader.result as string)
+    reader.readAsDataURL(file)
   }
 
   return (
@@ -187,34 +181,67 @@ const EditTeacherForm = ({ teacherId }: { teacherId: string }) => {
                   Data Pribadi
                 </Typography>
                 <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-                  {/* Photo Upload - Moved to top */}
-                  <div className='md:col-span-2'>
-                    <Typography variant='body2' className='mbe-2'>
-                      Foto Profil (Opsional)
-                    </Typography>
+                  {/* Photo Upload */}
+                  <div className='md:col-span-2 flex flex-col items-center gap-3'>
                     {photoPreview ? (
-                      <div className='flex flex-col items-center gap-4 p-4 border-2 border-dashed rounded-lg'>
-                        <img src={photoPreview} alt='Preview' className='w-32 h-32 object-cover rounded-lg' />
-                        <Button component='label' variant='outlined' size='small'>
-                          Ganti Foto
-                          <input type='file' hidden accept='image/*' onChange={handleFileChange} />
-                        </Button>
-                        {file && (
-                          <Typography variant='caption' color='text.secondary'>
-                            {file.name}
-                          </Typography>
-                        )}
-                      </div>
+                      <img
+                        src={photoPreview}
+                        alt='Foto Guru'
+                        className='w-32 h-32 object-cover rounded-full border-2 border-primary'
+                      />
                     ) : (
+                      <div className='w-32 h-32 rounded-full bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300'>
+                        <i className='ri-user-line text-4xl text-gray-400' />
+                      </div>
+                    )}
+                    <div className='flex gap-2'>
                       <Button
-                        component='label'
                         variant='outlined'
+                        size='small'
                         startIcon={<i className='ri-upload-2-line' />}
-                        className='w-full h-[56px]'
+                        onClick={openFilePicker}
                       >
-                        Upload Foto Profil
-                        <input type='file' hidden accept='image/*' onChange={handleFileChange} />
+                        {photoPreview ? 'Ganti Foto' : 'Upload Foto'}
                       </Button>
+                      {photoPreview && (
+                        <Button
+                          variant='outlined'
+                          size='small'
+                          color='error'
+                          startIcon={<i className='ri-delete-bin-line' />}
+                          onClick={() => setPhotoPreview(null)}
+                        >
+                          Hapus
+                        </Button>
+                      )}
+                    </div>
+                    <Typography variant='caption' color='text.secondary'>
+                      JPG, PNG · Maks 5MB · Akan di-crop otomatis
+                    </Typography>
+
+                    <input
+                      ref={fileInputRef}
+                      type='file'
+                      accept='image/*'
+                      hidden
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+
+                        if (file) handleFileSelected(file)
+                        e.target.value = ''
+                      }}
+                    />
+
+                    {cropSrc && (
+                      <ImageCropDialog
+                        open={!!cropSrc}
+                        imageSrc={cropSrc}
+                        onComplete={cropped => {
+                          setPhotoPreview(cropped)
+                          setCropSrc(null)
+                        }}
+                        onClose={() => setCropSrc(null)}
+                      />
                     )}
                   </div>
 

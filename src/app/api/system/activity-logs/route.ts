@@ -26,11 +26,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create new activity log
+// POST - Create new activity log (no auth required — used for login attempt logging)
 export async function POST(request: NextRequest) {
-  const auth = await requireAuth()
-  if (!auth.authorized) return auth.response
-
   try {
     const body = await request.json()
 
