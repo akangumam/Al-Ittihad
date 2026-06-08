@@ -49,6 +49,7 @@ import type { Locale } from '@configs/i18n'
 import OptionMenu from '@core/components/option-menu'
 import ConfirmationDialog from '@components/dialogs/ConfirmationDialog'
 import { incomeAPI, activityLogAPI } from '@/services/api'
+import { useAppContext } from '@/contexts/AppContext'
 
 // Util Imports
 import { getLocalizedUrl } from '@/utils/i18n'
@@ -116,6 +117,7 @@ const DebouncedInput = ({
 const columnHelper = createColumnHelper<IncomeType>()
 
 const IncomeListTable = () => {
+  const { refreshData } = useAppContext()
   const [rowSelection, setRowSelection] = useState({})
   const [data, setData] = useState<IncomeType[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -175,6 +177,7 @@ const IncomeListTable = () => {
       toast.success('Data pemasukan berhasil dihapus')
       setDeleteDialogOpen(false)
       fetchData()
+      refreshData()
     } catch (error: any) {
       console.error('Error deleting income:', error)
       toast.error(error.message || 'Gagal menghapus data')

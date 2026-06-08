@@ -27,8 +27,11 @@ import { toast } from 'react-toastify'
 import AppReactDatepicker from '@/libs/styles/AppReactDatepicker'
 import { getLocalizedUrl } from '@/utils/i18n'
 import type { Locale } from '@configs/i18n'
+import { useAppContext } from '@/contexts/AppContext'
 
 const AddExpenseForm = () => {
+  const { refreshData } = useAppContext()
+
   // States
   const [date, setDate] = useState<Date | null | undefined>(new Date())
   const [category, setCategory] = useState('')
@@ -130,6 +133,7 @@ const AddExpenseForm = () => {
       }
 
       toast.success('Data pengeluaran berhasil disimpan!')
+      refreshData()
       router.push(getLocalizedUrl('/keuangan/pengeluaran', locale as Locale))
     } catch (error: any) {
       console.error('Error submitting expense:', error)

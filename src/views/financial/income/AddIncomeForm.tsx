@@ -27,8 +27,11 @@ import { toast } from 'react-toastify'
 import AppReactDatepicker from '@/libs/styles/AppReactDatepicker'
 import { getLocalizedUrl } from '@/utils/i18n'
 import type { Locale } from '@configs/i18n'
+import { useAppContext } from '@/contexts/AppContext'
 
 const AddIncomeForm = () => {
+  const { refreshData } = useAppContext()
+
   // States
   const [date, setDate] = useState<Date | null | undefined>(new Date())
   const [category, setCategory] = useState('')
@@ -153,6 +156,7 @@ const AddIncomeForm = () => {
       }
 
       toast.success('Data pemasukan berhasil disimpan!')
+      refreshData()
       router.push(getLocalizedUrl('/keuangan/pemasukan', locale as Locale))
     } catch (error: any) {
       console.error('Error submitting income:', error)
