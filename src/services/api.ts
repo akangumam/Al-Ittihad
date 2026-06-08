@@ -16,8 +16,9 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'An error occurred' }))
+    const detail = error.details ? ` — ${error.details}` : ''
 
-    throw new Error(error.error || error.message || `HTTP ${response.status}`)
+    throw new Error((error.error || error.message || `HTTP ${response.status}`) + detail)
   }
 
   return response.json()

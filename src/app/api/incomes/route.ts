@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
 import { authOptions } from '@/libs/auth'
+import { logActivity } from '@/utils/activityLogger'
 
 // GET all incomes
 export async function GET(request: NextRequest) {
@@ -119,6 +120,15 @@ export async function POST(request: NextRequest) {
           increment: Number(amount)
         }
       }
+    })
+
+    await logActivity({
+      activityType: 'INCOME_CREATE',
+      description: `Menambah data pemasukan: ${income.description || referenceNo} - Rp ${Number(amount).toLocaleString('id-ID')}`,
+      module: 'Pemasukan',
+      targetId: income.id,
+      targetName: income.description || referenceNo,
+      metadata: { referenceNo: income.referenceNo, amount: income.amount, category: income.category }
     })
 
     return NextResponse.json(income, { status: 201 })

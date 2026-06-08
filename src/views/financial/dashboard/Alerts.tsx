@@ -37,7 +37,7 @@ interface AlertItem {
 
 const Alerts = () => {
   const { lang: locale } = useParams()
-  const { budgets, incomes, priorityStudentFees } = useAppContext()
+  const { budgets, incomes, priorityStudentFees, sppPayments } = useAppContext()
 
   const [exportReminder, setExportReminder] = useState<AlertItem | null>(null)
 
@@ -87,6 +87,38 @@ const Alerts = () => {
   const dynamicAlerts = useMemo(() => {
     const alerts: AlertItem[] = []
 
+    // Shared date helpers
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonthName = now.toLocaleDateString('id-ID', { month: 'long' }) // e.g. "Juni"
+    const currentMonthNum = (now.getMonth() + 1).toString() // "6"
+    const currentMonthPad = currentMonthNum.padStart(2, '0') // "06"
+
+    // --- SPP Bulan Ini ---
+
+    const currentYearStr = currentYear.toString()
+
+    const thisMonthSPP = sppPayments.filter(p => {
+      const monthMatch =
+        p.month === currentMonthName ||
+        p.month === currentMonthNum ||
+        p.month === currentMonthPad
+      return monthMatch && p.year === currentYearStr
+    })
+
+    const unpaidSPP = thisMonthSPP.filter(p => p.status === 'Belum Lunas')
+
+    if (unpaidSPP.length > 0) {
+      alerts.push({
+        severity: unpaidSPP.length > 20 ? 'error' : 'warning',
+        title: `Tunggakan SPP ${currentMonthName} ${currentYearStr}`,
+        message: `${unpaidSPP.length} siswa belum membayar SPP bulan ${currentMonthName} ${currentYearStr}.`,
+        badge: unpaidSPP.length.toString(),
+        action: 'Lihat Tunggakan',
+        link: '/spp/tunggakan'
+      })
+    }
+
     // --- Priority Fee Arrears Alert ---
     const priorityArrearsCount = (priorityStudentFees || []).filter(
       f => (f.totalAmount || 0) > (f.paidAmount || 0)
@@ -122,9 +154,6 @@ const Alerts = () => {
     }
 
     // --- BOS Deadline ---
-    const now = new Date()
-    const currentYear = now.getFullYear()
-
     // Quarterly deadlines (end of month)
     const quarters = [
       new Date(currentYear, 2, 31), // March 31
@@ -177,7 +206,7 @@ const Alerts = () => {
     }
 
     return alerts
-  }, [budgets, incomes, priorityStudentFees])
+  }, [budgets, incomes, priorityStudentFees, sppPayments])
 
   const allAlerts = exportReminder ? [exportReminder, ...dynamicAlerts] : dynamicAlerts
 

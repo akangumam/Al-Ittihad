@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
 import { authOptions } from '@/libs/auth'
+import { logActivity } from '@/utils/activityLogger'
 
 // GET all teaching schedules
 export async function GET(request: NextRequest) {
@@ -65,6 +66,15 @@ export async function POST(request: NextRequest) {
 
     const schedule = await prisma.teachingSchedule.create({
       data: body
+    })
+
+    await logActivity({
+      activityType: 'TEACHING_SCHEDULE_CREATE',
+      description: `Menambah jadwal mengajar: ${schedule.subject} - ${schedule.teacherName} (${schedule.day}, ${schedule.startTime}-${schedule.endTime})`,
+      module: 'Jadwal Mengajar',
+      targetId: schedule.id,
+      targetName: `${schedule.subject} - ${schedule.teacherName}`,
+      metadata: { teacherId: schedule.teacherId, subject: schedule.subject, day: schedule.day, grade: schedule.grade, class: schedule.class }
     })
 
     return NextResponse.json(schedule, { status: 201 })

@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
 import { authOptions } from '@/libs/auth'
+import { logActivity } from '@/utils/activityLogger'
 
 // GET all teachers
 export async function GET(request: NextRequest) {
@@ -73,6 +74,15 @@ export async function POST(request: NextRequest) {
 
     const teacher = await prisma.teacher.create({
       data: body
+    })
+
+    await logActivity({
+      activityType: 'TEACHER_CREATE',
+      description: `Menambah data guru baru: ${teacher.name} (${teacher.nip})`,
+      module: 'Guru',
+      targetId: teacher.id,
+      targetName: teacher.name,
+      metadata: { nip: teacher.nip, subject: teacher.subject, position: teacher.position }
     })
 
     return NextResponse.json(teacher, { status: 201 })

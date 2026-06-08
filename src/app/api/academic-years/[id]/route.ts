@@ -36,6 +36,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       data: body
     })
 
+    await logActivity({
+      activityType: 'ACADEMIC_YEAR_UPDATE',
+      description: `Memperbarui tahun ajaran: ${year.name}`,
+      module: 'Tahun Ajaran',
+      targetId: year.id,
+      targetName: year.name,
+      metadata: { name: year.name, semester: year.semester, isActive: year.isActive }
+    })
+
     return NextResponse.json(year, { status: 200 })
   } catch (error: any) {
     console.error(`Error updating academic year ${id}:`, error)

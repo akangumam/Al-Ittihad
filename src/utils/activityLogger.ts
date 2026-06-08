@@ -6,13 +6,31 @@ import prisma from '@/lib/prisma'
 interface LogActivityParams {
   activityType: string
   description: string
+  module?: string
+  targetId?: string
+  targetName?: string
   metadata?: Record<string, any>
   status?: 'success' | 'failed'
 }
 
-export async function logActivity({ activityType, description, metadata, status = 'success' }: LogActivityParams) {
+export async function logActivity({
+  activityType,
+  description,
+  module,
+  targetId,
+  targetName,
+  metadata,
+  status = 'success'
+}: LogActivityParams) {
   try {
     const session = await getServerSession(authOptions)
+
+    const enriched = {
+      ...(module && { module }),
+      ...(targetId && { targetId }),
+      ...(targetName && { targetName }),
+      ...metadata
+    }
 
     await prisma.activityLog.create({
       data: {
@@ -20,15 +38,14 @@ export async function logActivity({ activityType, description, metadata, status 
         username: session?.user?.name || 'System',
         activityType,
         description,
-        metadata: metadata ? JSON.stringify(metadata) : null,
+        metadata: Object.keys(enriched).length > 0 ? JSON.stringify(enriched) : null,
         status,
         timestamp: new Date()
       }
     })
   } catch (error) {
     console.error('Failed to log activity:', error)
-
-    // Don't throw error to prevent breaking main flow
+    // Don't throw — never break the main request flow
   }
 }
 

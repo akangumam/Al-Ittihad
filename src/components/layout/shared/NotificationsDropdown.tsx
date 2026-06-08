@@ -114,7 +114,8 @@ const NotificationDropdown = ({ notifications: data }: { notifications?: Notific
     try {
       setLoading(true)
       const response = await fetch('/api/system/notifications')
-      const data = await response.json()
+      const json = await response.json()
+      const data: NotificationsType[] = Array.isArray(json) ? json : (json?.data ?? json?.notifications ?? [])
 
       // Filter out manually dismissed notifications using localStorage
       const dismissedIds = JSON.parse(localStorage.getItem('dismissedNotifications') || '[]')

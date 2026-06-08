@@ -66,6 +66,15 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
       }
     })
 
+    await logActivity({
+      activityType: 'TEACHER_UPDATE',
+      description: `Memperbarui data guru: ${teacher.name} (${teacher.nip})`,
+      module: 'Guru',
+      targetId: teacher.id,
+      targetName: teacher.name,
+      metadata: { nip: teacher.nip, subject: teacher.subject, status: teacher.status }
+    })
+
     return NextResponse.json(teacher, { status: 200 })
   } catch (error: unknown) {
     console.error('Error updating teacher:', error)

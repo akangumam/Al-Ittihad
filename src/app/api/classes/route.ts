@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
 import { authOptions } from '@/libs/auth'
+import { logActivity } from '@/utils/activityLogger'
 
 // GET all classes
 export async function GET(request: NextRequest) {
@@ -115,6 +116,15 @@ export async function POST(request: NextRequest) {
     })
 
     console.log('✅ Class created successfully:', classData)
+
+    await logActivity({
+      activityType: 'CLASS_CREATE',
+      description: `Menambah kelas baru: ${classData.grade}-${classData.className} (${classData.academicYear})`,
+      module: 'Kelas',
+      targetId: classData.id,
+      targetName: `${classData.grade}-${classData.className}`,
+      metadata: { grade: classData.grade, className: classData.className, academicYear: classData.academicYear, capacity: classData.capacity }
+    })
 
     return NextResponse.json(classData, { status: 201 })
   } catch (error: any) {

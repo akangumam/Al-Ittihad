@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 
 import prisma from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth-guard'
+import { logActivity } from '@/utils/activityLogger'
 
 // GET all academic years
 export async function GET() {
@@ -42,6 +43,15 @@ export async function POST(request: NextRequest) {
     }
 
     const year = await prisma.academicYear.create({ data: body })
+
+    await logActivity({
+      activityType: 'ACADEMIC_YEAR_CREATE',
+      description: `Menambah tahun ajaran baru: ${year.name}`,
+      module: 'Tahun Ajaran',
+      targetId: year.id,
+      targetName: year.name,
+      metadata: { name: year.name, semester: year.semester, isActive: year.isActive }
+    })
 
     return NextResponse.json(year, { status: 201 })
   } catch (error: unknown) {

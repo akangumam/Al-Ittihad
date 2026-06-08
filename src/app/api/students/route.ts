@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
 import { authOptions } from '@/libs/auth'
+import { logActivity } from '@/utils/activityLogger'
 
 // GET all students or search by query
 export async function GET(request: NextRequest) {
@@ -98,10 +99,19 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    await logActivity({
+      activityType: 'STUDENT_CREATE',
+      description: `Menambah data siswa baru: ${student.name} (${student.nisn})`,
+      module: 'Siswa',
+      targetId: student.id,
+      targetName: student.name,
+      metadata: { nis: student.nis, nisn: student.nisn, grade: student.grade, class: student.class }
+    })
+
     return NextResponse.json(student, { status: 201 })
   } catch (error: any) {
     console.error('Error creating student:', error)
-    
-return NextResponse.json({ error: 'Failed to create student', details: error.message }, { status: 500 })
+
+    return NextResponse.json({ error: 'Failed to create student', details: error.message }, { status: 500 })
   }
 }

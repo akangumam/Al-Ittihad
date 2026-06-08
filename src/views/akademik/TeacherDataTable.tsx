@@ -141,9 +141,10 @@ const TeacherDataTable = () => {
       setIsLoading(true)
       const data = await teacherAPI.getAll()
 
-      setTeachers(data)
+      setTeachers(Array.isArray(data) ? data : [])
     } catch (error: any) {
       console.error('Error fetching teachers:', error)
+      toast.error('Gagal memuat data guru. Silakan coba lagi.')
     } finally {
       setIsLoading(false)
     }

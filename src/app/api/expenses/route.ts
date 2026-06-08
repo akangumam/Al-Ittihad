@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth'
 
 import prisma from '@/lib/prisma'
 import { authOptions } from '@/libs/auth'
+import { logActivity } from '@/utils/activityLogger'
 
 // GET all expenses
 export async function GET(request: NextRequest) {
@@ -122,6 +123,15 @@ export async function POST(request: NextRequest) {
       }
 
       return expense
+    })
+
+    await logActivity({
+      activityType: 'EXPENSE_CREATE',
+      description: `Menambah data pengeluaran: ${result.description || result.referenceNo} - Rp ${amount.toLocaleString('id-ID')}`,
+      module: 'Pengeluaran',
+      targetId: result.id,
+      targetName: result.description || result.referenceNo,
+      metadata: { referenceNo: result.referenceNo, amount: result.amount, category: result.category }
     })
 
     return NextResponse.json(result, { status: 201 })

@@ -1,36 +1,60 @@
 // ==================== ACTIVITY LOG TYPES ====================
 
 export type ActivityType =
-  | 'user_login'
-  | 'user_logout'
-  | 'user_login_failed'
-  | 'student_created'
-  | 'student_updated'
-  | 'student_deleted'
-  | 'income_created'
-  | 'income_updated'
-  | 'income_deleted'
-  | 'expense_created'
-  | 'expense_updated'
-  | 'expense_deleted'
-  | 'spp_payment_created'
-  | 'class_created'
-  | 'class_updated'
-  | 'class_deleted'
-  | 'academic_year_created'
-  | 'academic_year_updated'
+  // Auth
+  | 'USER_LOGIN'
+  | 'USER_LOGOUT'
+  | 'USER_LOGIN_FAILED'
+  // Teacher
+  | 'TEACHER_CREATE'
+  | 'TEACHER_UPDATE'
+  | 'TEACHER_DELETE'
+  // Student
+  | 'STUDENT_CREATE'
+  | 'STUDENT_UPDATE'
+  | 'STUDENT_DELETE'
+  // Class
+  | 'CLASS_CREATE'
+  | 'CLASS_UPDATE'
+  | 'CLASS_DELETE'
+  // Academic Year
+  | 'ACADEMIC_YEAR_CREATE'
+  | 'ACADEMIC_YEAR_UPDATE'
+  | 'ACADEMIC_YEAR_DELETE'
+  // Teaching Schedule
+  | 'TEACHING_SCHEDULE_CREATE'
+  | 'TEACHING_SCHEDULE_UPDATE'
+  | 'TEACHING_SCHEDULE_DELETE'
+  // Income
+  | 'INCOME_CREATE'
+  | 'INCOME_DELETE'
+  // Expense
+  | 'EXPENSE_CREATE'
+  | 'EXPENSE_DELETE'
+  // SPP Payment
+  | 'SPP_PAYMENT_CREATE'
+  | 'SPP_PAYMENT_UPDATE'
+  | 'SPP_PAYMENT_DELETE'
+  // System User
+  | 'SYSTEM_USER_CREATE'
+  | 'SYSTEM_USER_UPDATE'
+  | 'SYSTEM_USER_DELETE'
+  | 'SYSTEM_USER_RESET_PASSWORD'
   | 'other'
 
 export type ActivityLogType = {
   id: string
-  timestamp: string // ISO string format
-  userId: string | null // null for login attempts
+  timestamp: string
+  userId: string | null
   username: string | null
   activityType: ActivityType
   description: string
-  ipAddress?: string
-  userAgent?: string
-  metadata?: Record<string, any> // Additional data
+  metadata?: {
+    module?: string
+    targetId?: string
+    targetName?: string
+    [key: string]: any
+  }
   status: 'success' | 'failed'
 }
 

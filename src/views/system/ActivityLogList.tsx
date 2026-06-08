@@ -156,46 +156,94 @@ const ActivityLogList = () => {
 
   const getActivityTypeColor = (type: string) => {
     const colorMap: Record<string, 'primary' | 'success' | 'warning' | 'error' | 'info' | 'secondary'> = {
-      user_login: 'success',
-      user_logout: 'warning',
-      user_login_failed: 'error',
-      income_created: 'success',
-      income_updated: 'primary',
-      income_deleted: 'error',
-      expense_created: 'warning',
-      expense_updated: 'primary',
-      expense_deleted: 'error',
-      spp_payment_created: 'success',
-      spp_payment_updated: 'primary',
-      spp_payment_deleted: 'error',
-      student_created: 'info',
-      student_updated: 'primary',
-      student_deleted: 'error'
+      // Auth
+      USER_LOGIN: 'success',
+      USER_LOGOUT: 'warning',
+      USER_LOGIN_FAILED: 'error',
+      // Teacher
+      TEACHER_CREATE: 'info',
+      TEACHER_UPDATE: 'primary',
+      TEACHER_DELETE: 'error',
+      // Student
+      STUDENT_CREATE: 'info',
+      STUDENT_UPDATE: 'primary',
+      STUDENT_DELETE: 'error',
+      // Class
+      CLASS_CREATE: 'info',
+      CLASS_UPDATE: 'primary',
+      CLASS_DELETE: 'error',
+      // Academic Year
+      ACADEMIC_YEAR_CREATE: 'info',
+      ACADEMIC_YEAR_UPDATE: 'primary',
+      ACADEMIC_YEAR_DELETE: 'error',
+      // Teaching Schedule
+      TEACHING_SCHEDULE_CREATE: 'info',
+      TEACHING_SCHEDULE_UPDATE: 'primary',
+      TEACHING_SCHEDULE_DELETE: 'error',
+      // Income
+      INCOME_CREATE: 'success',
+      INCOME_DELETE: 'error',
+      // Expense
+      EXPENSE_CREATE: 'warning',
+      EXPENSE_DELETE: 'error',
+      // SPP
+      SPP_PAYMENT_CREATE: 'success',
+      SPP_PAYMENT_UPDATE: 'primary',
+      SPP_PAYMENT_DELETE: 'error',
+      // System User
+      SYSTEM_USER_CREATE: 'info',
+      SYSTEM_USER_UPDATE: 'primary',
+      SYSTEM_USER_DELETE: 'error',
+      SYSTEM_USER_RESET_PASSWORD: 'warning'
     }
 
-    return colorMap[type] || 'secondary'
+    return colorMap[type] || colorMap[type.toUpperCase()] || 'secondary'
   }
 
   const getActivityTypeLabel = (type: string) => {
     const labelMap: Record<string, string> = {
-      user_login: 'Login',
-      user_logout: 'Logout',
-      user_login_failed: 'Login Gagal',
-      income_created: 'Pemasukan Dibuat',
-      income_updated: 'Pemasukan Diubah',
-      income_deleted: 'Pemasukan Dihapus',
-      expense_created: 'Pengeluaran Dibuat',
-      expense_updated: 'Pengeluaran Diubah',
-      expense_deleted: 'Pengeluaran Dihapus',
-      spp_payment_created: 'Pembayaran SPP Dibuat',
-      spp_payment_updated: 'Pembayaran SPP Diubah',
-      spp_payment_deleted: 'Pembayaran SPP Dibatalkan',
-      student_created: 'Siswa Dibuat',
-      student_updated: 'Siswa Diubah',
-      student_deleted: 'Siswa Dihapus'
+      // Auth
+      USER_LOGIN: 'Login',
+      USER_LOGOUT: 'Logout',
+      USER_LOGIN_FAILED: 'Login Gagal',
+      // Teacher
+      TEACHER_CREATE: 'Guru Ditambah',
+      TEACHER_UPDATE: 'Guru Diperbarui',
+      TEACHER_DELETE: 'Guru Dihapus',
+      // Student
+      STUDENT_CREATE: 'Siswa Ditambah',
+      STUDENT_UPDATE: 'Siswa Diperbarui',
+      STUDENT_DELETE: 'Siswa Dihapus',
+      // Class
+      CLASS_CREATE: 'Kelas Ditambah',
+      CLASS_UPDATE: 'Kelas Diperbarui',
+      CLASS_DELETE: 'Kelas Dihapus',
+      // Academic Year
+      ACADEMIC_YEAR_CREATE: 'Tahun Ajaran Ditambah',
+      ACADEMIC_YEAR_UPDATE: 'Tahun Ajaran Diperbarui',
+      ACADEMIC_YEAR_DELETE: 'Tahun Ajaran Dihapus',
+      // Teaching Schedule
+      TEACHING_SCHEDULE_CREATE: 'Jadwal Ditambah',
+      TEACHING_SCHEDULE_UPDATE: 'Jadwal Diperbarui',
+      TEACHING_SCHEDULE_DELETE: 'Jadwal Dihapus',
+      // Income
+      INCOME_CREATE: 'Pemasukan Ditambah',
+      INCOME_DELETE: 'Pemasukan Dihapus',
+      // Expense
+      EXPENSE_CREATE: 'Pengeluaran Ditambah',
+      EXPENSE_DELETE: 'Pengeluaran Dihapus',
+      // SPP
+      SPP_PAYMENT_CREATE: 'Pembayaran SPP Ditambah',
+      SPP_PAYMENT_UPDATE: 'Pembayaran SPP Diperbarui',
+      SPP_PAYMENT_DELETE: 'Pembayaran SPP Dihapus',
+      // System User
+      SYSTEM_USER_CREATE: 'Pengguna Ditambah',
+      SYSTEM_USER_UPDATE: 'Pengguna Diperbarui',
+      SYSTEM_USER_DELETE: 'Pengguna Dihapus',
+      SYSTEM_USER_RESET_PASSWORD: 'Reset Password'
     }
 
-    return labelMap[type] || type
+    return labelMap[type] || labelMap[type.toUpperCase()] || type
   }
 
   const columns = useMemo<ColumnDef<ActivityLog, any>[]>(
@@ -316,14 +364,29 @@ const ActivityLogList = () => {
                 label='Tipe Aktivitas'
               >
                 <MenuItem value=''>Semua</MenuItem>
-                <MenuItem value='spp_payment_created'>Pembayaran SPP Dibuat</MenuItem>
-                <MenuItem value='spp_payment_updated'>Pembayaran SPP Diubah</MenuItem>
-                <MenuItem value='spp_payment_deleted'>Pembayaran SPP Dibatalkan</MenuItem>
-                <MenuItem value='income_created'>Pemasukan Dibuat</MenuItem>
-                <MenuItem value='income_updated'>Pemasukan Diubah</MenuItem>
-                <MenuItem value='income_deleted'>Pemasukan Dihapus</MenuItem>
-                <MenuItem value='user_login'>Login</MenuItem>
-                <MenuItem value='user_logout'>Logout</MenuItem>
+                <MenuItem disabled sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>— Auth —</MenuItem>
+                <MenuItem value='USER_LOGIN'>Login</MenuItem>
+                <MenuItem value='USER_LOGOUT'>Logout</MenuItem>
+                <MenuItem value='USER_LOGIN_FAILED'>Login Gagal</MenuItem>
+                <MenuItem disabled sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>— Guru —</MenuItem>
+                <MenuItem value='TEACHER_CREATE'>Guru Ditambah</MenuItem>
+                <MenuItem value='TEACHER_UPDATE'>Guru Diperbarui</MenuItem>
+                <MenuItem value='TEACHER_DELETE'>Guru Dihapus</MenuItem>
+                <MenuItem disabled sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>— Siswa —</MenuItem>
+                <MenuItem value='STUDENT_CREATE'>Siswa Ditambah</MenuItem>
+                <MenuItem value='STUDENT_UPDATE'>Siswa Diperbarui</MenuItem>
+                <MenuItem value='STUDENT_DELETE'>Siswa Dihapus</MenuItem>
+                <MenuItem disabled sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>— Kelas —</MenuItem>
+                <MenuItem value='CLASS_CREATE'>Kelas Ditambah</MenuItem>
+                <MenuItem value='CLASS_UPDATE'>Kelas Diperbarui</MenuItem>
+                <MenuItem value='CLASS_DELETE'>Kelas Dihapus</MenuItem>
+                <MenuItem disabled sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>— Keuangan —</MenuItem>
+                <MenuItem value='INCOME_CREATE'>Pemasukan Ditambah</MenuItem>
+                <MenuItem value='INCOME_DELETE'>Pemasukan Dihapus</MenuItem>
+                <MenuItem value='EXPENSE_CREATE'>Pengeluaran Ditambah</MenuItem>
+                <MenuItem value='EXPENSE_DELETE'>Pengeluaran Dihapus</MenuItem>
+                <MenuItem value='SPP_PAYMENT_CREATE'>Pembayaran SPP Ditambah</MenuItem>
+                <MenuItem value='SPP_PAYMENT_DELETE'>Pembayaran SPP Dihapus</MenuItem>
               </Select>
             </FormControl>
             <FormControl size='small' sx={{ minWidth: 150 }}>
@@ -477,26 +540,46 @@ const ActivityLogList = () => {
                   size='small'
                 />
               </div>
-              {selectedLog.metadata && (
-                <div>
-                  <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
-                    Metadata
-                  </Typography>
-                  <Box
-                    sx={{
-                      bgcolor: 'action.hover',
-                      p: 2,
-                      borderRadius: 1,
-                      fontFamily: 'monospace',
-                      fontSize: '0.875rem',
-                      overflow: 'auto',
-                      maxHeight: 300
-                    }}
-                  >
-                    <pre>{JSON.stringify(selectedLog.metadata, null, 2)}</pre>
-                  </Box>
-                </div>
-              )}
+              {selectedLog.metadata && (() => {
+                const meta = typeof selectedLog.metadata === 'string'
+                  ? JSON.parse(selectedLog.metadata)
+                  : selectedLog.metadata
+                const { module: mod, targetId, targetName, ...rest } = meta || {}
+                return (
+                  <>
+                    {mod && (
+                      <div>
+                        <Typography variant='body2' color='text.secondary'>Modul</Typography>
+                        <Typography variant='body1'>{mod}</Typography>
+                      </div>
+                    )}
+                    {targetName && (
+                      <div>
+                        <Typography variant='body2' color='text.secondary'>Data</Typography>
+                        <Typography variant='body1'>{targetName}</Typography>
+                      </div>
+                    )}
+                    {Object.keys(rest).length > 0 && (
+                      <div>
+                        <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>Detail</Typography>
+                        <Box
+                          sx={{
+                            bgcolor: 'action.hover',
+                            p: 2,
+                            borderRadius: 1,
+                            fontFamily: 'monospace',
+                            fontSize: '0.875rem',
+                            overflow: 'auto',
+                            maxHeight: 300
+                          }}
+                        >
+                          <pre>{JSON.stringify(rest, null, 2)}</pre>
+                        </Box>
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </Stack>
           )}
         </DialogContent>

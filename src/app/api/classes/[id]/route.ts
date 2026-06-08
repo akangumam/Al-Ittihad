@@ -53,6 +53,15 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
 
     const classData = await prisma.class.update({ where: { id }, data: updateData })
 
+    await logActivity({
+      activityType: 'CLASS_UPDATE',
+      description: `Memperbarui kelas: ${classData.grade}-${classData.className} (${classData.academicYear})`,
+      module: 'Kelas',
+      targetId: classData.id,
+      targetName: `${classData.grade}-${classData.className}`,
+      metadata: { grade: classData.grade, className: classData.className, academicYear: classData.academicYear }
+    })
+
     return NextResponse.json(classData, { status: 200 })
   } catch (error: unknown) {
     console.error('Error updating class:', error)

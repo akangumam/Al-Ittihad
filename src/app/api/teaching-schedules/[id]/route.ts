@@ -16,6 +16,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const updatedSchedule = await prisma.teachingSchedule.update({ where: { id }, data: body })
 
+    await logActivity({
+      activityType: 'TEACHING_SCHEDULE_UPDATE',
+      description: `Memperbarui jadwal mengajar: ${updatedSchedule.subject} - ${updatedSchedule.teacherName} (${updatedSchedule.day})`,
+      module: 'Jadwal Mengajar',
+      targetId: updatedSchedule.id,
+      targetName: `${updatedSchedule.subject} - ${updatedSchedule.teacherName}`,
+      metadata: { teacherId: updatedSchedule.teacherId, day: updatedSchedule.day, grade: updatedSchedule.grade }
+    })
+
     return NextResponse.json(updatedSchedule, { status: 200 })
   } catch (error: unknown) {
     console.error('Error updating teaching schedule:', error)

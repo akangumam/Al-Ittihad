@@ -83,6 +83,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     })
 
+    await logActivity({
+      activityType: 'STUDENT_UPDATE',
+      description: `Memperbarui data siswa: ${student.name} (${student.nisn})`,
+      module: 'Siswa',
+      targetId: student.id,
+      targetName: student.name,
+      metadata: { nis: student.nis, nisn: student.nisn, grade: student.grade, class: student.class, status: student.status }
+    })
+
     return NextResponse.json(student, { status: 200 })
   } catch (error: unknown) {
     console.error('Error updating student:', error)
