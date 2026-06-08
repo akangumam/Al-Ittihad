@@ -2,17 +2,14 @@
 // This file is required by cPanel's "Setup Node.js App" (Phusion Passenger)
 const { createServer } = require('http')
 const { parse } = require('url')
-
 const path = require('path')
-
 const next = require('next')
-
-// Load environment variables from .env.production
 const dotenv = require('dotenv')
 
-dotenv.config({ path: path.join(__dirname, '.env.production') })
+// Load .env dari root folder aplikasi
+dotenv.config({ path: path.join(__dirname, '.env') })
 
-const dev = false // Always production on server
+const dev = false // selalu production di server
 const hostname = '0.0.0.0'
 const port = parseInt(process.env.PORT || '3000', 10)
 

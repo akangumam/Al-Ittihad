@@ -20,7 +20,8 @@
     "removeI18n": "tsx src/remove-translation-scripts/index.ts",
     "test-email": "dotenv -e .env -- tsx scripts/test-email.ts",
     "clean": "rm -rf .next",
-    "clear": "rm -rf node_modules .next"
+    "clear": "rm -rf node_modules .next",
+    "deploy:prepare": "powershell -ExecutionPolicy Bypass -File scripts/prepare-deploy.ps1"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.11.1",
