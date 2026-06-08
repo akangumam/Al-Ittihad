@@ -154,25 +154,37 @@ const ActivityLogTable = () => {
 
   const getActivityTypeColor = (type: ActivityType) => {
     const colorMap: Record<string, 'primary' | 'success' | 'warning' | 'error' | 'info' | 'secondary'> = {
-      user_login: 'success',
-      user_logout: 'warning',
-      user_login_failed: 'error',
-      student_created: 'info',
-      student_updated: 'primary',
-      student_deleted: 'error',
-      income_created: 'success',
-      income_updated: 'primary',
-      income_deleted: 'error',
-      expense_created: 'warning',
-      expense_updated: 'primary',
-      expense_deleted: 'error',
-      spp_payment_created: 'success',
-      class_created: 'info',
-      class_updated: 'primary',
-      class_deleted: 'error',
-      academic_year_created: 'info',
-      academic_year_updated: 'primary',
-      other: 'secondary'
+      USER_LOGIN: 'success',
+      USER_LOGOUT: 'warning',
+      USER_LOGIN_FAILED: 'error',
+      TEACHER_CREATE: 'info',
+      TEACHER_UPDATE: 'primary',
+      TEACHER_DELETE: 'error',
+      STUDENT_CREATE: 'info',
+      STUDENT_UPDATE: 'primary',
+      STUDENT_DELETE: 'error',
+      CLASS_CREATE: 'info',
+      CLASS_UPDATE: 'primary',
+      CLASS_DELETE: 'error',
+      ACADEMIC_YEAR_CREATE: 'info',
+      ACADEMIC_YEAR_UPDATE: 'primary',
+      ACADEMIC_YEAR_DELETE: 'error',
+      TEACHING_SCHEDULE_CREATE: 'info',
+      TEACHING_SCHEDULE_UPDATE: 'primary',
+      TEACHING_SCHEDULE_DELETE: 'error',
+      INCOME_CREATE: 'success',
+      INCOME_UPDATE: 'primary',
+      INCOME_DELETE: 'error',
+      EXPENSE_CREATE: 'warning',
+      EXPENSE_UPDATE: 'primary',
+      EXPENSE_DELETE: 'error',
+      SPP_PAYMENT_CREATE: 'success',
+      SPP_PAYMENT_UPDATE: 'primary',
+      SPP_PAYMENT_DELETE: 'error',
+      SYSTEM_USER_CREATE: 'info',
+      SYSTEM_USER_UPDATE: 'primary',
+      SYSTEM_USER_DELETE: 'error',
+      SYSTEM_USER_RESET_PASSWORD: 'warning'
     }
 
     return colorMap[type] || 'secondary'
@@ -180,25 +192,37 @@ const ActivityLogTable = () => {
 
   const getActivityTypeLabel = (type: ActivityType) => {
     const labelMap: Record<string, string> = {
-      user_login: 'Login',
-      user_logout: 'Logout',
-      user_login_failed: 'Login Gagal',
-      student_created: 'Siswa Dibuat',
-      student_updated: 'Siswa Diubah',
-      student_deleted: 'Siswa Dihapus',
-      income_created: 'Pemasukan Dibuat',
-      income_updated: 'Pemasukan Diubah',
-      income_deleted: 'Pemasukan Dihapus',
-      expense_created: 'Pengeluaran Dibuat',
-      expense_updated: 'Pengeluaran Diubah',
-      expense_deleted: 'Pengeluaran Dihapus',
-      spp_payment_created: 'Pembayaran SPP',
-      class_created: 'Kelas Dibuat',
-      class_updated: 'Kelas Diubah',
-      class_deleted: 'Kelas Dihapus',
-      academic_year_created: 'Tahun Ajaran Dibuat',
-      academic_year_updated: 'Tahun Ajaran Diubah',
-      other: 'Lainnya'
+      USER_LOGIN: 'Login',
+      USER_LOGOUT: 'Logout',
+      USER_LOGIN_FAILED: 'Login Gagal',
+      TEACHER_CREATE: 'Guru Dibuat',
+      TEACHER_UPDATE: 'Guru Diubah',
+      TEACHER_DELETE: 'Guru Dihapus',
+      STUDENT_CREATE: 'Siswa Dibuat',
+      STUDENT_UPDATE: 'Siswa Diubah',
+      STUDENT_DELETE: 'Siswa Dihapus',
+      CLASS_CREATE: 'Kelas Dibuat',
+      CLASS_UPDATE: 'Kelas Diubah',
+      CLASS_DELETE: 'Kelas Dihapus',
+      ACADEMIC_YEAR_CREATE: 'Tahun Ajaran Dibuat',
+      ACADEMIC_YEAR_UPDATE: 'Tahun Ajaran Diubah',
+      ACADEMIC_YEAR_DELETE: 'Tahun Ajaran Dihapus',
+      TEACHING_SCHEDULE_CREATE: 'Jadwal Dibuat',
+      TEACHING_SCHEDULE_UPDATE: 'Jadwal Diubah',
+      TEACHING_SCHEDULE_DELETE: 'Jadwal Dihapus',
+      INCOME_CREATE: 'Pemasukan Dibuat',
+      INCOME_UPDATE: 'Pemasukan Diubah',
+      INCOME_DELETE: 'Pemasukan Dihapus',
+      EXPENSE_CREATE: 'Pengeluaran Dibuat',
+      EXPENSE_UPDATE: 'Pengeluaran Diubah',
+      EXPENSE_DELETE: 'Pengeluaran Dihapus',
+      SPP_PAYMENT_CREATE: 'Pembayaran SPP',
+      SPP_PAYMENT_UPDATE: 'SPP Diubah',
+      SPP_PAYMENT_DELETE: 'SPP Dihapus',
+      SYSTEM_USER_CREATE: 'User Dibuat',
+      SYSTEM_USER_UPDATE: 'User Diubah',
+      SYSTEM_USER_DELETE: 'User Dihapus',
+      SYSTEM_USER_RESET_PASSWORD: 'Reset Password'
     }
 
     return labelMap[type] || type
@@ -436,14 +460,29 @@ const ActivityLogTable = () => {
                 label='Tipe Aktivitas'
               >
                 <MenuItem value=''>Semua</MenuItem>
-                <MenuItem value='user_login'>Login</MenuItem>
-                <MenuItem value='user_logout'>Logout</MenuItem>
-                <MenuItem value='user_login_failed'>Login Gagal</MenuItem>
-                <MenuItem value='student_created'>Siswa Dibuat</MenuItem>
-                <MenuItem value='student_updated'>Siswa Diubah</MenuItem>
-                <MenuItem value='income_created'>Pemasukan Dibuat</MenuItem>
-                <MenuItem value='expense_created'>Pengeluaran Dibuat</MenuItem>
-                <MenuItem value='spp_payment_created'>Pembayaran SPP</MenuItem>
+                <MenuItem value='USER_LOGIN'>Login</MenuItem>
+                <MenuItem value='USER_LOGOUT'>Logout</MenuItem>
+                <MenuItem value='USER_LOGIN_FAILED'>Login Gagal</MenuItem>
+                <MenuItem value='TEACHER_CREATE'>Guru Dibuat</MenuItem>
+                <MenuItem value='TEACHER_UPDATE'>Guru Diubah</MenuItem>
+                <MenuItem value='TEACHER_DELETE'>Guru Dihapus</MenuItem>
+                <MenuItem value='STUDENT_CREATE'>Siswa Dibuat</MenuItem>
+                <MenuItem value='STUDENT_UPDATE'>Siswa Diubah</MenuItem>
+                <MenuItem value='STUDENT_DELETE'>Siswa Dihapus</MenuItem>
+                <MenuItem value='CLASS_CREATE'>Kelas Dibuat</MenuItem>
+                <MenuItem value='CLASS_UPDATE'>Kelas Diubah</MenuItem>
+                <MenuItem value='CLASS_DELETE'>Kelas Dihapus</MenuItem>
+                <MenuItem value='ACADEMIC_YEAR_CREATE'>Tahun Ajaran Dibuat</MenuItem>
+                <MenuItem value='ACADEMIC_YEAR_UPDATE'>Tahun Ajaran Diubah</MenuItem>
+                <MenuItem value='TEACHING_SCHEDULE_CREATE'>Jadwal Dibuat</MenuItem>
+                <MenuItem value='TEACHING_SCHEDULE_UPDATE'>Jadwal Diubah</MenuItem>
+                <MenuItem value='INCOME_CREATE'>Pemasukan Dibuat</MenuItem>
+                <MenuItem value='INCOME_DELETE'>Pemasukan Dihapus</MenuItem>
+                <MenuItem value='EXPENSE_CREATE'>Pengeluaran Dibuat</MenuItem>
+                <MenuItem value='EXPENSE_DELETE'>Pengeluaran Dihapus</MenuItem>
+                <MenuItem value='SPP_PAYMENT_CREATE'>Pembayaran SPP</MenuItem>
+                <MenuItem value='SYSTEM_USER_CREATE'>User Dibuat</MenuItem>
+                <MenuItem value='SYSTEM_USER_RESET_PASSWORD'>Reset Password</MenuItem>
               </Select>
             </FormControl>
           </Grid>

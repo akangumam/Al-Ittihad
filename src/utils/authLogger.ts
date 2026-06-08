@@ -51,7 +51,7 @@ export const logLoginAttempt = async (
 ) => {
   if (success) {
     await logActivity(
-      'user_login',
+      'USER_LOGIN',
       `User "${username}" berhasil login ke sistem`,
       {
         username,
@@ -63,7 +63,7 @@ export const logLoginAttempt = async (
     )
   } else {
     await logActivity(
-      'user_login_failed',
+      'USER_LOGIN_FAILED',
       `Percobaan login gagal untuk username: "${username}"`,
       {
         username,
@@ -96,7 +96,7 @@ export const logLogout = async (
   const userId = sessionUser?.id || null
 
   logActivity(
-    'user_logout',
+    'USER_LOGOUT',
     `User "${username}" logout dari sistem`,
     {
       userId,
