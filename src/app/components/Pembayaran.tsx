@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { Search, Check, ChevronDown, X, MessageCircle, Printer } from "lucide-react";
 import { fmt, fmtNum } from "@/lib/formatters";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 
 // ─── static data ─────────────────────────────────────────────────────────────
 
@@ -153,6 +158,138 @@ function FloatingSelect({
         className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none"
       />
     </div>
+  );
+}
+
+// ─── receipt dialog ───────────────────────────────────────────────────────────
+
+interface ReceiptDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  student: { nama: string; nis: string; kelas: string; wali: string; telp: string };
+  nominal: number;
+  tanggal: string;
+  metode: string;
+  nomorKuitansi: string;
+  alokasi: Array<{ kategori: string; alloc: number; lunas: boolean }>;
+}
+
+function ReceiptDialog({
+  open, onOpenChange, student, nominal, tanggal, metode, nomorKuitansi, alokasi,
+}: ReceiptDialogProps) {
+  const waNumber = student.telp.replace(/\D/g, "").replace(/^0/, "62");
+  const waLines = [
+    `Assalamu'alaikum Bapak/Ibu ${student.wali},`,
+    ``,
+    `Berikut kuitansi pembayaran TA 2025/2026:`,
+    ``,
+    `No. Kuitansi : ${nomorKuitansi}`,
+    `Siswa        : ${student.nama} (Kelas ${student.kelas})`,
+    `Nominal      : ${fmt(nominal)}`,
+    `Tanggal      : ${tanggal}`,
+    `Metode       : ${metode}`,
+    ``,
+    `Rincian Alokasi:`,
+    ...alokasi
+      .filter((a) => a.alloc > 0)
+      .map((a) => `• ${a.kategori}: ${fmt(a.alloc)}${a.lunas ? " (LUNAS)" : ""}`),
+    ``,
+    `Terima kasih atas kepercayaan Bapak/Ibu.`,
+    `MTs Al-Ittihad Pedaleman`,
+  ];
+  const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(waLines.join("\n"))}`;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[460px] p-8">
+        <DialogTitle className="sr-only">Pembayaran Tercatat</DialogTitle>
+
+        <div className="flex flex-col items-center text-center">
+          {/* Green check */}
+          <div className="w-16 h-16 rounded-full bg-[#DCFCE7] flex items-center justify-center mb-5">
+            <Check size={30} className="text-[#3E8A2F]" />
+          </div>
+
+          <p className="font-bold text-[#1C2517] mb-1" style={{ fontSize: "1.125rem" }}>
+            Pembayaran Tercatat
+          </p>
+          <p className="text-xs text-[#9CA3A0] mb-6">
+            No. Kuitansi{" "}
+            <span className="font-mono font-semibold text-[#374040]">{nomorKuitansi}</span>
+          </p>
+
+          {/* Summary block */}
+          <div
+            className="w-full rounded-xl p-4 mb-5 text-left space-y-2.5"
+            style={{ background: "#F5F9F4" }}
+          >
+            <div className="flex justify-between text-sm">
+              <span className="text-[#6B7769]">Siswa</span>
+              <span className="font-semibold text-[#1C2517]">{student.nama}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#6B7769]">Nominal</span>
+              <span className="font-bold text-[#3E8A2F] tabular-nums">{fmt(nominal)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#6B7769]">Tanggal</span>
+              <span className="font-semibold text-[#1C2517]">{tanggal}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-[#6B7769]">Metode</span>
+              <span className="font-semibold text-[#1C2517]">{metode}</span>
+            </div>
+          </div>
+
+          {/* Allocation recap */}
+          <div className="w-full mb-6 text-left">
+            <p className="text-[10px] font-medium text-[#9CA3A0] uppercase tracking-wide mb-2">
+              Alokasi Pembayaran
+            </p>
+            {alokasi.filter((a) => a.alloc > 0).map((item, i) => (
+              <div
+                key={i}
+                className="flex justify-between text-sm py-2"
+                style={{ borderBottom: "1px solid #F0F7EE" }}
+              >
+                <span className="text-[#374040]">{item.kategori}</span>
+                <span className="tabular-nums text-[#374040]">{fmt(item.alloc)}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Buttons */}
+          <div className="w-full space-y-2.5">
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="w-full py-3 rounded-lg bg-[#3E8A2F] text-white font-semibold text-sm hover:bg-[#2E6B22] transition-colors flex items-center justify-center gap-2"
+            >
+              <MessageCircle size={15} />
+              Kirim Kuitansi via WA
+            </a>
+            <button
+              className="w-full py-3 rounded-lg text-sm font-semibold text-[#374040] hover:bg-[#FAFBF9] transition-colors flex items-center justify-center gap-2"
+              style={{ border: "1px solid #E2E8DE" }}
+            >
+              <Printer size={15} />
+              Cetak Kuitansi
+            </button>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="w-full py-3 rounded-lg text-sm font-semibold text-[#6B7769] hover:text-[#374040] transition-colors"
+            >
+              Transaksi Berikutnya
+            </button>
+          </div>
+
+          <p className="text-xs text-[#9CA3A0] mt-4">
+            Dikirim ke {student.wali} — {student.telp}
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -562,97 +699,18 @@ export function Pembayaran() {
         </div>
       </div>
 
-      {/* ── Success dialog ── */}
-      {showSuccess && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-50" />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl p-8 w-full max-w-[460px] flex flex-col items-center text-center">
-              {/* Green check */}
-              <div className="w-16 h-16 rounded-full bg-[#DCFCE7] flex items-center justify-center mb-5">
-                <Check size={30} className="text-[#3E8A2F]" />
-              </div>
+      {/* ── Receipt dialog ── */}
+      <ReceiptDialog
+        open={showSuccess}
+        onOpenChange={setShowSuccess}
+        student={student}
+        nominal={nominal}
+        tanggal={tanggal}
+        metode={metode}
+        nomorKuitansi="KW/2026/07/0143"
+        alokasi={alokasi}
+      />
 
-              {/* Heading */}
-              <p className="font-bold text-[#1C2517] mb-1" style={{ fontSize: "1.125rem" }}>
-                Pembayaran Tercatat
-              </p>
-              <p className="text-xs text-[#9CA3A0] mb-6">
-                No. Kuitansi{" "}
-                <span className="font-mono font-semibold text-[#374040]">
-                  KW/2026/07/0143
-                </span>
-              </p>
-
-              {/* Summary block */}
-              <div
-                className="w-full rounded-xl p-4 mb-5 text-left space-y-2.5"
-                style={{ background: "#F5F9F4" }}
-              >
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#6B7769]">Siswa</span>
-                  <span className="font-semibold text-[#1C2517]">{student.nama}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#6B7769]">Nominal</span>
-                  <span className="font-bold text-[#3E8A2F] tabular-nums">{fmt(nominal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#6B7769]">Tanggal</span>
-                  <span className="font-semibold text-[#1C2517]">{tanggal}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-[#6B7769]">Metode</span>
-                  <span className="font-semibold text-[#1C2517]">{metode}</span>
-                </div>
-              </div>
-
-              {/* Allocation recap */}
-              <div className="w-full mb-6 text-left">
-                <p className="text-[10px] font-medium text-[#9CA3A0] uppercase tracking-wide mb-2">
-                  Alokasi Pembayaran
-                </p>
-                {alokasi.filter((a) => a.alloc > 0).map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex justify-between text-sm py-2"
-                    style={{ borderBottom: "1px solid #F0F7EE" }}
-                  >
-                    <span className="text-[#374040]">{item.kategori}</span>
-                    <span className="tabular-nums text-[#374040]">{fmt(item.alloc)}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Buttons */}
-              <div className="w-full space-y-2.5">
-                <button className="w-full py-3 rounded-lg bg-[#3E8A2F] text-white font-semibold text-sm hover:bg-[#2E6B22] transition-colors flex items-center justify-center gap-2">
-                  <MessageCircle size={15} />
-                  Kirim Kuitansi via WA
-                </button>
-                <button
-                  className="w-full py-3 rounded-lg text-sm font-semibold text-[#374040] hover:bg-[#FAFBF9] transition-colors flex items-center justify-center gap-2"
-                  style={{ border: "1px solid #E2E8DE" }}
-                >
-                  <Printer size={15} />
-                  Cetak Kuitansi
-                </button>
-                <button
-                  onClick={() => setShowSuccess(false)}
-                  className="w-full py-3 rounded-lg text-sm font-semibold text-[#6B7769] hover:text-[#374040] transition-colors"
-                >
-                  Transaksi Berikutnya
-                </button>
-              </div>
-
-              {/* Caption */}
-              <p className="text-xs text-[#9CA3A0] mt-4">
-                Dikirim ke {student.wali} — {student.telp}
-              </p>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
