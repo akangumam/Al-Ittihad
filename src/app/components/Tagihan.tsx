@@ -1,7 +1,18 @@
 import { useState, useRef, useId } from "react";
+import { useParams, useNavigate } from "react-router";
 import { Plus, Search, ChevronDown, AlertTriangle, Check, X, Trash2 } from "lucide-react";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove, SortableContext, sortableKeyboardCoordinates,
+  useSortable, verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { fmt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
+import { DataTable, Th } from "@/app/components/shared/DataTable";
 
 // ─── data ─────────────────────────────────────────────────────────────────────
 
@@ -271,29 +282,43 @@ function KomponenRow({
   onDelete: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: row.id });
 
   return (
     <div
+      ref={setNodeRef}
       className="flex items-center gap-2 px-3 py-2 rounded-lg"
       style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
         border: "1px solid #E2E8DE",
-        background: hovered ? "#F5FBF4" : "#FAFBF9",
-        transition: "background 0.12s",
+        background: isDragging ? "#EDF7EC" : hovered ? "#F5FBF4" : "#FAFBF9",
+        zIndex: isDragging ? 10 : undefined,
+        position: "relative",
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* Grip + priority */}
+      {/* Grip + priority — drag handle */}
       <div
-        className="flex items-center gap-1.5 shrink-0"
-        style={{ width: 44, cursor: "grab" }}
+        className="flex items-center gap-1.5 shrink-0 touch-none select-none"
+        style={{ width: 44, cursor: isDragging ? "grabbing" : "grab" }}
+        {...attributes}
+        {...listeners}
       >
-        {/* 24×24 hit-area wrapper around the 6-dot icon */}
         <div
           className="flex items-center justify-center shrink-0"
           style={{ width: 24, height: 24 }}
         >
-          <GripDots darkened={hovered} />
+          <GripDots darkened={hovered || isDragging} />
         </div>
         <span
           className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white shrink-0"
@@ -379,6 +404,11 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
   const [komponen, setKomponen]         = useState<KRow[]>(PPDB_DEFAULTS);
   const nextId = useRef(PPDB_DEFAULTS.length + 1);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   const total = komponen.reduce((sum, k) => sum + k.nominal, 0);
 
   const updateKomponen = (id: number, field: keyof KRow, value: string | number) =>
@@ -392,6 +422,17 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
       ...prev,
       { id: nextId.current++, nama: "", nominal: 0, keterangan: "" },
     ]);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setKomponen((prev) => {
+        const oldIndex = prev.findIndex((k) => k.id === active.id);
+        const newIndex = prev.findIndex((k) => k.id === over.id);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    }
   };
 
   return (
@@ -498,17 +539,28 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
               <div />
             </div>
 
-            <div className="space-y-2">
-              {komponen.map((k, i) => (
-                <KomponenRow
-                  key={k.id}
-                  row={k}
-                  index={i}
-                  onUpdate={(field, value) => updateKomponen(k.id, field, value)}
-                  onDelete={() => deleteKomponen(k.id)}
-                />
-              ))}
-            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={komponen.map((k) => k.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {komponen.map((k, i) => (
+                    <KomponenRow
+                      key={k.id}
+                      row={k}
+                      index={i}
+                      onUpdate={(field, value) => updateKomponen(k.id, field, value)}
+                      onDelete={() => deleteKomponen(k.id)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
 
             {/* Add komponen */}
             <button
@@ -613,7 +665,7 @@ function TemplateCard({ t }: { t: Template }) {
 // ─── Template tab ─────────────────────────────────────────────────────────────
 
 function TemplateTab() {
-  const [sheetOpen, setSheetOpen] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   return (
     <>
@@ -771,27 +823,17 @@ function PenetapanTab() {
       {/* Table card */}
       <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <DataTable>
             <thead>
               <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
                 <th className="w-10 pl-6 pr-3 py-3">
                   <Checkbox checked={allChecked} indeterminate={someChecked} onChange={toggleAll} />
                 </th>
-                <th className="text-left text-xs font-medium text-[#9CA3A0] uppercase tracking-wide py-3 pr-4">
-                  Siswa
-                </th>
-                <th className="text-left text-xs font-medium text-[#9CA3A0] uppercase tracking-wide py-3 pr-4">
-                  Template Diterapkan
-                </th>
-                <th className="text-right text-xs font-medium text-[#9CA3A0] uppercase tracking-wide py-3 pr-4">
-                  Total Tagihan
-                </th>
-                <th className="text-left text-xs font-medium text-[#9CA3A0] uppercase tracking-wide py-3 pr-4">
-                  Status Penetapan
-                </th>
-                <th className="text-left text-xs font-medium text-[#9CA3A0] uppercase tracking-wide py-3 pr-6">
-                  Aksi
-                </th>
+                <Th className="pr-4">Siswa</Th>
+                <Th className="pr-4">Template Diterapkan</Th>
+                <Th align="right" className="pr-4">Total Tagihan</Th>
+                <Th className="pr-4">Status Penetapan</Th>
+                <Th className="pr-6">Aksi</Th>
               </tr>
             </thead>
             <tbody>
@@ -881,7 +923,7 @@ function PenetapanTab() {
                 );
               })}
             </tbody>
-          </table>
+          </DataTable>
         </div>
       </div>
     </div>
@@ -893,7 +935,9 @@ function PenetapanTab() {
 type TabType = "template" | "penetapan";
 
 export function Tagihan() {
-  const [activeTab, setActiveTab] = useState<TabType>("template");
+  const { tab } = useParams<{ tab: string }>();
+  const navigate = useNavigate();
+  const activeTab: TabType = tab === "penetapan" ? "penetapan" : "template";
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-5">
@@ -903,21 +947,21 @@ export function Tagihan() {
         <p className="text-sm text-[#6B7769]">Kelola template dan penetapan tagihan siswa</p>
       </div>
 
-      {/* Tab buttons — shadcn Tabs pattern */}
+      {/* Tab buttons — shadcn Tabs pattern, tab stored in URL */}
       <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
-        {(["template", "penetapan"] as const).map((tab) => (
+        {(["template", "penetapan"] as const).map((t) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={t}
+            onClick={() => navigate(`/keuangan/tagihan/${t}`)}
             className={[
               "px-4 py-1.5 rounded-md text-sm font-semibold transition-all",
-              activeTab === tab
+              activeTab === t
                 ? "bg-white text-[#1C2517]"
                 : "text-[#6B7769] hover:text-[#374040]",
             ].join(" ")}
-            style={activeTab === tab ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
+            style={activeTab === t ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
           >
-            {tab === "template" ? "Template" : "Penetapan"}
+            {t === "template" ? "Template" : "Penetapan"}
           </button>
         ))}
       </div>
