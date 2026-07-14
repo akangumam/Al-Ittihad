@@ -19,6 +19,12 @@ export const fmtCompact = (n: number): string => {
   return String(n);
 };
 
+/** Format ke "Rp 85,2 jt" — tampilan kompak untuk saldo/nilai besar */
+export const fmtJt = (n: number): string => {
+  const v = n / 1_000_000;
+  return `Rp ${v.toLocaleString("id-ID", { minimumFractionDigits: 0, maximumFractionDigits: 1 })} jt`;
+};
+
 /** Format tanggal ke "dd/mm/yyyy" */
 export const fmtDate = (date: Date): string => {
   const d = String(date.getDate()).padStart(2, "0");

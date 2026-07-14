@@ -8,6 +8,7 @@ import {
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
 import { useAppContext } from "@/context/AppContext";
+import type { Role } from "@/types";
 
 // ─── nav data ─────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,8 @@ interface NavItem {
   path?: string;
   /** Gunakan exact match untuk highlight aktif (diperlukan untuk root "/"). */
   end?: boolean;
+  /** Jika ada, item hanya tampil untuk role yang terdaftar. Kosong = semua role. */
+  roles?: Role[];
 }
 
 interface NavGroup {
@@ -37,29 +40,29 @@ const navGroups: NavGroup[] = [
   {
     group: "AKADEMIK",
     items: [
-      { icon: Users,         label: "Siswa",         path: "/akademik/siswa" },
-      { icon: GraduationCap, label: "Guru",           path: "/akademik/guru" },
-      { icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal" },
-      { icon: ClipboardList, label: "Absensi",        path: "/akademik/absensi", badge: 3 },
+      { icon: Users,         label: "Siswa",         path: "/akademik/siswa",         roles: ["Admin", "Bendahara"] },
+      { icon: GraduationCap, label: "Guru",           path: "/akademik/guru",          roles: ["Admin", "TU"] },
+      { icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal",  roles: ["Admin", "TU"] },
+      { icon: ClipboardList, label: "Absensi",        path: "/akademik/absensi",       roles: ["Admin", "TU"], badge: 3 },
     ],
   },
   {
     group: "KEUANGAN",
     items: [
-      { icon: CreditCard,    label: "Pembayaran", path: "/keuangan/pembayaran" },
-      { icon: AlertTriangle, label: "Tunggakan",  path: "/keuangan/tunggakan", badge: 12 },
-      { icon: FileText,      label: "Tagihan",    path: "/keuangan/tagihan" },
-      { icon: Landmark,      label: "Kas & Bank", path: "/keuangan/kas-bank" },
-      { icon: BarChart3,     label: "Laporan",    path: "/keuangan/laporan" },
-      { icon: Calculator,    label: "Anggaran",   path: "/keuangan/anggaran" },
+      { icon: CreditCard,    label: "Pembayaran", path: "/keuangan/pembayaran", roles: ["Admin", "Bendahara"] },
+      { icon: AlertTriangle, label: "Tunggakan",  path: "/keuangan/tunggakan",  roles: ["Admin", "Bendahara"], badge: 12 },
+      { icon: FileText,      label: "Tagihan",    path: "/keuangan/tagihan",    roles: ["Admin", "Bendahara"] },
+      { icon: Landmark,      label: "Kas & Bank", path: "/keuangan/kas-bank",   roles: ["Admin", "Bendahara"] },
+      { icon: BarChart3,     label: "Laporan",    path: "/keuangan/laporan",    roles: ["Admin", "Bendahara"] },
+      { icon: Calculator,    label: "Anggaran",   path: "/keuangan/anggaran",   roles: ["Admin", "Bendahara"] },
     ],
   },
   {
     group: "SISTEM",
     items: [
-      { icon: Shield,   label: "Pengguna & Akses",  path: "/sistem/pengguna" },
-      { icon: Activity, label: "Log Aktivitas",      path: "/sistem/log-aktivitas" },
-      { icon: Settings, label: "Pengaturan",         path: "/sistem/pengaturan" },
+      { icon: Shield,   label: "Pengguna & Akses",  path: "/sistem/pengguna",      roles: ["Admin"] },
+      { icon: Activity, label: "Log Aktivitas",      path: "/sistem/log-aktivitas", roles: ["Admin"] },
+      { icon: Settings, label: "Pengaturan",         path: "/sistem/pengaturan",    roles: ["Admin"] },
     ],
   },
 ];
@@ -67,7 +70,7 @@ const navGroups: NavGroup[] = [
 // ─── components ────────────────────────────────────────────────────────────────
 
 export function Sidebar() {
-  const { sidebarCollapsed: collapsed, setSidebarCollapsed } = useAppContext();
+  const { sidebarCollapsed: collapsed, setSidebarCollapsed, role } = useAppContext();
 
   return (
     <aside
@@ -99,24 +102,30 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2 px-2">
-        {navGroups.map((group, gi) => (
-          <div key={gi}>
-            {group.group && (
-              <>
-                {!collapsed ? (
-                  <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest px-3 pt-3 pb-1">
-                    {group.group}
-                  </p>
-                ) : (
-                  <div className="h-px mx-2 my-2.5" style={{ background: "#E2E8DE" }} />
-                )}
-              </>
-            )}
-            {group.items.map((item, ii) => (
-              <NavRow key={ii} item={item} collapsed={collapsed} />
-            ))}
-          </div>
-        ))}
+        {navGroups.map((group, gi) => {
+          const visibleItems = group.items.filter(
+            (item) => !item.roles || item.roles.includes(role)
+          );
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={gi}>
+              {group.group && (
+                <>
+                  {!collapsed ? (
+                    <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest px-3 pt-3 pb-1">
+                      {group.group}
+                    </p>
+                  ) : (
+                    <div className="h-px mx-2 my-2.5" style={{ background: "#E2E8DE" }} />
+                  )}
+                </>
+              )}
+              {visibleItems.map((item, ii) => (
+                <NavRow key={ii} item={item} collapsed={collapsed} />
+              ))}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Collapse toggle */}

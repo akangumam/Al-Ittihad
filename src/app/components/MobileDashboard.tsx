@@ -4,19 +4,9 @@ import {
   ArrowUpRight, ArrowDownRight, MessageCircle,
 } from "lucide-react";
 
-// ─── formatters ───────────────────────────────────────────────────────────────
+import { fmt, fmtJt } from "@/lib/formatters";
+import { StatusBadge } from "@/app/components/shared/StatusBadge";
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(n);
-
-const fmtJt = (n: number) => {
-  const v = n / 1_000_000;
-  return `Rp ${v.toLocaleString("id-ID", { minimumFractionDigits: 0, maximumFractionDigits: 1 })} jt`;
-};
 
 // ─── data ─────────────────────────────────────────────────────────────────────
 
@@ -48,11 +38,6 @@ const absensiChips = [
   { label: "Belum Absen", value: 1,  bg: "#F3F4F6", text: "#374151" },
 ];
 
-const BADGE_STYLE: Record<string, { bg: string; text: string }> = {
-  Kritis:    { bg: "#FEE2E2", text: "#991B1B" },
-  Waspada:   { bg: "#FEF3C7", text: "#92400E" },
-  Perhatian: { bg: "#FEF9C3", text: "#713F12" },
-};
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 
@@ -295,7 +280,6 @@ export function MobileDashboard() {
           Tunggakan Terbesar
         </p>
         {tunggakanTop3.map((row, i) => {
-          const badge = BADGE_STYLE[row.badge] ?? { bg: "#F3F4F6", text: "#374040" };
           return (
             <div
               key={i}
@@ -318,12 +302,10 @@ export function MobileDashboard() {
                 </p>
                 <div className="flex items-center gap-1.5" style={{ marginTop: 4 }}>
                   <span className="text-[10px] text-[#6B7769]">Kelas {row.kelas}</span>
-                  <span
-                    className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
-                    style={{ background: badge.bg, color: badge.text }}
-                  >
-                    {row.badge}
-                  </span>
+                  <StatusBadge
+                    status={row.badge as "Kritis" | "Waspada" | "Perhatian"}
+                    className="text-[9px] px-1.5 py-0.5"
+                  />
                 </div>
               </div>
               <div className="flex flex-col items-end shrink-0" style={{ gap: 6 }}>
