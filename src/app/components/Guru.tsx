@@ -329,8 +329,8 @@ function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
     <>
       <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose} />
       <div
-        className="fixed right-0 top-0 h-full z-50 flex flex-col bg-white"
-        style={{ width: 640, borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}
+        className="fixed inset-0 md:inset-y-0 md:left-auto md:right-0 md:w-[640px] z-50 flex flex-col bg-white"
+        style={{ borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
@@ -497,12 +497,12 @@ export function Guru() {
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-5">
       {/* ── Title + KPI chips ── */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-4">
         <div>
           <h2 className="text-[#1C2517]">Guru</h2>
           <p className="text-sm text-[#6B7769]">Data tenaga pengajar dan kepegawaian madrasah</p>
         </div>
-        <div className="flex items-center gap-2 mt-1 shrink-0">
+        <div className="hidden md:flex items-center gap-2 mt-1 shrink-0">
           {[
             { label: "Total", value: 38 },
             { label: "PNS",   value: 6  },
@@ -524,7 +524,7 @@ export function Guru() {
       </div>
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-2">
+      <div className="hidden md:flex items-center gap-2">
         <div
           className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 max-w-xs"
           style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
@@ -573,8 +573,61 @@ export function Guru() {
         </div>
       </div>
 
+      {/* ── Mobile toolbar ── */}
+      <div className="md:hidden flex gap-2">
+        <div className="flex-1 flex items-center gap-2 rounded-xl" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9", padding: "0 12px", minHeight: 44 }}>
+          <Search size={14} className="text-[#9CA3A0] shrink-0" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cari nama / NUPTK / mapel..."
+            className="flex-1 bg-transparent outline-none text-[13px] text-[#1C2517]" />
+        </div>
+        <button className="w-11 h-11 flex items-center justify-center rounded-xl bg-[#3E8A2F] shrink-0">
+          <Plus size={16} color="#FFF" />
+        </button>
+      </div>
+
+      {/* ── Mobile guru cards ── */}
+      <div className="md:hidden flex flex-col gap-2.5">
+        {rows.length === 0 ? (
+          <p className="text-sm text-[#9CA3A0] text-center py-8">Belum ada data guru</p>
+        ) : rows.map((row) => {
+          const pct = row.kehadiran;
+          const pctColor = pct >= 90 ? "#3E8A2F" : pct >= 75 ? "#D97706" : "#DC2626";
+          return (
+            <button key={row.id} onClick={() => setSelectedGuru(row)} className="w-full text-left bg-white rounded-xl"
+              style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold text-white shrink-0"
+                  style={{ background: AVATAR_BG[row.statusKepeg] }}>
+                  {row.inits}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
+                  <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 4 }}>
+                    <StatusBadge status={row.statusKepeg as "PNS" | "GTY" | "Honorer"} />
+                    {row.waliKelas && <span className="text-[11px] text-[#6B7769] bg-[#F3F4F6] px-2 py-0.5 rounded-full">Wali {row.waliKelas}</span>}
+                  </div>
+                  <div className="flex flex-wrap gap-1" style={{ marginTop: 6 }}>
+                    {row.mapel.map((m) => (
+                      <span key={m} className="text-[10px] font-semibold bg-[#EDF7EC] text-[#166534] px-1.5 py-0.5 rounded-full">{m}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end shrink-0">
+                  <span className="text-[13px] font-bold tabular-nums" style={{ color: pctColor }}>{pct}%</span>
+                  <span className="text-[10px] text-[#9CA3A0]">Hadir</span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+        <div className="py-1">
+          <span className="text-[12px] text-[#6B7769]">1–{rows.length} dari <strong className="text-[#1C2517]">38</strong> guru</span>
+        </div>
+      </div>
+
       {/* ── Table ── */}
-      <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+      <div className="hidden md:block bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
         <div className="overflow-x-auto">
           <DataTable>
             <thead>

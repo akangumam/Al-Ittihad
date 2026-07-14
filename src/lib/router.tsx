@@ -1,7 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router";
 import AppLayout from "@/app/App";
 import { Dashboard } from "@/app/components/Dashboard";
-import { MobileDashboard } from "@/app/components/MobileDashboard";
 import { Siswa } from "@/app/components/Siswa";
 import { Guru } from "@/app/components/Guru";
 import { KelasJadwal } from "@/app/components/KelasJadwal";
@@ -10,7 +9,6 @@ import { MobileAbsensi } from "@/app/components/MobileAbsensi";
 import { Pembayaran } from "@/app/components/Pembayaran";
 import { MobilePembayaran } from "@/app/components/MobilePembayaran";
 import { Tunggakan } from "@/app/components/Tunggakan";
-import { MobileTunggakan } from "@/app/components/MobileTunggakan";
 import { Tagihan } from "@/app/components/Tagihan";
 import { KasBank } from "@/app/components/KasBank";
 import { Laporan } from "@/app/components/Laporan";
@@ -18,17 +16,10 @@ import { Anggaran } from "@/app/components/Anggaran";
 import { Pengaturan } from "@/app/components/Pengaturan";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
-// Route wrappers for pages that have distinct mobile renderers.
-// Phase 6 Opsi A will eliminate these wrappers for most pages.
-// Pembayaran & Absensi keep them permanently (different composition, not just layout).
-function DashboardRoute() {
-  return useIsMobile() ? <MobileDashboard /> : <Dashboard />;
-}
+// Pembayaran & Absensi keep separate renderers permanently —
+// they have fundamentally different compositions, not just layout.
 function PembayaranRoute() {
   return useIsMobile() ? <MobilePembayaran /> : <Pembayaran />;
-}
-function TunggakanRoute() {
-  return useIsMobile() ? <MobileTunggakan /> : <Tunggakan />;
 }
 function AbsensiRoute() {
   return useIsMobile() ? <MobileAbsensi /> : <Absensi />;
@@ -47,7 +38,7 @@ export const router = createBrowserRouter([
     path: "/",
     element: <AppLayout />,
     children: [
-      { index: true, element: <DashboardRoute /> },
+      { index: true, element: <Dashboard /> },
       { path: "kalender", element: <Placeholder label="Kalender" /> },
 
       // Akademik
@@ -60,7 +51,7 @@ export const router = createBrowserRouter([
 
       // Keuangan
       { path: "keuangan/pembayaran", element: <PembayaranRoute /> },
-      { path: "keuangan/tunggakan", element: <TunggakanRoute /> },
+      { path: "keuangan/tunggakan", element: <Tunggakan /> },
       { path: "keuangan/tagihan", element: <Navigate to="/keuangan/tagihan/template" replace /> },
       { path: "keuangan/tagihan/:tab", element: <Tagihan /> },
       { path: "keuangan/kas-bank", element: <Navigate to="/keuangan/kas-bank/transaksi" replace /> },

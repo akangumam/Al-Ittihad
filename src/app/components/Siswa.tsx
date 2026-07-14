@@ -236,8 +236,8 @@ function StudentSheet({ siswa, onClose }: { siswa: SiswaRow; onClose: () => void
 
       {/* Sheet panel */}
       <div
-        className="fixed right-0 top-0 h-full z-50 flex flex-col bg-white"
-        style={{ width: 640, borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}
+        className="fixed inset-0 md:inset-y-0 md:left-auto md:right-0 md:w-[640px] z-50 flex flex-col bg-white"
+        style={{ borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}
       >
         {/* Header */}
         <div
@@ -429,13 +429,13 @@ export function Siswa() {
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-5">
       {/* ── Title + KPI chips ── */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-4">
         <div>
           <h2 className="text-[#1C2517]">Siswa</h2>
           <p className="text-sm text-[#6B7769]">Data dan rekam jejak seluruh peserta didik</p>
         </div>
         {/* KPI chips */}
-        <div className="flex items-center gap-2 mt-1 shrink-0">
+        <div className="hidden md:flex items-center gap-2 mt-1 shrink-0">
           {[
             { label: "Total Aktif", value: 355 },
             { label: "Laki-laki",   value: 188 },
@@ -456,7 +456,7 @@ export function Siswa() {
       </div>
 
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-2">
+      <div className="hidden md:flex items-center gap-2">
         {/* Search */}
         <div
           className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 max-w-xs"
@@ -515,8 +515,61 @@ export function Siswa() {
         </div>
       </div>
 
+      {/* ── Mobile toolbar ── */}
+      <div className="md:hidden flex gap-2">
+        <div className="flex-1 flex items-center gap-2 rounded-xl" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9", padding: "0 12px", minHeight: 44 }}>
+          <Search size={14} className="text-[#9CA3A0] shrink-0" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Cari nama / NIS / NISN..."
+            className="flex-1 bg-transparent outline-none text-[13px] text-[#1C2517]" />
+        </div>
+        <button onClick={() => setSelectedSiswa(null)}
+          className="w-11 h-11 flex items-center justify-center rounded-xl bg-[#3E8A2F] shrink-0">
+          <Plus size={16} color="#FFF" />
+        </button>
+      </div>
+
+      {/* ── Mobile student cards ── */}
+      <div className="md:hidden flex flex-col gap-2.5">
+        {rows.length === 0 ? (
+          <p className="text-sm text-[#9CA3A0] text-center py-8">Belum ada data siswa</p>
+        ) : rows.map((row) => {
+          const nonaktif = row.status === "Nonaktif";
+          return (
+            <button key={row.id} onClick={() => setSelectedSiswa(row)} className="w-full text-left bg-white rounded-xl"
+              style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0"
+                  style={{ background: nonaktif ? "#E2E8DE" : "#3E8A2F", color: nonaktif ? "#9CA3A0" : "#FFF" }}>
+                  {row.inits}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
+                  <p className="text-[11px] text-[#6B7769]" style={{ marginTop: 2 }}>{row.nis}</p>
+                  <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 6 }}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${KELAS_COLOR[row.kelas[0]] ?? "bg-[#F3F4F6] text-[#374040]"}`}>{row.kelas}</span>
+                    <StatusBadge status={row.statusSPP} />
+                    <StatusBadge status={row.status as "Aktif" | "Nonaktif"} />
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between" style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F0F7EE" }}>
+                <div>
+                  <p className="text-[12px] text-[#374040]">{row.waliNama}</p>
+                  <p className="text-[11px] text-[#9CA3A0] tabular-nums">{row.waliHp}</p>
+                </div>
+                <span className="text-[12px] font-semibold text-[#3E8A2F]">Detail →</span>
+              </div>
+            </button>
+          );
+        })}
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[12px] text-[#6B7769]">1–{rows.length} dari <strong className="text-[#1C2517]">355</strong> siswa</span>
+        </div>
+      </div>
+
       {/* ── Table card ── */}
-      <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+      <div className="hidden md:block bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
         <div className="overflow-x-auto">
           <DataTable>
             <thead>

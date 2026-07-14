@@ -286,7 +286,7 @@ function TransaksiTab() {
 
 function AkunTab() {
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
       {akunData.map((akun) => {
         const Icon = akun.icon === "wallet" ? Wallet : Landmark;
         const iconBg = akun.icon === "wallet" ? "#FEF3C7" : "#EDF7EC";
@@ -452,6 +452,7 @@ export function KasBank() {
       </div>
 
       {/* Tab buttons — shadcn Tabs pattern */}
+      <div className="overflow-x-auto" style={{ scrollbarWidth: "none" }}>
       <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
         {(["transaksi", "akun", "mutasi"] as const).map((tab) => (
           <button
@@ -468,6 +469,7 @@ export function KasBank() {
             {TAB_LABELS[tab]}
           </button>
         ))}
+      </div>
       </div>
 
       {/* Tab content */}

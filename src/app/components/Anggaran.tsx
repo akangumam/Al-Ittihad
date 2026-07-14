@@ -219,7 +219,7 @@ function RABTab() {
 
       {/* Summary strip */}
       <div className="bg-white rounded-xl px-6 py-5" style={{ border:"1px solid #E2E8DE" }}>
-        <div className="flex items-start gap-10 mb-4">
+        <div className="flex flex-wrap items-start gap-6 md:gap-10 mb-4">
           <div>
             <p className="text-xs text-[#9CA3A0] uppercase tracking-wide mb-1">Total Anggaran</p>
             <p className="tabular-nums font-bold text-[#1C2517]" style={{ fontSize:"1.2rem" }}>
@@ -394,7 +394,7 @@ function RealisasiTab() {
       </div>
 
       {/* Main area: chart + top-5 table */}
-      <div className="flex gap-4 items-start">
+      <div className="flex flex-col md:flex-row gap-4 items-start">
         {/* Bar chart card */}
         <div className="flex-1 bg-white rounded-xl p-5" style={{ border:"1px solid #E2E8DE" }}>
           <div className="flex items-center justify-between mb-3">
@@ -418,7 +418,7 @@ function RealisasiTab() {
         </div>
 
         {/* Top 5 card */}
-        <div className="w-[300px] shrink-0 bg-white rounded-xl p-5" style={{ border:"1px solid #E2E8DE" }}>
+        <div className="w-full md:w-[300px] shrink-0 bg-white rounded-xl p-5" style={{ border:"1px solid #E2E8DE" }}>
           <p className="text-sm font-semibold text-[#1C2517] mb-1">Top Serapan Tertinggi</p>
           <p className="text-xs text-[#6B7769] mb-4">Berdasarkan % realisasi vs anggaran</p>
           <div className="space-y-4">
