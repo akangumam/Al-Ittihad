@@ -1,39 +1,10 @@
 import { useState, useMemo } from "react";
+import { useParams, useNavigate } from "react-router";
 import { CalendarDays, FileText, ChevronDown, Download, Check } from "lucide-react";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 
-// ─── data ─────────────────────────────────────────────────────────────────────
-
-// Canonical teacher roster — matches Guru page and MobileAbsensi
-const guruList = [
-  { id: 1, nama: "Ust. Ahmad Zaki, S.Pd",        nuptk: "1234567890123456", inits: "AZ", defaultStatus: null,    jam: null,    keterangan: null },
-  { id: 2, nama: "Hj. Siti Nurlaela, S.Pd.I",    nuptk: "2345678901234567", inits: "SN", defaultStatus: "Hadir", jam: "06.58", keterangan: null },
-  { id: 3, nama: "Ust. Farid Hasan, S.Pd",        nuptk: "3456789012345678", inits: "FH", defaultStatus: "Hadir", jam: "07.15", keterangan: null },
-  { id: 4, nama: "Ibu Dewi Rahmawati, S.Pd",      nuptk: "4567890123456789", inits: "DR", defaultStatus: "Hadir", jam: "06.45", keterangan: null },
-  { id: 5, nama: "Ust. Ridwan Maulana, S.Pd.I",   nuptk: "5678901234567890", inits: "RM", defaultStatus: "Hadir", jam: "07.10", keterangan: null },
-  { id: 6, nama: "Ibu Nining Suparni, S.Pd",      nuptk: "6789012345678901", inits: "NS", defaultStatus: "Hadir", jam: "07.32", keterangan: null },
-  { id: 7, nama: "Ust. Budi Santoso, S.Pd",       nuptk: "7890123456789012", inits: "BS", defaultStatus: "Alpa", jam: null,    keterangan: null },
-  { id: 8, nama: "Ust. Fahmi Nasrullah, S.Pd",    nuptk: "8901234567890123", inits: "FN", defaultStatus: "Izin", jam: null,    keterangan: "Izin — acara keluarga" },
-];
-
-// Visible: 5 Hadir, 1 Izin, 1 Alpa, 1 null (Ahmad Zaki)
-// Non-visible 30 teachers: 29 Hadir, 1 Izin, 0 Alpa → chips total 34/2/1/1, tercatat 37/38
-const NV_HADIR = 29, NV_IZIN = 1, NV_ALPA = 0;
-
-// pct = round((hadir + terlambat) / 22 * 100); each row sums to 22 work days
-const rekapData = [
-  { id: 1, nama: "Ust. Ahmad Zaki, S.Pd",        inits: "AZ", hadir: 21, terlambat: 0, izin: 1, alpa: 0, pct: 95  }, // (21+0)/22 = 95%
-  { id: 2, nama: "Hj. Siti Nurlaela, S.Pd.I",    inits: "SN", hadir: 19, terlambat: 1, izin: 2, alpa: 0, pct: 91  }, // (19+1)/22 = 91%
-  { id: 3, nama: "Ust. Farid Hasan, S.Pd",        inits: "FH", hadir: 17, terlambat: 2, izin: 2, alpa: 1, pct: 86  }, // (17+2)/22 = 86%
-  { id: 4, nama: "Ibu Dewi Rahmawati, S.Pd",      inits: "DR", hadir: 22, terlambat: 0, izin: 0, alpa: 0, pct: 100 }, // (22+0)/22 = 100%
-  { id: 5, nama: "Ust. Ridwan Maulana, S.Pd.I",   inits: "RM", hadir: 16, terlambat: 1, izin: 3, alpa: 2, pct: 77  }, // (16+1)/22 = 77%
-  { id: 6, nama: "Ibu Nining Suparni, S.Pd",      inits: "NS", hadir: 13, terlambat: 2, izin: 5, alpa: 2, pct: 68  }, // (13+2)/22 = 68%
-  { id: 7, nama: "Ust. Budi Santoso, S.Pd",       inits: "BS", hadir: 17, terlambat: 2, izin: 2, alpa: 1, pct: 86  }, // (17+2)/22 = 86%
-  { id: 8, nama: "Ust. Fahmi Nasrullah, S.Pd",    inits: "FN", hadir: 20, terlambat: 1, izin: 1, alpa: 0, pct: 95  }, // (20+1)/22 = 95%
-];
-
-const bulanOptions = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-const tahunOptions = ["2024","2025","2026"];
+import { absensiGuruList as guruList, absensiRekapData as rekapData, NV_HADIR, NV_IZIN, NV_ALPA } from "@/data/absensi";
+import { bulanOptions, tahunOptions } from "@/data/constants";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -115,6 +86,8 @@ function HariIniTab() {
   const tercatat = visibleWithStatus + NV_HADIR + NV_IZIN + NV_ALPA;
   const totalGuru = 38;
 
+  const todayStr = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+
   return (
     <div
       className="bg-white rounded-xl"
@@ -131,7 +104,7 @@ function HariIniTab() {
           >
             <CalendarDays size={15} className="text-[#3E8A2F] shrink-0" />
             <span className="text-sm font-semibold text-[#1C2517]">
-              Senin, 13 Juli 2026
+              {todayStr}
             </span>
             <ChevronDown size={13} className="text-[#6B7769] ml-0.5" />
           </button>
@@ -300,7 +273,7 @@ function HariIniTab() {
 
 function RekapitulasiTab() {
   const [bulan, setBulan] = useState("Juli");
-  const [tahun, setTahun] = useState("2026");
+  const [tahun, setTahun] = useState(String(new Date().getFullYear()));
 
   return (
     <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
@@ -451,7 +424,9 @@ function RekapitulasiTab() {
 type TabType = "hari-ini" | "rekapitulasi";
 
 export function Absensi() {
-  const [activeTab, setActiveTab] = useState<TabType>("hari-ini");
+  const { tab } = useParams<{ tab: string }>();
+  const navigate = useNavigate();
+  const activeTab = tab || "hari-ini";
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-5" style={{ paddingBottom: 72 }}>
@@ -463,19 +438,19 @@ export function Absensi() {
 
       {/* Tab buttons — shadcn Tabs pattern */}
       <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
-        {(["hari-ini", "rekapitulasi"] as const).map((tab) => (
+        {(["hari-ini", "rekapitulasi"] as const).map((t) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={t}
+            onClick={() => navigate(`/akademik/absensi/${t}`)}
             className={[
               "px-4 py-1.5 rounded-md text-sm font-semibold transition-all",
-              activeTab === tab
+              activeTab === t
                 ? "bg-white text-[#1C2517]"
                 : "text-[#6B7769] hover:text-[#374040]",
             ].join(" ")}
-            style={activeTab === tab ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
+            style={activeTab === t ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
           >
-            {tab === "hari-ini" ? "Hari Ini" : "Rekapitulasi"}
+            {t === "hari-ini" ? "Hari Ini" : "Rekapitulasi"}
           </button>
         ))}
       </div>

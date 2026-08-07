@@ -7,47 +7,11 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 
-// ─── static data ─────────────────────────────────────────────────────────────
-
-const student = {
-  nama: "Ahmad Fadhilah Putra",
-  nis: "2024-0089",
-  kelas: "9A",
-  wali: "Bapak Hartono",
-  telp: "0812-3456-7890",
-  totalTagihan: 4_500_000,
-  dibayar: 1_000_000,
-  sisa: 3_500_000,
-};
-
-const searchResults = [
-  { id: 1, nama: "Ahmad Fadhilah Putra", nis: "2024-0089", kelas: "9A", sisa: 3_500_000, inits: "AF" },
-  { id: 2, nama: "Ahmad Fauzi Ridwan", nis: "2023-0145", kelas: "8B", sisa: 450_000, inits: "AF" },
-  { id: 3, nama: "Ahmala Kartini", nis: "2025-0067", kelas: "7D", sisa: 0, inits: "AK" },
-  { id: 4, nama: "Aisyah Nur Fadhila", nis: "2024-0234", kelas: "9B", sisa: 900_000, inits: "AN" },
-];
-
-const tagihanList = [
-  // Daftar Ulang package (350.000)
-  { prio:  1, kategori: "LKS Semester 1 — Daftar Ulang",                    total: 130_000, dibayar: 0, sisa: 130_000 },
-  { prio:  2, kategori: "Iuran Semester 1 & 2 — Daftar Ulang",              total: 170_000, dibayar: 0, sisa: 170_000 },
-  { prio:  3, kategori: "Pemeliharaan Lab Komputer — Daftar Ulang",          total:  50_000, dibayar: 0, sisa:  50_000 },
-  // Adm. Kelas 9 package (700.000)
-  { prio:  4, kategori: "Foto — Adm. Kelas 9",                              total:  40_000, dibayar: 0, sisa:  40_000 },
-  { prio:  5, kategori: "Iuran Ujian — Adm. Kelas 9",                       total: 200_000, dibayar: 0, sisa: 200_000 },
-  { prio:  6, kategori: "Album — Adm. Kelas 9",                             total:  80_000, dibayar: 0, sisa:  80_000 },
-  { prio:  7, kategori: "Medali — Adm. Kelas 9",                            total:  80_000, dibayar: 0, sisa:  80_000 },
-  { prio:  8, kategori: "Sampul Ijazah — Adm. Kelas 9",                     total:  50_000, dibayar: 0, sisa:  50_000 },
-  { prio:  9, kategori: "Pemeliharaan Lab Komputer — Adm. Kelas 9",         total: 100_000, dibayar: 0, sisa: 100_000 },
-  { prio: 10, kategori: "Perpisahan — Adm. Kelas 9",                        total: 150_000, dibayar: 0, sisa: 150_000 },
-  // Additional fees (2.450.000)
-  { prio: 11, kategori: "Try-out UN (3 Paket) — Kelas 9",                   total: 450_000, dibayar: 0, sisa: 450_000 },
-  { prio: 12, kategori: "Wisuda & Pelepasan — Kelas 9",                     total: 600_000, dibayar: 0, sisa: 600_000 },
-  { prio: 13, kategori: "Dana Pengembangan Sekolah — TA 2025/2026",         total: 700_000, dibayar: 0, sisa: 700_000 },
-  { prio: 14, kategori: "Bimbingan Belajar Intensif — Kelas 9",             total: 500_000, dibayar: 0, sisa: 500_000 },
-  { prio: 15, kategori: "Buku Referensi & LKS Semester 2",                  total: 200_000, dibayar: 0, sisa: 200_000 },
-  // Total: 3.500.000 = student.sisa
-];
+import {
+  pembayaranStudent as student,
+  pembayaranSearchResults as searchResults,
+  pembayaranTagihanList as tagihanList,
+} from "@/data/pembayaran";
 
 // ─── allocation logic ─────────────────────────────────────────────────────────
 
@@ -296,17 +260,20 @@ function ReceiptDialog({
 // ─── page component ───────────────────────────────────────────────────────────
 
 export function Pembayaran() {
-  const [query, setQuery] = useState("Ahmad Fadhilah Putra");
+  const [query, setQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [nominal, setNominal] = useState(400_000);
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [nominal, setNominal] = useState(0);
   const [metode, setMetode] = useState("Tunai");
   const [akun, setAkun] = useState("Kas Tunai");
-  const [tanggal, setTanggal] = useState("13/07/2026");
+  const today = new Date();
+  const formattedToday = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+  const [tanggal, setTanggal] = useState(formattedToday);
   const [catatan, setCatatan] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const alokasi = computeAlokasi(nominal);
-  const sisaSetelah = Math.max(0, student.sisa - nominal);
+  const alokasi = selectedStudent ? computeAlokasi(nominal) : [];
+  const sisaSetelah = selectedStudent ? Math.max(0, selectedStudent.sisa - nominal) : 0;
 
   const handleNominalChange = (v: string) => {
     const digits = v.replace(/\D/g, "");
@@ -344,7 +311,6 @@ export function Pembayaran() {
                   onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
                   className="flex-1 bg-transparent outline-none text-[#1C2517] text-sm"
                   placeholder="Ketik nama atau NIS siswa..."
-                  autoFocus
                 />
                 {query && (
                   <button
@@ -367,6 +333,8 @@ export function Pembayaran() {
                       key={s.id}
                       onMouseDown={() => {
                         setQuery(s.nama);
+                        setSelectedStudent(student);
+                        setNominal(400_000);
                         setDropdownOpen(false);
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#EDF7EC] transition-colors text-left"
@@ -402,23 +370,25 @@ export function Pembayaran() {
           </div>
 
           {/* 2 · Student context card + bill table */}
-          <div
-            className="bg-white rounded-xl p-6 space-y-5"
-            style={{ border: "1px solid #E2E8DE" }}
-          >
+          {selectedStudent ? (
+            <>
+            <div
+              className="bg-white rounded-xl p-6 space-y-5"
+              style={{ border: "1px solid #E2E8DE" }}
+            >
             {/* Student info */}
             <div className="flex items-start gap-4">
               <div className="w-11 h-11 rounded-full bg-[#3E8A2F] flex items-center justify-center text-white font-bold text-sm shrink-0">
                 AF
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-[#1C2517]">{student.nama}</p>
+                <p className="font-semibold text-[#1C2517]">{selectedStudent.nama}</p>
                 <p className="text-sm text-[#6B7769]">
-                  Kelas {student.kelas} · NIS {student.nis}
+                  Kelas {selectedStudent.kelas} · NIS {selectedStudent.nis}
                 </p>
                 <p className="text-xs text-[#6B7769] mt-0.5">
-                  <span className="font-medium">Wali:</span> {student.wali} —{" "}
-                  {student.telp}
+                  <span className="font-medium">Wali:</span> {selectedStudent.wali} —{" "}
+                  {selectedStudent.telp}
                 </p>
               </div>
             </div>
@@ -429,9 +399,9 @@ export function Pembayaran() {
               style={{ border: "1px solid #E2E8DE" }}
             >
               {[
-                { label: "Total Tagihan", value: student.totalTagihan, red: false },
-                { label: "Dibayar", value: student.dibayar, red: false },
-                { label: "Sisa", value: student.sisa, red: true },
+                { label: "Total Tagihan", value: selectedStudent.totalTagihan, red: false },
+                { label: "Dibayar", value: selectedStudent.dibayar, red: false },
+                { label: "Sisa", value: selectedStudent.sisa, red: true },
               ].map((col, ci) => (
                 <div
                   key={ci}
@@ -527,13 +497,13 @@ export function Pembayaran() {
             {/* Quick chips */}
             <div className="flex flex-wrap gap-2 mb-5">
               <button
-                onClick={() => setNominal(student.sisa)}
+                onClick={() => setNominal(selectedStudent.sisa)}
                 className="flex items-center px-3.5 py-2 rounded-lg text-sm transition-colors hover:border-[#3E8A2F] hover:text-[#3E8A2F]"
                 style={{ border: "1px solid #E2E8DE", color: "#374040" }}
               >
                 Lunasi semua
                 <span className="ml-1.5 font-semibold text-[#3E8A2F] tabular-nums">
-                  — {fmt(student.sisa)}
+                  — {fmt(selectedStudent.sisa)}
                 </span>
               </button>
               <button
@@ -621,10 +591,21 @@ export function Pembayaran() {
               </div>
             </div>
           </div>
+            </>
+          ) : (
+            <div className="bg-white rounded-xl p-10 flex flex-col items-center justify-center text-center" style={{ border: "1px solid #E2E8DE", minHeight: "300px" }}>
+              <div className="w-16 h-16 rounded-full bg-[#F5F9F4] flex items-center justify-center mb-4">
+                <Search size={28} className="text-[#9CA3A0]" />
+              </div>
+              <p className="text-[#374040] font-semibold text-lg mb-1">Belum ada siswa terpilih</p>
+              <p className="text-[#6B7769] text-sm">Gunakan kolom pencarian di atas untuk menemukan siswa dan melihat rincian tagihannya.</p>
+            </div>
+          )}
         </div>
 
         {/* ── RIGHT COLUMN — sticky ── */}
         <div className="sticky top-6 self-start">
+          {selectedStudent && (
           <div className="bg-white rounded-xl p-6" style={{ border: "1px solid #E2E8DE" }}>
             {/* Header */}
             <div className="flex items-center gap-2 mb-5">
@@ -696,6 +677,7 @@ export function Pembayaran() {
               </p>
             </div>
           </div>
+          )}
         </div>
       </div>
 

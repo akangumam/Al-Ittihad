@@ -2,9 +2,12 @@ import { createBrowserRouter, Navigate } from "react-router";
 import AppLayout from "@/app/App";
 import { Dashboard } from "@/app/components/Dashboard";
 import { Siswa } from "@/app/components/Siswa";
+import { Alumni } from "@/app/components/Alumni";
+import { KartuDigital } from "@/app/components/KartuDigital";
 import { Guru } from "@/app/components/Guru";
 import { KelasJadwal } from "@/app/components/KelasJadwal";
 import { Absensi } from "@/app/components/Absensi";
+import { AbsensiSiswa } from "@/app/components/AbsensiSiswa";
 import { MobileAbsensi } from "@/app/components/MobileAbsensi";
 import { Pembayaran } from "@/app/components/Pembayaran";
 import { MobilePembayaran } from "@/app/components/MobilePembayaran";
@@ -43,11 +46,15 @@ export const router = createBrowserRouter([
 
       // Akademik
       { path: "akademik/siswa", element: <Siswa /> },
+      { path: "akademik/alumni", element: <Alumni /> },
+      { path: "akademik/kartu-digital", element: <KartuDigital /> },
       { path: "akademik/guru", element: <Guru /> },
       { path: "akademik/kelas-jadwal", element: <Navigate to="/akademik/kelas-jadwal/data" replace /> },
       { path: "akademik/kelas-jadwal/:tab", element: <KelasJadwal /> },
       { path: "akademik/absensi", element: <Navigate to="/akademik/absensi/hari-ini" replace /> },
       { path: "akademik/absensi/:tab", element: <AbsensiRoute /> },
+      { path: "akademik/absensi-siswa", element: <Navigate to="/akademik/absensi-siswa/scan" replace /> },
+      { path: "akademik/absensi-siswa/:tab", element: <AbsensiSiswa /> },
 
       // Keuangan
       { path: "keuangan/pembayaran", element: <PembayaranRoute /> },
@@ -56,7 +63,8 @@ export const router = createBrowserRouter([
       { path: "keuangan/tagihan/:tab", element: <Tagihan /> },
       { path: "keuangan/kas-bank", element: <Navigate to="/keuangan/kas-bank/transaksi" replace /> },
       { path: "keuangan/kas-bank/:tab", element: <KasBank /> },
-      { path: "keuangan/laporan", element: <Laporan /> },
+      { path: "keuangan/laporan", element: <Navigate to="/keuangan/laporan/bku" replace /> },
+      { path: "keuangan/laporan/:tab", element: <Laporan /> },
       { path: "keuangan/anggaran", element: <Navigate to="/keuangan/anggaran/rab" replace /> },
       { path: "keuangan/anggaran/:tab", element: <Anggaran /> },
 

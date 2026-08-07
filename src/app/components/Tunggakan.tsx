@@ -8,32 +8,8 @@ import { fmt, fmtJt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 
-// ─── data ─────────────────────────────────────────────────────────────────────
-
-const rows = [
-  { id: 1, nama: "Ahmad Fadhilah Putra", nis: "2024-0089", kelas: "9A", jumlah: 3_500_000, badge: "Kritis",    jatuhTempo: "31 Mar 2026", terakhirBayar: "3 Mar 2026",  inits: "AF" },
-  { id: 2, nama: "Siti Rahmawati",        nis: "2023-0145", kelas: "8B", jumlah: 2_800_000, badge: "Kritis",    jatuhTempo: "30 Apr 2026", terakhirBayar: "15 Apr 2026", inits: "SR" },
-  { id: 3, nama: "Rizky Firmansyah",      nis: "2025-0067", kelas: "7C", jumlah: 2_100_000, badge: "Kritis",    jatuhTempo: "30 Apr 2026", terakhirBayar: "20 Apr 2026", inits: "RF" },
-  { id: 4, nama: "Nur Hidayatullah",      nis: "2024-0234", kelas: "9D", jumlah: 1_900_000, badge: "Waspada",   jatuhTempo: "31 Mei 2026", terakhirBayar: "10 Mei 2026", inits: "NH" },
-  { id: 5, nama: "Muhammad Alif Hakim",   nis: "2023-0312", kelas: "8A", jumlah: 1_750_000, badge: "Waspada",   jatuhTempo: "31 Mei 2026", terakhirBayar: "12 Mei 2026", inits: "MA" },
-  { id: 6, nama: "Farah Dianti Putri",    nis: "2025-0089", kelas: "7B", jumlah:   950_000, badge: "Perhatian", jatuhTempo: "20 Jun 2026", terakhirBayar: "8 Jun 2026",  inits: "FD" },
-  { id: 7, nama: "Bagas Prasetyo",        nis: "2024-0178", kelas: "9C", jumlah:   875_000, badge: "Perhatian", jatuhTempo: "17 Jun 2026", terakhirBayar: "5 Jun 2026",  inits: "BP" },
-  { id: 8, nama: "Aisyah Nur Fadila",     nis: "2023-0456", kelas: "8D", jumlah:   700_000, badge: "Perhatian", jatuhTempo: "22 Jun 2026", terakhirBayar: "10 Jun 2026", inits: "AN" },
-];
-
-const agingTabs = [
-  { label: "Semua",           count: 68 },
-  { label: "Lewat 1–30 hari", count: 31 },
-  { label: "Lewat 31–60 hari",count: 22 },
-  { label: "Lewat 60+ hari",  count: 15 },
-];
-
-const kelasOptions = [
-  "Semua Kelas",
-  "Kelas 7A","Kelas 7B","Kelas 7C","Kelas 7D",
-  "Kelas 8A","Kelas 8B","Kelas 8C","Kelas 8D",
-  "Kelas 9A","Kelas 9B","Kelas 9C","Kelas 9D",
-];
+import { tunggakanRows as rows, agingTabs } from "@/data/pembayaran";
+import { kelasOptions } from "@/data/constants";
 
 const AVATAR_STYLE: Record<string, { avatar: string; avatarText: string }> = {
   Kritis:    { avatar: "#FEE2E2", avatarText: "#991B1B" },

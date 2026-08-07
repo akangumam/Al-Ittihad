@@ -2,43 +2,16 @@ import { useState, useMemo } from "react";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, Upload, MoreHorizontal, X, Eye, Pencil,
-  MessageCircle, Trash2, Check, FileText,
+  MessageCircle, Trash2, Check, FileText, IdCard, ZoomIn
 } from "lucide-react";
+import QRCode from "react-qr-code";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
+import { KartuPelajar } from "./KartuDigital";
 
-// ─── types ────────────────────────────────────────────────────────────────────
-
-interface SiswaRow {
-  id: number; nama: string; nis: string; nisn: string;
-  kelas: string; jk: "L" | "P";
-  waliNama: string; waliHp: string;
-  statusSPP: "Lunas" | "Mencicil" | "Menunggak";
-  status: "Aktif" | "Nonaktif"; inits: string;
-  tempatLahir: string; tanggalLahir: string;
-  namaAyah: string; namaIbu: string;
-  alamat: string; kelurahan: string; kecamatan: string;
-}
-
-// ─── data ─────────────────────────────────────────────────────────────────────
-
-const siswaData: SiswaRow[] = [
-  { id:1,  nama:"Ahmad Fadhilah Putra",  nis:"2024-0089", nisn:"0089432156", kelas:"9A", jk:"L", waliNama:"H. Fadhilah Hakim",    waliHp:"0812-3456-7890", statusSPP:"Menunggak", status:"Aktif",    inits:"AF", tempatLahir:"Cirebon",   tanggalLahir:"12 Februari 2010", namaAyah:"H. Fadhilah Hakim",  namaIbu:"Sari Wahyuni",     alamat:"Jl. Pedaleman No. 45, RT 02/RW 03",       kelurahan:"Pedaleman",  kecamatan:"Babakan" },
-  { id:2,  nama:"Siti Rahmawati",         nis:"2023-0145", nisn:"0091234567", kelas:"8B", jk:"P", waliNama:"Hj. Rahmah Hidayah", waliHp:"0813-5678-9012", statusSPP:"Menunggak", status:"Aktif",    inits:"SR", tempatLahir:"Kuningan",  tanggalLahir:"7 Maret 2011",    namaAyah:"Rahmat Hidayah",     namaIbu:"Hj. Rahmah",       alamat:"Jl. Manggu Besar No. 12, RT 01/RW 05",   kelurahan:"Manggu",     kecamatan:"Argasunya" },
-  { id:3,  nama:"Rizky Firmansyah",       nis:"2025-0067", nisn:"0109876543", kelas:"7C", jk:"L", waliNama:"Firmansyah Yusuf",   waliHp:"0821-9876-5432", statusSPP:"Menunggak", status:"Aktif",    inits:"RF", tempatLahir:"Cirebon",   tanggalLahir:"3 Agustus 2012",  namaAyah:"Firmansyah Yusuf",   namaIbu:"Dewi Lestari",     alamat:"Jl. Kesambi No. 8, RT 04/RW 02",          kelurahan:"Kesambi",    kecamatan:"Kesambi" },
-  { id:4,  nama:"Nur Hidayatullah",       nis:"2024-0234", nisn:"0087654321", kelas:"9D", jk:"L", waliNama:"Hidayat Kurnia",     waliHp:"0856-1234-5678", statusSPP:"Menunggak", status:"Aktif",    inits:"NH", tempatLahir:"Cirebon",   tanggalLahir:"19 November 2010",namaAyah:"Hidayat Kurnia",     namaIbu:"Nurul Aini",       alamat:"Jl. Pelandakan No. 23, RT 03/RW 01",      kelurahan:"Pelandakan", kecamatan:"Lemahwungkuk" },
-  { id:5,  nama:"Dewi Anggraini Putri",   nis:"2023-0312", nisn:"0093456789", kelas:"8A", jk:"P", waliNama:"Susanto Anggraini",  waliHp:"0877-8765-4321", statusSPP:"Lunas",     status:"Aktif",    inits:"DA", tempatLahir:"Indramayu", tanggalLahir:"5 April 2011",    namaAyah:"Susanto Anggraini",  namaIbu:"Sri Mulyati",      alamat:"Jl. Sukalila No. 17, RT 02/RW 04",        kelurahan:"Sukalila",   kecamatan:"Kejaksan" },
-  { id:6,  nama:"Bagas Prasetyo",         nis:"2024-0178", nisn:"0112345678", kelas:"9C", jk:"L", waliNama:"Prasetyo Wibowo",   waliHp:"0812-2345-6789", statusSPP:"Mencicil",  status:"Aktif",    inits:"BP", tempatLahir:"Cirebon",   tanggalLahir:"28 Januari 2012", namaAyah:"Prasetyo Wibowo",    namaIbu:"Emi Susanti",      alamat:"Jl. Lawanggada No. 5, RT 01/RW 02",       kelurahan:"Kasepuhan",  kecamatan:"Lemahwungkuk" },
-  { id:7,  nama:"Farah Dianti Putri",     nis:"2025-0089", nisn:"0088765432", kelas:"7B", jk:"P", waliNama:"Dianti Rahayu",     waliHp:"0813-4567-8901", statusSPP:"Mencicil",  status:"Aktif",    inits:"FD", tempatLahir:"Cirebon",   tanggalLahir:"14 Juni 2010",    namaAyah:"Rohmad Dianti",      namaIbu:"Siti Rahayu",      alamat:"Jl. Pulasaren No. 9, RT 05/RW 03",        kelurahan:"Pulasaren",  kecamatan:"Pekalipan" },
-  { id:8,  nama:"Aisyah Nur Fadila",      nis:"2023-0456", nisn:"0072345678", kelas:"8D", jk:"P", waliNama:"Muharam Fadila",    waliHp:"0821-5678-9012", statusSPP:"Menunggak",     status:"Nonaktif", inits:"AN", tempatLahir:"Brebes",    tanggalLahir:"22 September 2010",namaAyah:"Muharam Fadila",    namaIbu:"Yanti Setiawati",  alamat:"Jl. Kampung Baru No. 33, RT 06/RW 04",    kelurahan:"Gunungjati", kecamatan:"Gunungjati" },
-];
-
-const kelasOptions = [
-  "Semua Kelas",
-  "Kelas 7A","Kelas 7B","Kelas 7C","Kelas 7D",
-  "Kelas 8A","Kelas 8B","Kelas 8C","Kelas 8D",
-  "Kelas 9A","Kelas 9B","Kelas 9C","Kelas 9D",
-];
+import { SiswaRow } from "@/data/siswa";
+import { kelasOptions } from "@/data/constants";
+import { useAppContext } from "@/context/AppContext";
 
 // ─── badge palettes ───────────────────────────────────────────────────────────
 
@@ -93,63 +66,102 @@ function StatusDot({ status }: { status: string }) {
   );
 }
 
-function RowMenu({ onView }: { onView: () => void }) {
+function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatus }: { isActive: boolean; waNumber: string; onView: () => void; onEdit: () => void; onShowCard: () => void; onToggleStatus: () => void }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
   return (
-    <div className="relative">
+    <>
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3A0] hover:bg-[#F5F9F4] hover:text-[#374040] transition-colors"
+        onClick={(e) => { 
+          e.stopPropagation(); 
+          const rect = e.currentTarget.getBoundingClientRect();
+          // Jika menu terlalu dekat ke bawah layar, buka ke atas
+          const spaceBelow = window.innerHeight - rect.bottom;
+          const menuHeight = 160; 
+          
+          setCoords({
+            left: rect.right - 176, // 176 = w-44 (44 * 4px)
+            top: spaceBelow < menuHeight ? rect.top - menuHeight - 8 : rect.bottom + 8
+          });
+          setOpen((o) => !o); 
+        }}
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3A0] hover:bg-[#F5F9F4] hover:text-[#374040] transition-colors relative"
       >
         <MoreHorizontal size={14} />
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
           <div
-            className="absolute right-0 top-8 z-50 w-44 bg-white rounded-xl py-1"
-            style={{ border: "1px solid #E2E8DE", boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}
+            className="fixed z-50 w-44 bg-white rounded-xl py-1"
+            style={{ 
+              top: coords.top, 
+              left: coords.left,
+              border: "1px solid #E2E8DE", 
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)" 
+            }}
           >
             <button
-              onClick={() => { onView(); setOpen(false); }}
+              onClick={(e) => { e.stopPropagation(); onShowCard(); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
+            >
+              <IdCard size={13} className="text-[#3E8A2F]" />
+              Kartu Digital
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onView(); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
             >
               <Eye size={13} className="text-[#6B7769]" />
               Lihat Detail
             </button>
             <button
-              onClick={() => { onView(); setOpen(false); }}
+              onClick={(e) => { e.stopPropagation(); onEdit(); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
             >
               <Pencil size={13} className="text-[#6B7769]" />
               Edit Data
             </button>
-            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                if (waNumber) {
+                  const formatted = waNumber.startsWith('0') ? '62' + waNumber.slice(1) : waNumber;
+                  window.open(`https://wa.me/${formatted}`, '_blank');
+                }
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
+            >
               <MessageCircle size={13} className="text-[#6B7769]" />
               Kirim WA
             </button>
             <div className="h-px mx-2 my-1 bg-[#E2E8DE]" />
-            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onToggleStatus(); setOpen(false); }} 
+              className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isActive ? "text-[#DC2626] hover:bg-[#FEF2F2]" : "text-[#3E8A2F] hover:bg-[#F5F9F4]"}`}
+            >
               <Trash2 size={13} />
-              Nonaktifkan
+              {isActive ? "Nonaktifkan" : "Aktifkan"}
             </button>
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
 
 // ─── floating label inputs ────────────────────────────────────────────────────
 
 function FloatingInput({
-  label, value, onChange, required = false, type = "text",
+  label, value, onChange, required = false, type = "text", readOnly = false,
 }: {
   label: string; value: string; onChange: (v: string) => void;
-  required?: boolean; type?: string;
+  required?: boolean; type?: string; readOnly?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
-  const raised = focused || value.length > 0;
+  const raised = focused || value.length > 0 || type === "date";
   return (
     <div
       className="relative rounded-lg transition-colors"
@@ -169,16 +181,17 @@ function FloatingInput({
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        className={`w-full bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 ${raised ? "pt-6" : "pt-4"}`}
+        readOnly={readOnly}
+        className={`w-full bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 ${raised ? "pt-6" : "pt-4"} ${readOnly ? "opacity-75 cursor-default" : ""}`}
       />
     </div>
   );
 }
 
 function FloatingTextarea({
-  label, value, onChange, required = false,
+  label, value, onChange, required = false, readOnly = false,
 }: {
-  label: string; value: string; onChange: (v: string) => void; required?: boolean;
+  label: string; value: string; onChange: (v: string) => void; required?: boolean; readOnly?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
   const raised = focused || value.length > 0;
@@ -200,8 +213,9 @@ function FloatingTextarea({
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
+        readOnly={readOnly}
         rows={3}
-        className={`w-full bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 resize-none ${raised ? "pt-6" : "pt-4"}`}
+        className={`w-full bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 resize-none ${raised ? "pt-6" : "pt-4"} ${readOnly ? "opacity-75 cursor-default" : ""}`}
       />
     </div>
   );
@@ -211,22 +225,40 @@ function FloatingTextarea({
 
 type SheetTab = "profil" | "tagihan" | "riwayat";
 
-function StudentSheet({ siswa, onClose }: { siswa: SiswaRow; onClose: () => void }) {
+function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard }: { siswa?: SiswaRow | null; isAdding?: boolean; isReadOnly?: boolean; onClose: () => void; onSave: (data: any) => void; onShowCard?: () => void }) {
   const [tab, setTab] = useState<SheetTab>("profil");
   const [form, setForm] = useState({
-    nis: siswa.nis, nisn: siswa.nisn, nama: siswa.nama,
-    jk: siswa.jk as string,
-    tempatLahir: siswa.tempatLahir, tanggalLahir: siswa.tanggalLahir,
-    namaAyah: siswa.namaAyah, namaIbu: siswa.namaIbu, waliHp: siswa.waliHp,
-    alamat: siswa.alamat, kelurahan: siswa.kelurahan, kecamatan: siswa.kecamatan,
+    nis: siswa?.nis || "", nisn: siswa?.nisn || "", nama: siswa?.nama || "",
+    jk: (siswa?.jk as string) || "L",
+    tempatLahir: siswa?.tempatLahir || "", tanggalLahir: siswa?.tanggalLahir || "",
+    namaAyah: siswa?.namaAyah || "", namaIbu: siswa?.namaIbu || "", waliHp: siswa?.waliHp || "",
+    alamat: siswa?.alamat || "", kelurahan: siswa?.kelurahan || "", kecamatan: siswa?.kecamatan || "",
+    kelas: siswa?.kelas || kelasOptions.find(o => o !== "Semua Kelas")?.replace("Kelas ", "") || "7A",
+    status: (siswa?.status as "Aktif" | "Nonaktif") || "Aktif",
+    foto: (siswa as any)?.foto || "",
   });
-  const set = (key: keyof typeof form) => (v: string) =>
-    setForm((prev) => ({ ...prev, [key]: v }));
+  const set = (key: keyof typeof form) => (v: string) => {
+    let finalValue = v;
+    if (key === "nis" || key === "nisn" || key === "waliHp") {
+      finalValue = v.replace(/\D/g, ""); // Hanya angka
+    } else if (key === "nama" || key === "namaAyah" || key === "namaIbu" || key === "tempatLahir") {
+      finalValue = v.replace(/[^a-zA-Z\s.,'-]/g, ""); // Hanya huruf dan tanda baca umum
+    }
+    setForm((prev) => ({ ...prev, [key]: finalValue }));
+  };
 
   const TAB_LABELS: Record<SheetTab, string> = {
     profil: "Profil",
     tagihan: "Tagihan & Pembayaran",
     riwayat: "Riwayat",
+  };
+
+  const handleSave = () => {
+    if (!form.nis || !form.nisn || !form.nama || !form.waliHp || !form.tempatLahir || !form.tanggalLahir || !form.alamat) {
+      alert("Harap lengkapi semua kolom yang wajib diisi!");
+      return;
+    }
+    onSave(form);
   };
 
   return (
@@ -246,29 +278,48 @@ function StudentSheet({ siswa, onClose }: { siswa: SiswaRow; onClose: () => void
         >
           <div className="flex items-center gap-3">
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 overflow-hidden"
               style={{
-                background: siswa.status === "Nonaktif" ? "#E2E8DE" : "#3E8A2F",
-                color: siswa.status === "Nonaktif" ? "#9CA3A0" : "#FFFFFF",
+                background: siswa?.status === "Nonaktif" ? "#E2E8DE" : "#3E8A2F",
+                color: siswa?.status === "Nonaktif" ? "#9CA3A0" : "#FFFFFF",
               }}
             >
-              {siswa.inits}
+              {siswa ? (
+                <img src={siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt={siswa.nama} className={`w-full h-full object-cover ${siswa.status === "Nonaktif" ? 'grayscale opacity-60' : ''}`} />
+              ) : (
+                "NEW"
+              )}
             </div>
             <div>
-              <p className="font-semibold text-[#1C2517]">{siswa.nama}</p>
+              <p className="font-semibold text-[#1C2517]">{siswa ? siswa.nama : "Siswa Baru"}</p>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-[#6B7769]">Kelas {siswa.kelas}</span>
-                <span className="text-[#D1D5DB]">·</span>
-                <StatusDot status={siswa.status} />
+                <span className="text-xs text-[#6B7769]">Kelas {form.kelas}</span>
+                {siswa && (
+                  <>
+                    <span className="text-[#D1D5DB]">·</span>
+                    <StatusDot status={siswa.status} />
+                  </>
+                )}
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] hover:text-[#1C2517] transition-colors"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {onShowCard && !isAdding && (
+              <button
+                onClick={onShowCard}
+                title="Lihat Kartu Digital"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-[#3E8A2F] bg-[#F5F9F4] hover:bg-[#E2E8DE] transition-colors"
+              >
+                <IdCard size={16} />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] hover:text-[#1C2517] transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -297,20 +348,71 @@ function StudentSheet({ siswa, onClose }: { siswa: SiswaRow; onClose: () => void
               {/* ── Data Pribadi ── */}
               <section className="space-y-3">
                 <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest">Data Pribadi</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <FloatingInput label="NIS" value={form.nis} onChange={set("nis")} required />
-                  <FloatingInput label="NISN" value={form.nisn} onChange={set("nisn")} required />
+                
+                {/* Upload Foto */}
+                <div className="flex items-center gap-4 py-2">
+                  <div className="w-16 h-20 bg-gray-100 border border-gray-200 rounded-md overflow-hidden shrink-0 flex items-center justify-center relative">
+                    {form.foto ? (
+                      <img src={form.foto} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={form.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt="Preview Default" className="w-full h-full object-cover" />
+                    )}
+                    {!isReadOnly && (
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => set("foto")(ev.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div className="flex flex-col relative">
+                    <p className="text-sm font-semibold text-[#1C2517]">Foto Profil</p>
+                    <p className="text-[11px] text-[#6B7769] mt-0.5 mb-2">Format JPG/PNG. Maks 2MB.</p>
+                    {!isReadOnly && (
+                      <>
+                        <button className="w-fit px-3 py-1.5 rounded-md bg-[#F5F9F4] text-[#3E8A2F] text-xs font-semibold hover:bg-[#EDF7EC] transition-colors">
+                          Pilih Foto
+                        </button>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (ev) => set("foto")(ev.target?.result as string);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
-                <FloatingInput label="Nama Lengkap" value={form.nama} onChange={set("nama")} required />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <FloatingInput label="NIS" value={form.nis} onChange={set("nis")} required readOnly={isReadOnly} />
+                  <FloatingInput label="NISN" value={form.nisn} onChange={set("nisn")} required readOnly={isReadOnly} />
+                </div>
+                <FloatingInput label="Nama Lengkap" value={form.nama} onChange={set("nama")} required readOnly={isReadOnly} />
 
                 {/* Jenis Kelamin radio */}
-                <div className="rounded-lg px-3 py-3" style={{ border: "1px solid #E2E8DE" }}>
+                <div className={`rounded-lg px-3 py-3 ${isReadOnly ? "opacity-75" : ""}`} style={{ border: "1px solid #E2E8DE" }}>
                   <p className="text-[10px] text-[#6B7769] mb-2.5">
                     Jenis Kelamin <span className="text-[#DC2626]">*</span>
                   </p>
                   <div className="flex gap-6">
                     {[{ v: "L", l: "Laki-laki" }, { v: "P", l: "Perempuan" }].map(({ v, l }) => (
-                      <label key={v} className="flex items-center gap-2 cursor-pointer" onClick={() => set("jk")(v)}>
+                      <label key={v} className={`flex items-center gap-2 ${isReadOnly ? "cursor-default" : "cursor-pointer"}`} onClick={() => !isReadOnly && set("jk")(v)}>
                         <div
                           className={`w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center shrink-0 transition-colors ${
                             form.jk === v ? "border-[#3E8A2F]" : "border-[#D1D5DB]"
@@ -325,8 +427,35 @@ function StudentSheet({ siswa, onClose }: { siswa: SiswaRow; onClose: () => void
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <FloatingInput label="Tempat Lahir" value={form.tempatLahir} onChange={set("tempatLahir")} />
-                  <FloatingInput label="Tanggal Lahir" value={form.tanggalLahir} onChange={set("tanggalLahir")} />
+                  <FloatingInput label="Tempat Lahir" value={form.tempatLahir} onChange={set("tempatLahir")} required readOnly={isReadOnly} />
+                  <FloatingInput label="Tanggal Lahir" value={form.tanggalLahir} onChange={set("tanggalLahir")} required type="date" readOnly={isReadOnly} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative rounded-lg transition-colors border-[#E2E8DE] border">
+                    <label className="absolute left-3 pointer-events-none transition-all duration-150 top-1.5 text-[10px] text-[#6B7769]">Kelas</label>
+                    <select
+                      value={form.kelas}
+                      onChange={(e) => set("kelas")(e.target.value)}
+                      disabled={isReadOnly}
+                      className="w-full bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 pt-6 appearance-none"
+                    >
+                      {kelasOptions.filter(o => o !== "Semua Kelas").map(o => <option key={o} value={o.replace("Kelas ", "")}>{o.replace("Kelas ", "")}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
+                  </div>
+                  <div className="relative rounded-lg transition-colors border-[#E2E8DE] border">
+                    <label className="absolute left-3 pointer-events-none transition-all duration-150 top-1.5 text-[10px] text-[#6B7769]">Status Siswa</label>
+                    <select
+                      value={form.status}
+                      onChange={(e) => set("status")(e.target.value)}
+                      disabled={isReadOnly}
+                      className="w-full bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 pt-6 appearance-none"
+                    >
+                      <option value="Aktif">Aktif</option>
+                      <option value="Nonaktif">Nonaktif</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
+                  </div>
                 </div>
               </section>
 
@@ -335,10 +464,10 @@ function StudentSheet({ siswa, onClose }: { siswa: SiswaRow; onClose: () => void
               {/* ── Data Wali ── */}
               <section className="space-y-3">
                 <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest">Data Wali</p>
-                <FloatingInput label="Nama Ayah" value={form.namaAyah} onChange={set("namaAyah")} />
-                <FloatingInput label="Nama Ibu" value={form.namaIbu} onChange={set("namaIbu")} />
+                <FloatingInput label="Nama Ayah" value={form.namaAyah} onChange={set("namaAyah")} readOnly={isReadOnly} />
+                <FloatingInput label="Nama Ibu" value={form.namaIbu} onChange={set("namaIbu")} readOnly={isReadOnly} />
                 <div>
-                  <FloatingInput label="No. HP Wali" value={form.waliHp} onChange={set("waliHp")} required />
+                  <FloatingInput label="No. HP Wali" value={form.waliHp} onChange={set("waliHp")} required readOnly={isReadOnly} />
                   <p className="text-[11px] text-[#9CA3A0] mt-1 px-1">
                     Untuk pengiriman kuitansi &amp; tagihan WA
                   </p>
@@ -350,47 +479,86 @@ function StudentSheet({ siswa, onClose }: { siswa: SiswaRow; onClose: () => void
               {/* ── Alamat ── */}
               <section className="space-y-3">
                 <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest">Alamat</p>
-                <FloatingTextarea label="Alamat Lengkap" value={form.alamat} onChange={set("alamat")} />
+                <FloatingTextarea label="Alamat Lengkap" value={form.alamat} onChange={set("alamat")} required readOnly={isReadOnly} />
                 <div className="grid grid-cols-2 gap-3">
-                  <FloatingInput label="Kelurahan" value={form.kelurahan} onChange={set("kelurahan")} />
-                  <FloatingInput label="Kecamatan" value={form.kecamatan} onChange={set("kecamatan")} />
+                  <FloatingInput label="Kelurahan" value={form.kelurahan} onChange={set("kelurahan")} readOnly={isReadOnly} />
+                  <FloatingInput label="Kecamatan" value={form.kecamatan} onChange={set("kecamatan")} readOnly={isReadOnly} />
                 </div>
               </section>
 
               {/* Spacer so content isn't clipped by footer */}
               <div className="h-2" />
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-12 h-12 rounded-xl bg-[#F5F9F4] flex items-center justify-center mx-auto mb-4">
-                <FileText size={22} className="text-[#D1D5DB]" />
+          ) : tab === "tagihan" ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+                <div>
+                  <p className="text-xs text-[#6B7769] mb-1">Status Pembayaran SPP</p>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={siswa?.statusSPP || "Lunas"} />
+                    <span className="text-sm font-semibold text-[#1C2517]">Juli 2026</span>
+                  </div>
+                </div>
+                <button className="px-3 py-1.5 bg-[#EDF7EC] text-[#3E8A2F] text-xs font-semibold rounded-lg hover:bg-[#E3F2E1] transition-colors">
+                  Buat Tagihan
+                </button>
               </div>
-              <p className="text-sm font-semibold text-[#6B7769] mb-1">{TAB_LABELS[tab]}</p>
-              <p className="text-xs text-[#9CA3A0]">
-                {tab === "tagihan"
-                  ? "Riwayat tagihan dan pembayaran siswa akan ditampilkan di sini"
-                  : "Riwayat perubahan data siswa akan ditampilkan di sini"}
-              </p>
+              
+              <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest mt-6 mb-2">Riwayat Transaksi</p>
+              {siswa ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="flex items-center justify-between py-2 border-b border-[#F0F7EE] last:border-0">
+                      <div>
+                        <p className="text-sm font-semibold text-[#1C2517]">Pembayaran SPP Bulan {["Juni", "Mei", "April"][item-1]}</p>
+                        <p className="text-xs text-[#9CA3A0]">Transfer Bank • {10 + item} {["Juni", "Mei", "April"][item-1]} 2026</p>
+                      </div>
+                      <span className="text-sm font-bold text-[#3E8A2F]">Rp350.000</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <p className="text-sm text-[#9CA3A0]">Belum ada data tagihan</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="relative pl-4 border-l border-[#E2E8DE] space-y-6 ml-2 mt-2">
+                <div className="relative">
+                  <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#3E8A2F] border-2 border-white" />
+                  <p className="text-sm font-semibold text-[#1C2517]">Data diperbarui</p>
+                  <p className="text-xs text-[#6B7769] mt-0.5">Oleh Admin Utama • Hari ini, 09:30</p>
+                </div>
+                <div className="relative">
+                  <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#D1D5DB] border-2 border-white" />
+                  <p className="text-sm font-semibold text-[#1C2517]">Siswa didaftarkan</p>
+                  <p className="text-xs text-[#6B7769] mt-0.5">Sistem • 10 Juli 2025</p>
+                </div>
+              </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div
-          className="flex items-center justify-end gap-2 px-6 py-4 shrink-0"
-          style={{ borderTop: "1px solid #E2E8DE" }}
-        >
-          <button
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors"
-            style={{ border: "1px solid #E2E8DE" }}
+        {!isReadOnly && (
+          <div
+            className="flex items-center justify-end gap-2 px-6 py-4 shrink-0"
+            style={{ borderTop: "1px solid #E2E8DE" }}
           >
-            Batal
-          </button>
-          <button className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
-            Simpan
-          </button>
-        </div>
+            <button
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors"
+              style={{ border: "1px solid #E2E8DE" }}
+            >
+              Batal
+            </button>
+            <button onClick={handleSave} className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+              {isAdding ? "Tambah Siswa" : "Simpan"}
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
@@ -404,16 +572,38 @@ export function Siswa() {
   const [statusFilter, setStatusFilter] = useState("Semua Status");
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [selectedSiswa, setSelectedSiswa] = useState<SiswaRow | null>(null);
+  const [sheetMode, setSheetMode] = useState<"view" | "edit">("view");
+  const [isAddingSiswa, setIsAddingSiswa] = useState(false);
+  const [selectedCardSiswa, setSelectedCardSiswa] = useState<SiswaRow | null>(null);
+  const [qrZoomSiswa, setQrZoomSiswa] = useState<SiswaRow | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
-  const rows = useMemo(() => {
+  const { siswaList, addSiswa, updateSiswa } = useAppContext();
+
+  const kpiData = useMemo(() => {
+    const aktif = siswaList.filter(s => s.status === "Aktif");
+    return [
+      { label: "Total Aktif", value: aktif.length },
+      { label: "Laki-laki",   value: aktif.filter(s => s.jk === "L").length },
+      { label: "Perempuan",   value: aktif.filter(s => s.jk === "P").length },
+    ];
+  }, [siswaList]);
+
+  const filteredRows = useMemo(() => {
     const q = search.toLowerCase();
-    return siswaData.filter((r) => {
+    return siswaList.filter((r) => {
       const matchSearch = !q || r.nama.toLowerCase().includes(q) || r.nis.includes(q) || r.nisn.includes(q);
       const matchKelas  = kelasFilter === "Semua Kelas" || r.kelas === kelasFilter.slice(6);
       const matchStatus = statusFilter === "Semua Status" || r.status === statusFilter;
       return matchSearch && matchKelas && matchStatus;
     });
-  }, [search, kelasFilter, statusFilter]);
+  }, [search, kelasFilter, statusFilter, siswaList]);
+
+  const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
+  const rows = filteredRows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const startIndex = filteredRows.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endIndex = Math.min(currentPage * ITEMS_PER_PAGE, filteredRows.length);
 
   const allChecked  = rows.length > 0 && checked.size === rows.length;
   const someChecked = checked.size > 0 && !allChecked;
@@ -436,11 +626,7 @@ export function Siswa() {
         </div>
         {/* KPI chips */}
         <div className="hidden md:flex items-center gap-2 mt-1 shrink-0">
-          {[
-            { label: "Total Aktif", value: 355 },
-            { label: "Laki-laki",   value: 188 },
-            { label: "Perempuan",   value: 167 },
-          ].map((kpi, i) => (
+          {kpiData.map((kpi, i) => (
             <div key={kpi.label} className="flex items-center gap-2">
               {i > 0 && <span className="text-[#D1D5DB]">·</span>}
               <div
@@ -508,7 +694,7 @@ export function Siswa() {
             Import Excel
           </button>
           {/* Tambah Siswa */}
-          <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+          <button onClick={() => setIsAddingSiswa(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
             <Plus size={13} />
             Tambah Siswa
           </button>
@@ -523,7 +709,7 @@ export function Siswa() {
             placeholder="Cari nama / NIS / NISN..."
             className="flex-1 bg-transparent outline-none text-[13px] text-[#1C2517]" />
         </div>
-        <button onClick={() => setSelectedSiswa(null)}
+        <button onClick={() => setIsAddingSiswa(true)}
           className="w-11 h-11 flex items-center justify-center rounded-xl bg-[#3E8A2F] shrink-0">
           <Plus size={16} color="#FFF" />
         </button>
@@ -539,9 +725,9 @@ export function Siswa() {
             <button key={row.id} onClick={() => setSelectedSiswa(row)} className="w-full text-left bg-white rounded-xl"
               style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0"
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 overflow-hidden"
                   style={{ background: nonaktif ? "#E2E8DE" : "#3E8A2F", color: nonaktif ? "#9CA3A0" : "#FFF" }}>
-                  {row.inits}
+                  <img src={row.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt={row.nama} className={`w-full h-full object-cover ${nonaktif ? 'grayscale opacity-50' : ''}`} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
@@ -564,7 +750,7 @@ export function Siswa() {
           );
         })}
         <div className="flex items-center justify-between py-1">
-          <span className="text-[12px] text-[#6B7769]">1–{rows.length} dari <strong className="text-[#1C2517]">355</strong> siswa</span>
+          <span className="text-[12px] text-[#6B7769]">{startIndex}–{endIndex} dari <strong className="text-[#1C2517]">{filteredRows.length}</strong> siswa</span>
         </div>
       </div>
 
@@ -609,13 +795,13 @@ export function Siswa() {
                     <td className="py-3.5 pr-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 overflow-hidden"
                           style={{
                             background: nonaktif ? "#E2E8DE" : "#3E8A2F",
                             color:      nonaktif ? "#9CA3A0" : "#FFFFFF",
                           }}
                         >
-                          {row.inits}
+                          <img src={(row as any).foto || (row.jk === 'L' ? '/foto_L.png' : '/foto_P.png')} alt={row.nama} className={`w-full h-full object-cover ${nonaktif ? 'grayscale opacity-60' : ''}`} />
                         </div>
                         <div>
                           <p className={`text-sm font-semibold leading-none ${nonaktif ? "text-[#6B7769]" : "text-[#1C2517]"}`}>
@@ -656,7 +842,14 @@ export function Siswa() {
 
                     {/* Aksi */}
                     <td className="py-3.5 pr-6" onClick={(e) => e.stopPropagation()}>
-                      <RowMenu onView={() => setSelectedSiswa(row)} />
+                      <RowMenu 
+                        isActive={!nonaktif}
+                        waNumber={row.waliHp}
+                        onView={() => { setSheetMode("view"); setSelectedSiswa(row); }} 
+                        onEdit={() => { setSheetMode("edit"); setSelectedSiswa(row); }} 
+                        onShowCard={() => setSelectedCardSiswa(row)}
+                        onToggleStatus={() => updateSiswa(row.id, { status: nonaktif ? "Aktif" : "Nonaktif" })} 
+                      />
                     </td>
                   </tr>
                 );
@@ -671,23 +864,32 @@ export function Siswa() {
           style={{ borderTop: "1px solid #E2E8DE" }}
         >
           <span className="text-xs text-[#6B7769]">
-            1–{rows.length} dari <span className="font-semibold text-[#1C2517]">355</span> siswa
+            {startIndex}–{endIndex} dari <span className="font-semibold text-[#1C2517]">{filteredRows.length}</span> siswa
           </span>
           <div className="flex items-center gap-1">
             <button
-              disabled
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#D1D5DB] cursor-not-allowed"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${currentPage === 1 ? "text-[#D1D5DB] cursor-not-allowed" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
               style={{ border: "1px solid #E2E8DE" }}
             >
               <ChevronLeft size={14} />
             </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#3E8A2F] text-white text-xs font-bold">1</button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] text-xs hover:bg-[#EDF7EC] transition-colors">2</button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] text-xs hover:bg-[#EDF7EC] transition-colors">3</button>
-            <span className="px-1 text-[#9CA3A0] text-xs">...</span>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] text-xs hover:bg-[#EDF7EC] transition-colors">45</button>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+              <button 
+                key={p} 
+                onClick={() => setCurrentPage(p)}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${currentPage === p ? "bg-[#3E8A2F] text-white" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
+              >
+                {p}
+              </button>
+            ))}
+
             <button
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] hover:bg-[#EDF7EC] transition-colors"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${currentPage === totalPages || totalPages === 0 ? "text-[#D1D5DB] cursor-not-allowed" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
               style={{ border: "1px solid #E2E8DE" }}
             >
               <ChevronRight size={14} />
@@ -697,12 +899,95 @@ export function Siswa() {
       </div>
 
       {/* ── Detail sheet ── */}
-      {selectedSiswa && (
+      {(selectedSiswa || isAddingSiswa) && (
         <StudentSheet
-          key={selectedSiswa.id}
+          key={selectedSiswa ? selectedSiswa.id : "new"}
           siswa={selectedSiswa}
-          onClose={() => setSelectedSiswa(null)}
+          isAdding={isAddingSiswa}
+          isReadOnly={sheetMode === "view" && !isAddingSiswa}
+          onClose={() => { setSelectedSiswa(null); setIsAddingSiswa(false); }}
+          onShowCard={() => { if (selectedSiswa) setSelectedCardSiswa(selectedSiswa); }}
+          onSave={(form) => {
+            if (isAddingSiswa) {
+              const newSiswa: SiswaRow = {
+                id: Date.now(),
+                statusSPP: "Lunas",
+                ...form,
+                inits: form.nama.substring(0, 2).toUpperCase(),
+              };
+              addSiswa(newSiswa);
+            } else if (selectedSiswa) {
+              updateSiswa(selectedSiswa.id, {
+                ...form,
+                inits: form.nama.substring(0, 2).toUpperCase(),
+              });
+            }
+            setSelectedSiswa(null);
+            setIsAddingSiswa(false);
+          }}
         />
+      )}
+
+      {/* ── Mobile Modal (Kartu Digital) ── */}
+      {selectedCardSiswa && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex flex-col items-center justify-center overflow-hidden" onClick={() => setSelectedCardSiswa(null)}>
+          <button 
+            onClick={() => setSelectedCardSiswa(null)}
+            className="absolute top-6 right-6 z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white cursor-pointer hover:bg-white/30 transition-colors"
+          >
+            <X size={20} />
+          </button>
+          
+          <div className="w-full" onClick={(e) => e.stopPropagation()}>
+            <KartuPelajar 
+              key={`modal-${selectedCardSiswa.id}`}
+              siswa={selectedCardSiswa} 
+              isModal={true} 
+              onZoom={(s: any) => setQrZoomSiswa(s)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── QR Zoom Modal ── */}
+      {qrZoomSiswa && (
+        <div 
+          className="fixed inset-0 z-[70] bg-black/90 flex flex-col items-center justify-center p-6"
+          onClick={() => setQrZoomSiswa(null)}
+        >
+          <div 
+            className="bg-white p-6 rounded-2xl flex flex-col items-center max-w-sm w-full relative animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setQrZoomSiswa(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#F5F9F4] flex items-center justify-center text-[#6B7769] hover:bg-[#E2E8DE] transition-colors"
+            >
+              <X size={16} />
+            </button>
+            
+            <h3 className="text-[#1C2517] font-bold mb-5 text-center text-lg leading-tight">
+              Scan QR Code
+              <br/>
+              <span className="text-sm font-normal text-[#6B7769]">{qrZoomSiswa.nama}</span>
+            </h3>
+            
+            <div className="p-3 border-2 border-[#E2E8DE] rounded-xl bg-white shadow-sm mb-6">
+              <QRCode
+                value={`MADRASAH AL-ITTIHAD|${qrZoomSiswa.nis}|${qrZoomSiswa.nama}`}
+                size={220}
+                level="M"
+              />
+            </div>
+            
+            <button 
+              onClick={() => setQrZoomSiswa(null)}
+              className="w-full py-2.5 bg-[#3E8A2F] text-white font-semibold rounded-xl hover:bg-[#2E6B22] transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

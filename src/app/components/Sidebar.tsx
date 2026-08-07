@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Calendar, Users, GraduationCap, BookOpen,
   ClipboardList, CreditCard, AlertTriangle, FileText, Landmark,
   BarChart3, Calculator, Shield, Activity, Settings,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, IdCard, Archive, UserCheck
 } from "lucide-react";
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
@@ -29,7 +29,7 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const navGroups: NavGroup[] = [
+const getNavGroups = (absensiCount: number, tunggakanCount: number): NavGroup[] => [
   {
     group: null,
     items: [
@@ -41,16 +41,19 @@ const navGroups: NavGroup[] = [
     group: "AKADEMIK",
     items: [
       { icon: Users,         label: "Siswa",         path: "/akademik/siswa",         roles: ["Admin", "Bendahara"] },
-      { icon: GraduationCap, label: "Guru",           path: "/akademik/guru",          roles: ["Admin", "TU"] },
+      { icon: IdCard,        label: "Kartu Digital", path: "/akademik/kartu-digital", roles: ["Admin", "TU"] },
+      { icon: UserCheck,     label: "Absensi Siswa", path: "/akademik/absensi-siswa", roles: ["Admin", "TU"] },
+      { icon: Archive,       label: "Data Alumni",   path: "/akademik/alumni",        roles: ["Admin"] },
+      { icon: GraduationCap, label: "Guru",          path: "/akademik/guru",          roles: ["Admin", "TU"] },
       { icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal",  roles: ["Admin", "TU"] },
-      { icon: ClipboardList, label: "Absensi",        path: "/akademik/absensi",       roles: ["Admin", "TU"], badge: 3 },
+      { icon: ClipboardList, label: "Absensi Guru",  path: "/akademik/absensi",       roles: ["Admin", "TU"], badge: absensiCount },
     ],
   },
   {
     group: "KEUANGAN",
     items: [
       { icon: CreditCard,    label: "Pembayaran", path: "/keuangan/pembayaran", roles: ["Admin", "Bendahara"] },
-      { icon: AlertTriangle, label: "Tunggakan",  path: "/keuangan/tunggakan",  roles: ["Admin", "Bendahara"], badge: 12 },
+      { icon: AlertTriangle, label: "Tunggakan",  path: "/keuangan/tunggakan",  roles: ["Admin", "Bendahara"], badge: tunggakanCount },
       { icon: FileText,      label: "Tagihan",    path: "/keuangan/tagihan",    roles: ["Admin", "Bendahara"] },
       { icon: Landmark,      label: "Kas & Bank", path: "/keuangan/kas-bank",   roles: ["Admin", "Bendahara"] },
       { icon: BarChart3,     label: "Laporan",    path: "/keuangan/laporan",    roles: ["Admin", "Bendahara"] },
@@ -70,7 +73,8 @@ const navGroups: NavGroup[] = [
 // ─── components ────────────────────────────────────────────────────────────────
 
 export function Sidebar() {
-  const { sidebarCollapsed: collapsed, setSidebarCollapsed, role } = useAppContext();
+  const { sidebarCollapsed: collapsed, setSidebarCollapsed, role, absensiCount, tunggakanCount } = useAppContext();
+  const navGroups = getNavGroups(absensiCount, tunggakanCount);
 
   return (
     <aside

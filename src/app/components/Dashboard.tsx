@@ -7,62 +7,16 @@ import { PieChart, Pie, Cell } from "recharts";
 import { fmt, fmtCompact, fmtJt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 
-// ─── data (shared) ────────────────────────────────────────────────────────────
-
-const monthlyData = [
-  { bulan: "Jul '25", label: "Jul", pemasukan: 20_000_000, pengeluaran: 14_500_000 },
-  { bulan: "Agu",     label: "Agu", pemasukan: 22_000_000, pengeluaran: 16_000_000 },
-  { bulan: "Sep",     label: "Sep", pemasukan: 23_000_000, pengeluaran: 17_500_000 },
-  { bulan: "Okt",     label: "Okt", pemasukan: 21_000_000, pengeluaran: 15_200_000 },
-  { bulan: "Nov",     label: "Nov", pemasukan: 22_500_000, pengeluaran: 17_000_000 },
-  { bulan: "Des",     label: "Des", pemasukan: 19_500_000, pengeluaran: 14_300_000 },
-  { bulan: "Jan '26", label: "Jan", pemasukan: 24_000_000, pengeluaran: 18_500_000 },
-  { bulan: "Feb",     label: "Feb", pemasukan: 23_000_000, pengeluaran: 17_100_000 },
-  { bulan: "Mar",     label: "Mar", pemasukan: 25_000_000, pengeluaran: 19_200_000 },
-  { bulan: "Apr",     label: "Apr", pemasukan: 22_000_000, pengeluaran: 16_500_000 },
-  { bulan: "Mei",     label: "Mei", pemasukan: 23_500_000, pengeluaran: 18_000_000 },
-  { bulan: "Jun",     label: "Jun", pemasukan: 24_500_000, pengeluaran: 18_200_000 },
-];
+import {
+  monthlyData,
+  piutangData,
+  saldoAkun,
+  dashboardTunggakanData as tunggakanData,
+  dashboardTransaksiData as transaksiData,
+  absensiChips,
+} from "@/data/dashboard";
 
 const chartData6 = monthlyData.slice(-6);
-
-const piutangData = [
-  { name: "Lunas",       value: 245, color: "#57A946" },
-  { name: "Mencicil",    value: 42,  color: "#F6B31E" },
-  { name: "Belum Bayar", value: 68,  color: "#DC2626" },
-];
-
-const saldoAkun = [
-  { nama: "Bank BSI",             saldo: 85_200_000 },
-  { nama: "Bank Mandiri Syariah", saldo: 32_750_000 },
-  { nama: "Kas Tunai",            saldo: 10_500_000 },
-];
-
-const tunggakanData = [
-  { nama: "Ahmad Fadhilah Putra", kelas: "9A", jumlah: 3_500_000, badge: "Kritis",  inits: "AF" },
-  { nama: "Siti Rahmawati",       kelas: "8B", jumlah: 2_800_000, badge: "Kritis",  inits: "SR" },
-  { nama: "Rizky Firmansyah",     kelas: "7C", jumlah: 2_100_000, badge: "Kritis",  inits: "RF" },
-  { nama: "Nur Hidayatullah",     kelas: "9D", jumlah: 1_900_000, badge: "Waspada", inits: "NH" },
-  { nama: "Muhammad Alif Hakim",  kelas: "8A", jumlah: 1_750_000, badge: "Waspada", inits: "MA" },
-];
-
-const transaksiData = [
-  { tanggal: "13 Jul 2026", siswa: "Rizki Amalina",    kategori: "Daftar Ulang", metode: "Transfer", jumlah: 350_000, status: "Lunas" },
-  { tanggal: "13 Jul 2026", siswa: "Dian Permatasari", kategori: "PPDB",         metode: "Tunai",    jumlah: 250_000, status: "Lunas" },
-  { tanggal: "12 Jul 2026", siswa: "Bagas Prasetyo",   kategori: "PPDB",         metode: "Transfer", jumlah: 175_000, status: "Mencicil" },
-  { tanggal: "12 Jul 2026", siswa: "Siti Fatimah Nur", kategori: "Daftar Ulang", metode: "Tunai",    jumlah: 180_000, status: "Lunas" },
-  { tanggal: "11 Jul 2026", siswa: "Ardian Kusuma",    kategori: "Daftar Ulang", metode: "QRIS",     jumlah: 350_000, status: "Lunas" },
-  { tanggal: "11 Jul 2026", siswa: "Laila Nurjanah",   kategori: "Kelas 9",      metode: "Transfer", jumlah: 150_000, status: "Menunggak" },
-  { tanggal: "10 Jul 2026", siswa: "Fajar Setiawan",   kategori: "Daftar Ulang", metode: "Tunai",    jumlah: 350_000, status: "Lunas" },
-  { tanggal: "10 Jul 2026", siswa: "Annisa Rahayu",    kategori: "Kelas 9",      metode: "Transfer", jumlah: 120_000, status: "Lunas" },
-];
-
-const absensiChips = [
-  { label: "Hadir",       value: 34, bg: "#DCFCE7", text: "#166534" },
-  { label: "Izin",        value: 2,  bg: "#FEF3C7", text: "#92400E" },
-  { label: "Alpa",        value: 1,  bg: "#FEE2E2", text: "#991B1B" },
-  { label: "Belum Absen", value: 1,  bg: "#F3F4F6", text: "#374151" },
-];
 
 // ─── shared sub-components ────────────────────────────────────────────────────
 
@@ -153,10 +107,11 @@ function IncomeExpenseChart() {
   const mkPath = (key: "pemasukan" | "pengeluaran") =>
     monthlyData.map((d, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yOf(d[key]).toFixed(1)}`).join(" ");
   const yTicks = [0, 10_000_000, 20_000_000, 30_000_000];
+  const currentYear = new Date().getFullYear();
   return (
     <div className="bg-white rounded-xl p-6" style={{ border: "1px solid #E2E8DE" }}>
       <p className="text-sm font-semibold text-[#1C2517] mb-0.5">Pemasukan vs Pengeluaran</p>
-      <p className="text-xs text-[#6B7769] mb-3">Jul 2025 – Jun 2026</p>
+      <p className="text-xs text-[#6B7769] mb-3">Jul {currentYear - 1} – Jun {currentYear}</p>
       <div className="flex items-center gap-5 mb-3">
         <div className="flex items-center gap-1.5"><span className="w-5 h-[2px] rounded-full inline-block bg-[#3E8A2F]" /><span className="text-xs text-[#6B7769]">Pemasukan</span></div>
         <div className="flex items-center gap-1.5"><span className="w-5 h-[2px] rounded-full inline-block bg-[#F6B31E]" /><span className="text-xs text-[#6B7769]">Pengeluaran</span></div>
@@ -205,11 +160,12 @@ function IncomeExpenseChart() {
 
 function PiutangDonut() {
   const total = piutangData.reduce((s, d) => s + d.value, 0);
+  const currentYear = new Date().getFullYear();
   return (
     <div className="bg-white rounded-xl p-6" style={{ border: "1px solid #E2E8DE" }}>
       <div className="mb-4">
         <p className="text-sm font-semibold text-[#1C2517]">Status Piutang</p>
-        <p className="text-xs text-[#6B7769]">Tahun Ajaran 2025/2026</p>
+        <p className="text-xs text-[#6B7769]">Tahun Ajaran {currentYear - 1}/{currentYear}</p>
       </div>
       <div className="flex items-center gap-4">
         <div className="relative shrink-0" style={{ width: 160, height: 160 }}>
@@ -376,12 +332,15 @@ function MobileChart() {
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
+  const currentYear = new Date().getFullYear();
+  const todayStr = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+
   return (
     <>
       {/* ═══ MOBILE LAYOUT (md:hidden) ═════════════════════════════════════════ */}
       <div className="md:hidden px-4 py-3 flex flex-col gap-3">
         <p className="text-sm text-[#6B7769]">
-          Selamat pagi, <span className="font-semibold text-[#1C2517]">Admin</span> — Senin, 13 Juli 2026
+          Selamat pagi, <span className="font-semibold text-[#1C2517]">Admin</span> — {todayStr}
         </p>
 
         {/* KPI 2×2 */}
@@ -423,7 +382,7 @@ export function Dashboard() {
         {/* Chart */}
         <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 14px 10px" }}>
           <p className="text-[13px] font-semibold text-[#1C2517]">Pemasukan vs Pengeluaran</p>
-          <p className="text-[11px] text-[#6B7769]" style={{ marginBottom: 10 }}>Jan – Jun 2026</p>
+          <p className="text-[11px] text-[#6B7769]" style={{ marginBottom: 10 }}>Jan – Jun {currentYear}</p>
           <div className="flex gap-4" style={{ marginBottom: 10 }}>
             <div className="flex items-center gap-1.5"><span className="inline-block rounded-full bg-[#3E8A2F]" style={{ width: 16, height: 2 }} /><span className="text-[10px] text-[#6B7769]">Pemasukan</span></div>
             <div className="flex items-center gap-1.5"><span className="inline-block rounded-full bg-[#F6B31E]" style={{ width: 16, height: 2 }} /><span className="text-[10px] text-[#6B7769]">Pengeluaran</span></div>
@@ -459,7 +418,7 @@ export function Dashboard() {
         {/* Absensi Hari Ini */}
         <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
           <p className="text-[13px] font-semibold text-[#1C2517]">Absensi Hari Ini</p>
-          <p className="text-[11px] text-[#6B7769]" style={{ marginBottom: 14 }}>Senin, 13 Juli 2026</p>
+          <p className="text-[11px] text-[#6B7769]" style={{ marginBottom: 14 }}>{todayStr}</p>
           <div className="flex items-center gap-3.5">
             <CircularProgress value={89} size={88} />
             <div className="flex-1 grid grid-cols-2 gap-2">
@@ -480,7 +439,7 @@ export function Dashboard() {
           Selamat datang,{" "}
           <span className="font-semibold text-[#1C2517]">Admin Keuangan</span>
           {" — "}
-          <span>Senin, 13 Juli 2026</span>
+          <span>{todayStr}</span>
         </p>
 
         <div className="grid grid-cols-4 gap-4">

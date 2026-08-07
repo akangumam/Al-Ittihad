@@ -4,45 +4,11 @@ import { fmt, fmtNum } from "@/lib/formatters";
 
 // ─── static data ──────────────────────────────────────────────────────────────
 
-const student = {
-  nama: "Ahmad Fadhilah Putra",
-  nis: "2024-0089",
-  kelas: "9A",
-  wali: "Bapak Hartono",
-  totalTagihan: 4_500_000,
-  dibayar: 1_000_000,
-  sisa: 3_500_000,
-  inits: "AF",
-};
-
-const searchResults = [
-  { id: 1, nama: "Ahmad Fadhilah Putra", nis: "2024-0089", kelas: "9A",  sisa: 3_500_000 },
-  { id: 2, nama: "Ahmad Fauzi Ridwan",   nis: "2023-0145", kelas: "8B",  sisa: 450_000 },
-  { id: 3, nama: "Ahmala Kartini",        nis: "2025-0067", kelas: "7D",  sisa: 0 },
-  { id: 4, nama: "Aisyah Nur Fadhila",    nis: "2024-0234", kelas: "9B",  sisa: 900_000 },
-];
-
-const tagihanList = [
-  // Daftar Ulang package (350.000)
-  { prio:  1, kategori: "LKS Semester 1 — Daftar Ulang",                    total: 130_000, sisa: 130_000 },
-  { prio:  2, kategori: "Iuran Semester 1 & 2 — Daftar Ulang",              total: 170_000, sisa: 170_000 },
-  { prio:  3, kategori: "Pemeliharaan Lab Komputer — Daftar Ulang",          total:  50_000, sisa:  50_000 },
-  // Adm. Kelas 9 package (700.000)
-  { prio:  4, kategori: "Foto — Adm. Kelas 9",                              total:  40_000, sisa:  40_000 },
-  { prio:  5, kategori: "Iuran Ujian — Adm. Kelas 9",                       total: 200_000, sisa: 200_000 },
-  { prio:  6, kategori: "Album — Adm. Kelas 9",                             total:  80_000, sisa:  80_000 },
-  { prio:  7, kategori: "Medali — Adm. Kelas 9",                            total:  80_000, sisa:  80_000 },
-  { prio:  8, kategori: "Sampul Ijazah — Adm. Kelas 9",                     total:  50_000, sisa:  50_000 },
-  { prio:  9, kategori: "Pemeliharaan Lab Komputer — Adm. Kelas 9",         total: 100_000, sisa: 100_000 },
-  { prio: 10, kategori: "Perpisahan — Adm. Kelas 9",                        total: 150_000, sisa: 150_000 },
-  // Additional fees (2.450.000)
-  { prio: 11, kategori: "Try-out UN (3 Paket) — Kelas 9",                   total: 450_000, sisa: 450_000 },
-  { prio: 12, kategori: "Wisuda & Pelepasan — Kelas 9",                     total: 600_000, sisa: 600_000 },
-  { prio: 13, kategori: "Dana Pengembangan Sekolah — TA 2025/2026",         total: 700_000, sisa: 700_000 },
-  { prio: 14, kategori: "Bimbingan Belajar Intensif — Kelas 9",             total: 500_000, sisa: 500_000 },
-  { prio: 15, kategori: "Buku Referensi & LKS Semester 2",                  total: 200_000, sisa: 200_000 },
-  // Total: 3.500.000 = student.sisa
-];
+import {
+  pembayaranStudent as student,
+  pembayaranSearchResults as searchResults,
+  pembayaranTagihanList as tagihanList,
+} from "@/data/pembayaran";
 
 function computeAlokasi(nominal: number) {
   let rem = nominal;
@@ -122,12 +88,14 @@ function FloatingSelect({
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function MobilePembayaran() {
-  const [query, setQuery]       = useState("Ahmad Fadhilah Putra");
+  const [query, setQuery]       = useState("");
   const [dropOpen, setDropOpen] = useState(false);
-  const [nominal, setNominal]   = useState(400_000);
+  const [nominal, setNominal]   = useState(0);
   const [metode, setMetode]     = useState("Tunai");
   const [akun, setAkun]         = useState("Kas Tunai");
-  const [tanggal, setTanggal]   = useState("13/07/2026");
+  const today = new Date();
+  const formattedToday = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+  const [tanggal, setTanggal]   = useState(formattedToday);
   const [catatan, setCatatan]   = useState("");
 
   const isSelected = query === student.nama;
@@ -182,7 +150,6 @@ export function MobilePembayaran() {
                 type="text"
                 placeholder="Cari nama atau NIS..."
                 value={query}
-                autoFocus
                 onChange={(e) => { setQuery(e.target.value); setDropOpen(true); }}
                 onFocus={() => setDropOpen(true)}
                 onBlur={() => setTimeout(() => setDropOpen(false), 150)}
@@ -203,7 +170,7 @@ export function MobilePembayaran() {
                 .map((r, i, arr) => (
                   <button
                     key={r.id}
-                    onMouseDown={() => { setQuery(r.nama); setDropOpen(false); }}
+                    onMouseDown={() => { setQuery(r.nama); setDropOpen(false); setNominal(400_000); }}
                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#F5F9F4] transition-colors"
                     style={{
                       border: "none",

@@ -13,92 +13,11 @@ import { CSS } from "@dnd-kit/utilities";
 import { fmt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
+import { useAppContext } from "@/context/AppContext";
+import { tahunAjaranOptions } from "@/data/settings";
 
-// ─── data ─────────────────────────────────────────────────────────────────────
-
-interface TemplateComponent { nama: string; jumlah: number }
-interface Template {
-  id: number; nama: string; tipe: string; target: string;
-  komponen: TemplateComponent[]; total: number; applied: number;
-}
-
-const templates: Template[] = [
-  {
-    id: 1, nama: "Administrasi PPDB",
-    tipe: "PPDB", target: "Siswa Baru", applied: 120,
-    komponen: [
-      { nama: "Seragam Batik, Kaos Olahraga & Atribut", jumlah: 200_000 },
-      { nama: "LKS Semester 1",                          jumlah: 130_000 },
-      { nama: "Iuran Semester 1 & 2",                    jumlah: 120_000 },
-      { nama: "Map Raport",                              jumlah:  50_000 },
-      { nama: "Pemeliharaan Lab Komputer",               jumlah:  50_000 },
-      { nama: "Infaq Gedung",                            jumlah: 200_000 },
-    ],
-    total: 750_000,
-  },
-  {
-    id: 2, nama: "Daftar Ulang",
-    tipe: "Daftar Ulang", target: "Siswa Lama (Kelas 8 & 9)", applied: 235,
-    komponen: [
-      { nama: "LKS Semester 1",           jumlah: 130_000 },
-      { nama: "Iuran Semester 1 & 2",     jumlah: 170_000 },
-      { nama: "Pemeliharaan Lab Komputer", jumlah:  50_000 },
-    ],
-    total: 350_000,
-  },
-  {
-    id: 3, nama: "Administrasi Kelas 9",
-    tipe: "Kelas 9", target: "Khusus Kelas 9", applied: 115,
-    komponen: [
-      { nama: "Foto",                      jumlah:  40_000 },
-      { nama: "Iuran Ujian",               jumlah: 200_000 },
-      { nama: "Album",                     jumlah:  80_000 },
-      { nama: "Medali",                    jumlah:  80_000 },
-      { nama: "Sampul Ijazah",             jumlah:  50_000 },
-      { nama: "Pemeliharaan Lab Komputer", jumlah: 100_000 },
-      { nama: "Perpisahan",                jumlah: 150_000 },
-    ],
-    total: 700_000,
-  },
-];
-
-interface TemplateBadgeRef { label: string; key: string }
-interface PenetapanRow {
-  id: number; nama: string; nis: string; kelas: string; inits: string;
-  templates: TemplateBadgeRef[]; total: number | null; status: string;
-}
-
-const penetapanRows: PenetapanRow[] = [
-  { id: 1, nama: "Ahmad Fadhilah Putra", nis: "2024-0089", kelas: "9A", inits: "AF",
-    templates: [{ label: "Adm. Kelas 9", key: "kelas9" }],
-    total: 700_000, status: "Lengkap" },
-  { id: 2, nama: "Siti Rahmawati", nis: "2023-0145", kelas: "8B", inits: "SR",
-    templates: [{ label: "Daftar Ulang", key: "daftar" }],
-    total: 350_000, status: "Lengkap" },
-  { id: 3, nama: "Rizky Firmansyah", nis: "2025-0067", kelas: "7C", inits: "RF",
-    templates: [{ label: "Adm. PPDB", key: "ppdb" }],
-    total: 750_000, status: "Lengkap" },
-  { id: 4, nama: "Nur Hidayatullah", nis: "2024-0234", kelas: "9D", inits: "NH",
-    templates: [{ label: "Daftar Ulang", key: "daftar" }, { label: "Adm. Kelas 9", key: "kelas9" }],
-    total: 1_050_000, status: "Lengkap" },
-  { id: 5, nama: "Dewi Anggraini Putri", nis: "2023-0312", kelas: "8A", inits: "DA",
-    templates: [{ label: "Daftar Ulang", key: "daftar" }],
-    total: 350_000, status: "Lengkap" },
-  { id: 6, nama: "Bagas Prasetyo", nis: "2025-0089", kelas: "7B", inits: "BP",
-    templates: [], total: null, status: "Belum Ditetapkan" },
-  { id: 7, nama: "Farah Dianti Putri", nis: "2024-0178", kelas: "9C", inits: "FD",
-    templates: [], total: null, status: "Belum Ditetapkan" },
-];
-
-const kelasOptions = [
-  "Semua Kelas",
-  "Kelas 7A","Kelas 7B","Kelas 7C","Kelas 7D",
-  "Kelas 8A","Kelas 8B","Kelas 8C","Kelas 8D",
-  "Kelas 9A","Kelas 9B","Kelas 9C","Kelas 9D",
-];
-const templateOptions = [
-  "Semua Template","Administrasi PPDB","Daftar Ulang","Administrasi Kelas 9",
-];
+import { tagihanTemplates as templates, penetapanRows, templateOptions, Template, PenetapanRow, PPDB_DEFAULTS } from "@/data/pembayaran";
+import { kelasOptions } from "@/data/constants";
 
 // ─── badge palette ────────────────────────────────────────────────────────────
 
@@ -386,21 +305,14 @@ function KomponenRow({
 
 // ─── Sheet: TambahTemplateSheet ───────────────────────────────────────────────
 
-const PPDB_DEFAULTS: KRow[] = [
-  { id: 1, nama: "Seragam Batik, Kaos Olahraga & Atribut", nominal: 200_000, keterangan: "" },
-  { id: 2, nama: "LKS Semester 1",                          nominal: 130_000, keterangan: "" },
-  { id: 3, nama: "Iuran Semester 1 & 2",                    nominal: 120_000, keterangan: "" },
-  { id: 4, nama: "Map Raport",                              nominal:  50_000, keterangan: "" },
-  { id: 5, nama: "Pemeliharaan Lab Komputer",               nominal:  50_000, keterangan: "" },
-  { id: 6, nama: "Infaq Gedung",                            nominal: 200_000, keterangan: "" },
-];
-
 function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
+  const { tahunAjaran, setTahunAjaran } = useAppContext();
   const [namaTemplate, setNamaTemplate] = useState("Administrasi PPDB");
   const [tipe, setTipe]                 = useState("PPDB");
-  const [tahunAjaran, setTahunAjaran]   = useState("2025/2026");
   const [kelas, setKelas]               = useState("");
-  const [jatuhTempo, setJatuhTempo]     = useState("2026-07-31");
+  const today = new Date();
+  const formattedToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const [jatuhTempo, setJatuhTempo]     = useState(formattedToday);
   const [komponen, setKomponen]         = useState<KRow[]>(PPDB_DEFAULTS);
   const nextId = useRef(PPDB_DEFAULTS.length + 1);
 
@@ -488,7 +400,7 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
               label="Tahun Ajaran"
               value={tahunAjaran}
               onChange={setTahunAjaran}
-              options={["2025/2026", "2026/2027", "2027/2028"]}
+              options={tahunAjaranOptions}
             />
           </div>
 

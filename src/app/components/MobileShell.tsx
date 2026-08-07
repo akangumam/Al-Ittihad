@@ -5,7 +5,7 @@ import {
   LayoutDashboard, CreditCard, AlertTriangle, ClipboardList, MoreHorizontal,
   Calendar, Users, GraduationCap, BookOpen,
   FileText, Landmark, BarChart3, Calculator,
-  Shield, Activity, Settings,
+  Shield, Activity, Settings, IdCard, Archive, UserCheck
 } from "lucide-react";
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
@@ -24,7 +24,7 @@ const BOTTOM_NAV: BottomNavItem[] = [
   { id: "dashboard",  path: "/",                    Icon: LayoutDashboard, label: "Dashboard" },
   { id: "pembayaran", path: "/keuangan/pembayaran", Icon: CreditCard,       label: "Pembayaran" },
   { id: "tunggakan",  path: "/keuangan/tunggakan",  Icon: AlertTriangle,    label: "Tunggakan", badge: 12 },
-  { id: "absensi",    path: "/akademik/absensi",    Icon: ClipboardList,    label: "Absensi",   badge: 3 },
+  { id: "absensi",    path: "/akademik/absensi",    Icon: ClipboardList,    label: "Absensi Guru",   badge: 3 },
   { id: "menu",                                     Icon: MoreHorizontal,   label: "Menu" },
 ];
 
@@ -44,6 +44,9 @@ const MENU_GROUPS: Array<{
     group: "AKADEMIK",
     items: [
       { Icon: Users,         label: "Siswa",         path: "/akademik/siswa" },
+      { Icon: IdCard,        label: "Kartu Digital", path: "/akademik/kartu-digital" },
+      { Icon: UserCheck,     label: "Absensi Siswa", path: "/akademik/absensi-siswa" },
+      { Icon: Archive,       label: "Data Alumni",   path: "/akademik/alumni" },
       { Icon: GraduationCap, label: "Guru",           path: "/akademik/guru" },
       { Icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal" },
     ],

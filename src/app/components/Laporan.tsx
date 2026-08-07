@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useParams, useNavigate } from "react-router";
 import {
   BookOpen, Banknote, Scale, ArrowUpDown, AlertTriangle,
   CalendarDays, Calendar, ChevronDown, Download, FileText,
@@ -7,6 +8,7 @@ import { fmt } from "@/lib/formatters";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 
 // ─── static data ──────────────────────────────────────────────────────────────
+import { SALDO_AWAL, BKU_ROWS } from "@/data/laporan";
 
 interface ReportMeta {
   id: string;
@@ -24,19 +26,6 @@ const REPORTS: ReportMeta[] = [
   { id: "kas",       icon: ArrowUpDown,   iconBg: "#DCFCE7", iconColor: "#166534", nama: "Laporan Pemasukan & Pengeluaran",    deskripsi: "Ringkasan arus kas per kategori" },
   { id: "tunggakan", icon: AlertTriangle, iconBg: "#FEE2E2", iconColor: "#DC2626", nama: "Rekap Tunggakan",                    deskripsi: "Snapshot tunggakan per periode" },
   { id: "absensi",   icon: CalendarDays,  iconBg: "#FEF3C7", iconColor: "#92400E", nama: "Rekap Absensi Guru",                 deskripsi: "Kehadiran guru per bulan" },
-];
-
-// BKU data — opening balance 1 Jul 2026, running balance closes at current total
-const SALDO_AWAL = 123_200_000;
-
-const BKU_ROWS = [
-  { no: 1, tanggal: "9 Jul 2026",  uraian: "Pembayaran Daftar Ulang & PPDB",   ref: "KW/2026/07/0131", debit:    175_000, kredit:       null, saldo: 123_375_000 },
-  { no: 2, tanggal: "10 Jul 2026", uraian: "Pembelian ATK dan Perlengkapan",   ref: "BV/2026/07/001",  debit:       null, kredit:    500_000, saldo: 122_875_000 },
-  { no: 3, tanggal: "10 Jul 2026", uraian: "Honor Pengajar Ekstrakurikuler",   ref: "BV/2026/07/002",  debit:       null, kredit:  1_500_000, saldo: 121_375_000 },
-  { no: 4, tanggal: "10 Jul 2026", uraian: "Pembayaran Tagihan Listrik & Air", ref: "BV/2026/07/003",  debit:       null, kredit:  1_200_000, saldo: 120_175_000 },
-  { no: 5, tanggal: "12 Jul 2026", uraian: "Penerimaan Dana BOS Triwulan III", ref: "—",               debit: 7_500_000, kredit:       null, saldo: 127_675_000 },
-  { no: 6, tanggal: "12 Jul 2026", uraian: "Cicilan Administrasi PPDB",        ref: "KW/2026/07/0139", debit:    175_000, kredit:       null, saldo: 127_850_000 },
-  { no: 7, tanggal: "13 Jul 2026", uraian: "Pembayaran Daftar Ulang (3 siswa)",ref: "KW/2026/07/0142", debit:    600_000, kredit:       null, saldo: 128_450_000 },
 ];
 
 const AKUN_OPTIONS = ["Semua Akun", "Bank BSI", "Bank Mandiri Syariah", "Kas Tunai"];
@@ -86,6 +75,8 @@ function ReportCard({
 
 function BKUPreview() {
   const [akun, setAkun] = useState("Semua Akun");
+  const todayStr = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
+  const currentMonth = new Intl.DateTimeFormat('id-ID', { month: 'short', year: 'numeric' }).format(new Date());
 
   const totalDebit  = BKU_ROWS.reduce((s, r) => s + (r.debit  ?? 0), 0); // 8 450 000
   const totalKredit = BKU_ROWS.reduce((s, r) => s + (r.kredit ?? 0), 0); // 3 200 000
@@ -112,7 +103,7 @@ function BKUPreview() {
             style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
           >
             <Calendar size={13} className="text-[#6B7769] shrink-0" />
-            <span className="text-sm text-[#374040]">1–31 Jul 2026</span>
+            <span className="text-sm text-[#374040]">1–31 {currentMonth}</span>
             <ChevronDown size={12} className="text-[#9CA3A0]" />
           </button>
 
@@ -169,7 +160,7 @@ function BKUPreview() {
             {/* ── Saldo Awal ── muted opening row */}
             <tr style={{ borderBottom: "1px solid #F0F7EE", background: "#FAFBF9" }}>
               <td className="py-3 pl-6 pr-4" />
-              <td className="py-3 pr-4 text-sm text-[#9CA3A0]">1 Jul 2026</td>
+              <td className="py-3 pr-4 text-sm text-[#9CA3A0]">1 {currentMonth}</td>
               <td className="py-3 pr-4">
                 <span className="text-sm italic text-[#9CA3A0]">Saldo Awal</span>
               </td>
@@ -231,7 +222,7 @@ function BKUPreview() {
             <tr style={{ borderTop: "2px solid #E2E8DE" }}>
               <td className="py-3.5 pl-6 pr-4" />
               <td className="py-3.5 pr-4 text-sm font-semibold text-[#1C2517] whitespace-nowrap">
-                13 Jul 2026
+                {todayStr}
               </td>
               <td className="py-3.5 pr-4">
                 <span className="text-sm font-bold text-[#1C2517]">Saldo Akhir</span>
@@ -263,7 +254,7 @@ function BKUPreview() {
         style={{ borderTop: "1px solid #E2E8DE" }}
       >
         <p className="text-[11px] text-[#9CA3A0] italic">
-          Dicetak dari Sistem Manajemen MTs Al-Ittihad — 13 Jul 2026
+          Dicetak dari Sistem Manajemen MTs Al-Ittihad — {todayStr}
         </p>
       </div>
     </div>
@@ -294,9 +285,11 @@ function PreviewPlaceholder({ nama }: { nama: string }) {
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Laporan() {
-  const [selectedId, setSelectedId] = useState<string>("bku");
+  const { tab } = useParams<{ tab: string }>();
+  const navigate = useNavigate();
+  const selectedId = tab || "bku";
 
-  const selected = REPORTS.find((r) => r.id === selectedId)!;
+  const selected = REPORTS.find((r) => r.id === selectedId) || REPORTS[0];
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-6">
@@ -313,7 +306,7 @@ export function Laporan() {
             key={r.id}
             r={r}
             selected={selectedId === r.id}
-            onSelect={() => setSelectedId(r.id)}
+            onSelect={() => navigate(`/keuangan/laporan/${r.id}`)}
           />
         ))}
       </div>

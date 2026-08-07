@@ -7,93 +7,8 @@ import {
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 
-// ─── types ────────────────────────────────────────────────────────────────────
-
-interface GuruRow {
-  id: number;
-  nama: string;
-  nuptk: string;
-  nip: string;
-  mapel: string[];
-  statusKepeg: "PNS" | "GTY" | "Honorer";
-  waliKelas: string | null;
-  kehadiran: number;
-  status: "Aktif" | "Nonaktif";
-  jk: "L" | "P";
-  tanggalLahir: string;
-  jabatan: string;
-  pendidikan: string;
-  hp: string;
-  email: string;
-  alamat: string;
-  inits: string;
-}
-
-// ─── data ─────────────────────────────────────────────────────────────────────
-
-const guruData: GuruRow[] = [
-  {
-    id: 1, nama: "Ust. Ahmad Zaki, S.Pd", nuptk: "1245760661200013", nip: "",
-    mapel: ["Matematika", "IPA"], statusKepeg: "GTY", waliKelas: "9A",
-    kehadiran: 95, status: "Aktif", jk: "L", tanggalLahir: "15 Maret 1985",
-    jabatan: "Guru Mapel & Wali Kelas", pendidikan: "S1 Pendidikan Matematika — IAIN Cirebon",
-    hp: "0812-9876-5432", email: "ahmad.zaki@alittihad.sch.id",
-    alamat: "Jl. Pedaleman Dalam No. 3, Babakan, Cirebon", inits: "AZ",
-  },
-  {
-    id: 2, nama: "Hj. Siti Nurlaela, S.Pd.I", nuptk: "2345670881200004", nip: "19750408 200312 2 004",
-    mapel: ["Bahasa Arab", "Fiqih"], statusKepeg: "PNS", waliKelas: null,
-    kehadiran: 92, status: "Aktif", jk: "P", tanggalLahir: "8 April 1975",
-    jabatan: "Guru Mapel & Koordinator PAI", pendidikan: "S1 Pendidikan Bahasa Arab — UIN Jakarta",
-    hp: "0813-5678-2345", email: "siti.nurlaela@alittihad.sch.id",
-    alamat: "Jl. Raya Pekalipan No. 22, Pekalipan, Cirebon", inits: "SN",
-  },
-  {
-    id: 3, nama: "Ust. Farid Hasan, S.Pd", nuptk: "3456781091200015", nip: "",
-    mapel: ["IPS", "PKn"], statusKepeg: "GTY", waliKelas: "8B",
-    kehadiran: 88, status: "Aktif", jk: "L", tanggalLahir: "22 Juli 1987",
-    jabatan: "Guru Mapel & Wali Kelas", pendidikan: "S1 Pendidikan IPS — UNIKU Kuningan",
-    hp: "0821-3456-7890", email: "farid.hasan@alittihad.sch.id",
-    alamat: "Jl. Kramat No. 11, Argasunya, Cirebon", inits: "FH",
-  },
-  {
-    id: 4, nama: "Ibu Dewi Rahmawati, S.Pd", nuptk: "4567892301200002", nip: "19800115 200501 2 003",
-    mapel: ["Bahasa Indonesia"], statusKepeg: "PNS", waliKelas: "7C",
-    kehadiran: 97, status: "Aktif", jk: "P", tanggalLahir: "15 Januari 1980",
-    jabatan: "Guru Mapel & Wali Kelas", pendidikan: "S1 Bahasa & Sastra Indonesia — UNSWAGATI Cirebon",
-    hp: "0877-8901-2345", email: "dewi.rahmawati@alittihad.sch.id",
-    alamat: "Jl. Sukalila Selatan No. 7, Kejaksan, Cirebon", inits: "DR",
-  },
-  {
-    id: 5, nama: "Ust. Ridwan Maulana, S.Pd.I", nuptk: "5678900511200011", nip: "",
-    mapel: ["Tahfidz", "PAI"], statusKepeg: "GTY", waliKelas: "9C",
-    kehadiran: 79, status: "Aktif", jk: "L", tanggalLahir: "3 Desember 1989",
-    jabatan: "Koordinator Tahfidz & Wali Kelas", pendidikan: "S1 Pendidikan Agama Islam — UIN Sunan Gunung Djati",
-    hp: "0856-7890-1234", email: "ridwan.maulana@alittihad.sch.id",
-    alamat: "Jl. Karanggetas No. 18, Kesambi, Cirebon", inits: "RM",
-  },
-  {
-    id: 6, nama: "Ibu Nining Suparni, S.Pd", nuptk: "", nip: "",
-    mapel: ["Prakarya", "SBK"], statusKepeg: "Honorer", waliKelas: null,
-    kehadiran: 71, status: "Aktif", jk: "P", tanggalLahir: "9 Agustus 1993",
-    jabatan: "Guru Honorer", pendidikan: "D3 Seni Rupa — ISBI Bandung",
-    hp: "0812-3456-8901", email: "nining.suparni@alittihad.sch.id",
-    alamat: "Jl. Panjunan No. 34, Lemahwungkuk, Cirebon", inits: "NS",
-  },
-  {
-    id: 7, nama: "Ust. Budi Santoso, S.Pd", nuptk: "7890123561200007", nip: "",
-    mapel: ["Penjaskes"], statusKepeg: "Honorer", waliKelas: "7B",
-    kehadiran: 85, status: "Aktif", jk: "L", tanggalLahir: "17 Juni 1991",
-    jabatan: "Guru Olahraga & Wali Kelas", pendidikan: "S1 Pendidikan Jasmani — UNSIL Tasikmalaya",
-    hp: "0821-6789-0123", email: "budi.santoso@alittihad.sch.id",
-    alamat: "Jl. Lawanggada No. 9, Kasepuhan, Cirebon", inits: "BS",
-  },
-];
-
-const mapelOptions = [
-  "Semua Mapel", "Matematika", "IPA", "Bahasa Arab", "Fiqih",
-  "IPS", "PKn", "Bahasa Indonesia", "Tahfidz", "PAI", "Prakarya", "SBK", "Penjaskes",
-];
+import { GuruRow, guruData } from "@/data/guru";
+import { mapelOptions } from "@/data/constants";
 
 // ─── palette ──────────────────────────────────────────────────────────────────
 
@@ -315,6 +230,7 @@ function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
     hp: guru.hp,
     email: guru.email,
     alamat: guru.alamat,
+    foto: (guru as any)?.foto || "",
   });
   const set = (key: keyof typeof form) => (v: string) =>
     setForm((prev) => ({ ...prev, [key]: v }));
@@ -388,6 +304,51 @@ function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
               {/* ── Data Pribadi ── */}
               <section className="space-y-3">
                 <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest">Data Pribadi</p>
+
+                {/* Upload Foto */}
+                <div className="flex items-center gap-4 py-2">
+                  <div className="w-16 h-20 bg-gray-100 border border-gray-200 rounded-md overflow-hidden shrink-0 flex items-center justify-center relative">
+                    {form.foto ? (
+                      <img src={form.foto} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <img src={form.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt="Preview Default" className="w-full h-full object-cover" />
+                    )}
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => set("foto")(ev.target?.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col relative">
+                    <p className="text-sm font-semibold text-[#1C2517]">Foto Profil</p>
+                    <p className="text-[11px] text-[#6B7769] mt-0.5 mb-2">Format JPG/PNG. Maks 2MB.</p>
+                    <button className="w-fit px-3 py-1.5 rounded-md bg-[#F5F9F4] text-[#3E8A2F] text-xs font-semibold hover:bg-[#EDF7EC] transition-colors">
+                      Pilih Foto
+                    </button>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => set("foto")(ev.target?.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <FloatingInput label="Nama Lengkap" value={form.nama} onChange={set("nama")} required />
                 <div className="grid grid-cols-2 gap-3">
                   <FloatingInput label="NUPTK" value={form.nuptk} onChange={set("nuptk")} />
@@ -478,8 +439,17 @@ export function Guru() {
   const [search,      setSearch]      = useState("");
   const [mapelFilter, setMapelFilter] = useState("Semua Mapel");
   const [statusFilter,setStatusFilter]= useState("Semua Status");
-  // Sheet starts open with first teacher (Ust. Ahmad Zaki)
-  const [selectedGuru, setSelectedGuru] = useState<GuruRow | null>(guruData[0]);
+  // Sheet does not open automatically anymore
+  const [selectedGuru, setSelectedGuru] = useState<GuruRow | null>(null);
+
+  const kpiData = useMemo(() => {
+    return [
+      { label: "Total", value: guruData.length },
+      { label: "PNS",   value: guruData.filter(g => g.statusKepeg === "PNS").length },
+      { label: "GTY",   value: guruData.filter(g => g.statusKepeg === "GTY").length },
+      { label: "Honorer", value: guruData.filter(g => g.statusKepeg === "Honorer").length },
+    ];
+  }, []);
 
   const rows = useMemo(() => {
     const q = search.toLowerCase();
@@ -503,12 +473,7 @@ export function Guru() {
           <p className="text-sm text-[#6B7769]">Data tenaga pengajar dan kepegawaian madrasah</p>
         </div>
         <div className="hidden md:flex items-center gap-2 mt-1 shrink-0">
-          {[
-            { label: "Total", value: 38 },
-            { label: "PNS",   value: 6  },
-            { label: "GTY",   value: 24 },
-            { label: "Honorer", value: 8 },
-          ].map((kpi, i) => (
+          {kpiData.map((kpi, i) => (
             <div key={kpi.label} className="flex items-center gap-2">
               {i > 0 && <span className="text-[#D1D5DB]">·</span>}
               <div
