@@ -1,4 +1,4 @@
-import { useState, useRef, useId } from "react";
+import React, { useState, useRef, useId, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Plus, Search, ChevronDown, AlertTriangle, Check, X, Trash2 } from "lucide-react";
 import {
@@ -16,7 +16,7 @@ import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
 import { tahunAjaranOptions } from "@/data/settings";
 
-import { tagihanTemplates as templates, penetapanRows, templateOptions, Template, PenetapanRow, PPDB_DEFAULTS } from "@/data/pembayaran";
+import { tagihanTemplates as templates, templateOptions, Template, PPDB_DEFAULTS } from "@/data/pembayaran";
 import { kelasOptions } from "@/data/constants";
 
 // ─── badge palette ────────────────────────────────────────────────────────────
@@ -636,16 +636,73 @@ function TemplateTab() {
   );
 }
 
-// ─── Penetapan tab ────────────────────────────────────────────────────────────
-
 function PenetapanTab() {
-  const [search, setSearch] = useState("");
-  const [kelas, setKelas] = useState("Semua Kelas");
+  const { siswaList, tagihanList, addTagihan } = useAppContext();
+  const [kelasFilter, setKelasFilter] = useState("Semua Kelas");
   const [template, setTemplate] = useState("Semua Template");
+  const [search, setSearch] = useState("");
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [showInfo, setShowInfo] = useState(true);
 
-  const allChecked = checked.size === penetapanRows.length;
+  const handleTetapkanTagihan = () => {
+    if (checked.size === 0) return;
+    
+    const newTagihanArr = Array.from(checked).map(studentId => {
+      const student = siswaList.find(s => s.id === studentId);
+      if (!student) return null;
+      return {
+        id: "TGH-" + Date.now() + "-" + student.id,
+        nis: student.nis,
+        namaTagihan: "SPP Bulan " + new Date().toLocaleString("id-ID", { month: "long", year: "numeric" }),
+        kategori: "SPP",
+        nominal: 150000,
+        terbayar: 0,
+        jatuhTempo: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 10).toISOString().split("T")[0],
+        isLunas: false
+      };
+    }).filter(Boolean) as any[];
+    
+    addTagihan(newTagihanArr);
+    setChecked(new Set());
+  };
+
+  const penetapanRows = React.useMemo(() => {
+    return siswaList.filter(s => s.status === "Aktif").map(s => {
+      const sTagihans = tagihanList.filter(t => t.nis === s.nis);
+      const total = sTagihans.reduce((sum, t) => sum + t.nominal, 0);
+      
+      const templatesMap = new Map();
+      sTagihans.forEach(t => {
+        if (!templatesMap.has(t.kategori)) {
+          templatesMap.set(t.kategori, {
+            key: t.kategori.toLowerCase().replace(/\s+/g, ""),
+            label: t.kategori
+          });
+        }
+      });
+      const templates = Array.from(templatesMap.values());
+      
+      return {
+        id: s.id,
+        nama: s.nama,
+        nis: s.nis,
+        kelas: s.kelas,
+        inits: s.inits,
+        templates,
+        total: sTagihans.length > 0 ? total : null,
+        status: sTagihans.length > 0 ? "Lengkap" : "Belum Ditetapkan"
+      };
+    });
+  }, [siswaList, tagihanList]);
+
+  const filteredRows = React.useMemo(() => {
+    return penetapanRows.filter(r => 
+      (kelasFilter === "Semua Kelas" || r.kelas === kelasFilter) &&
+      (r.nama.toLowerCase().includes(search.toLowerCase()))
+    );
+  }, [penetapanRows, kelasFilter, search]);
+
+  const allChecked = checked.size === filteredRows.length && filteredRows.length > 0;
   const someChecked = checked.size > 0 && !allChecked;
 
   const toggleAll = () =>
@@ -679,8 +736,8 @@ function PenetapanTab() {
         {/* Class filter */}
         <div className="relative">
           <select
-            value={kelas}
-            onChange={(e) => setKelas(e.target.value)}
+            value={kelasFilter}
+            onChange={(e) => setKelasFilter(e.target.value)}
             className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
             style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
           >
@@ -702,10 +759,35 @@ function PenetapanTab() {
           <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
         </div>
 
-        <button className="ml-auto flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
-          Tetapkan Massal
+        <button onClick={handleTetapkanTagihan} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+          Tetapkan SPP Massal (Simulasi)
         </button>
       </div>
+
+      {/* Bulk action bar */}
+      {checked.size > 0 && (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl mb-4"
+          style={{ background: "#EDF7EC", border: "1px solid #D4EDD0" }}
+        >
+          <span className="text-sm font-semibold text-[#3E8A2F]">
+            {checked.size} siswa dipilih
+          </span>
+          <span className="text-[#9CA3A0]">—</span>
+          <button
+            onClick={handleTetapkanTagihan}
+            className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors"
+          >
+            Tetapkan SPP Bulan Ini
+          </button>
+          <button
+            onClick={() => setChecked(new Set())}
+            className="ml-auto text-xs text-[#6B7769] hover:text-[#374040]"
+          >
+            Batalkan pilihan
+          </button>
+        </div>
+      )}
 
       {/* Amber info strip */}
       {showInfo && (

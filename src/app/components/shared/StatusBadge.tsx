@@ -6,7 +6,8 @@ type BadgeVariant =
   | "Perhatian" | "Waspada" | "Kritis"
   | "PNS" | "GTY" | "Honorer"
   | "Aktif" | "Nonaktif"
-  | "Selesai" | "Lengkap" | "Pending";
+  | "Selesai" | "Lengkap" | "Pending"
+  | "Tuntas" | "Belum Tuntas";
 
 const COLORS: Record<BadgeVariant, string> = {
   // Tagihan
@@ -33,6 +34,8 @@ const COLORS: Record<BadgeVariant, string> = {
   Selesai:     "bg-[#DCFCE7] text-[#166534]",
   Lengkap:     "bg-[#DCFCE7] text-[#166534]",
   Pending:     "bg-[#FEF3C7] text-[#92400E]",
+  Tuntas:      "bg-[#DCFCE7] text-[#166534]",
+  "Belum Tuntas": "bg-[#FEE2E2] text-[#991B1B]",
 };
 
 export function StatusBadge({

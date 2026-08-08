@@ -7,20 +7,17 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 
-import {
-  pembayaranStudent as student,
-  pembayaranSearchResults as searchResults,
-  pembayaranTagihanList as tagihanList,
-} from "@/data/pembayaran";
+import { useAppContext } from "@/context/AppContext";
 
 // ─── allocation logic ─────────────────────────────────────────────────────────
 
-function computeAlokasi(nominal: number) {
+function computeAlokasi(nominal: number, tagihanSiswa: any[]) {
   let rem = nominal;
-  return tagihanList.map((t) => {
-    const alloc = Math.min(rem, t.sisa);
+  return tagihanSiswa.map((t) => {
+    const sisaTagihan = t.nominal - t.terbayar;
+    const alloc = Math.min(rem, sisaTagihan);
     rem -= alloc;
-    return { ...t, alloc, lunas: alloc > 0 && alloc >= t.sisa };
+    return { ...t, alloc, lunas: alloc > 0 && alloc >= sisaTagihan };
   });
 }
 
@@ -130,7 +127,7 @@ function FloatingSelect({
 interface ReceiptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  student: { nama: string; nis: string; kelas: string; wali: string; telp: string };
+  student: { nama: string; nis: string; kelas: string; waliNama: string; waliHp: string; inits?: string };
   nominal: number;
   tanggal: string;
   metode: string;
@@ -141,9 +138,9 @@ interface ReceiptDialogProps {
 function ReceiptDialog({
   open, onOpenChange, student, nominal, tanggal, metode, nomorKuitansi, alokasi,
 }: ReceiptDialogProps) {
-  const waNumber = student.telp.replace(/\D/g, "").replace(/^0/, "62");
+  const waNumber = student.waliHp.replace(/\D/g, "").replace(/^0/, "62");
   const waLines = [
-    `Assalamu'alaikum Bapak/Ibu ${student.wali},`,
+    `Assalamu'alaikum Bapak/Ibu ${student.waliNama},`,
     ``,
     `Berikut kuitansi pembayaran TA 2025/2026:`,
     ``,
@@ -249,7 +246,7 @@ function ReceiptDialog({
           </div>
 
           <p className="text-xs text-[#9CA3A0] mt-4">
-            Dikirim ke {student.wali} — {student.telp}
+            Dikirim ke {student.waliNama} — {student.waliHp}
           </p>
         </div>
       </DialogContent>
@@ -260,9 +257,12 @@ function ReceiptDialog({
 // ─── page component ───────────────────────────────────────────────────────────
 
 export function Pembayaran() {
+  const { siswaList, tagihanList, addTransaksi } = useAppContext();
+  
   const [query, setQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  
   const [nominal, setNominal] = useState(0);
   const [metode, setMetode] = useState("Tunai");
   const [akun, setAkun] = useState("Kas Tunai");
@@ -271,9 +271,61 @@ export function Pembayaran() {
   const [tanggal, setTanggal] = useState(formattedToday);
   const [catatan, setCatatan] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [lastTx, setLastTx] = useState<any>(null);
 
-  const alokasi = selectedStudent ? computeAlokasi(nominal) : [];
+  // Derived state for Search Results
+  const searchResults = query.trim() === "" ? [] : siswaList.filter(s => 
+    s.status === "Aktif" && 
+    (s.nama.toLowerCase().includes(query.toLowerCase()) || s.nis.includes(query))
+  ).slice(0, 5);
+
+  const rawSelectedStudent = selectedStudentId ? siswaList.find(s => s.id === selectedStudentId) : null;
+  
+  // Derived state for the selected student's bills
+  const studentTagihans = rawSelectedStudent ? tagihanList.filter(t => t.nis === rawSelectedStudent.nis) : [];
+  const totalTagihan = studentTagihans.reduce((sum, t) => sum + t.nominal, 0);
+  const totalDibayar = studentTagihans.reduce((sum, t) => sum + t.terbayar, 0);
+  const totalSisa = totalTagihan - totalDibayar;
+
+  const selectedStudent = rawSelectedStudent ? {
+    ...rawSelectedStudent,
+    totalTagihan,
+    dibayar: totalDibayar,
+    sisa: totalSisa,
+  } : null;
+
+  const alokasi = studentTagihans ? computeAlokasi(nominal, studentTagihans) : [];
   const sisaSetelah = selectedStudent ? Math.max(0, selectedStudent.sisa - nominal) : 0;
+  
+  const handleCatatPembayaran = () => {
+    if (!rawSelectedStudent || nominal <= 0) return;
+    
+    // Create new transaction
+    const newTx = {
+      id: "TX-" + Date.now(),
+      nis: rawSelectedStudent.nis,
+      tanggal: new Date().toISOString(), // Use real ISO string for storing
+      nominal,
+      metode,
+      nomorKuitansi: "KWT-" + Date.now().toString().slice(-6),
+      alokasi: alokasi.filter(a => a.alloc > 0).map(a => ({
+        tagihanId: a.id,
+        nominalAlokasi: a.alloc,
+        namaTagihan: a.namaTagihan
+      }))
+    };
+    
+    // Create updated tagihans for context
+    const updatedTagihans = alokasi.filter(a => a.alloc > 0).map(a => ({
+      ...tagihanList.find(t => t.id === a.id)!,
+      terbayar: a.terbayar + a.alloc,
+      isLunas: (a.terbayar + a.alloc) >= a.nominal
+    }));
+    
+    addTransaksi(newTx, updatedTagihans);
+    setLastTx(newTx);
+    setShowSuccess(true);
+  };
 
   const handleNominalChange = (v: string) => {
     const digits = v.replace(/\D/g, "");
@@ -333,8 +385,8 @@ export function Pembayaran() {
                       key={s.id}
                       onMouseDown={() => {
                         setQuery(s.nama);
-                        setSelectedStudent(student);
-                        setNominal(400_000);
+                        setSelectedStudentId(s.id);
+                        // setNominal(400_000); // we will leave it empty initially
                         setDropdownOpen(false);
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#EDF7EC] transition-colors text-left"
@@ -357,11 +409,7 @@ export function Pembayaran() {
                           {s.nis} · Kelas {s.kelas}
                         </p>
                       </div>
-                      {s.sisa > 0 && (
-                        <span className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FEE2E2] text-[#991B1B] tabular-nums">
-                          {fmt(s.sisa)}
-                        </span>
-                      )}
+                      {/* s.sisa calculation could be injected here if needed, but omitted for search speed */}
                     </button>
                   ))}
                 </div>
@@ -379,16 +427,16 @@ export function Pembayaran() {
             {/* Student info */}
             <div className="flex items-start gap-4">
               <div className="w-11 h-11 rounded-full bg-[#3E8A2F] flex items-center justify-center text-white font-bold text-sm shrink-0">
-                AF
+                {rawSelectedStudent?.inits}
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-[#1C2517]">{selectedStudent.nama}</p>
+                <p className="font-semibold text-[#1C2517]">{selectedStudent?.nama}</p>
                 <p className="text-sm text-[#6B7769]">
-                  Kelas {selectedStudent.kelas} · NIS {selectedStudent.nis}
+                  Kelas {selectedStudent?.kelas} · NIS {selectedStudent?.nis}
                 </p>
                 <p className="text-xs text-[#6B7769] mt-0.5">
-                  <span className="font-medium">Wali:</span> {selectedStudent.wali} —{" "}
-                  {selectedStudent.telp}
+                  <span className="font-medium">Wali:</span> {selectedStudent?.waliNama} —{" "}
+                  {selectedStudent?.waliHp}
                 </p>
               </div>
             </div>
@@ -453,7 +501,7 @@ export function Pembayaran() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tagihanList.map((row, i) => (
+                  {studentTagihans.filter(t => t.nominal - t.terbayar > 0).map((row, i) => (
                     <tr
                       key={i}
                       className="hover:bg-[#FAFBF9] transition-colors"
@@ -466,20 +514,20 @@ export function Pembayaran() {
                     >
                       <td className="py-3 pr-3">
                         <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#EDF7EC] text-[#3E8A2F] text-[10px] font-bold">
-                          {row.prio}
+                          {i + 1}
                         </span>
                       </td>
                       <td className="py-3 pr-3 text-sm font-medium text-[#1C2517]">
-                        {row.kategori}
+                        {row.namaTagihan}
                       </td>
                       <td className="py-3 pr-3 text-sm tabular-nums text-[#1C2517] text-right">
-                        {fmt(row.total)}
+                        {fmt(row.nominal)}
                       </td>
                       <td className="py-3 pr-3 text-sm tabular-nums text-[#6B7769] text-right">
-                        {fmt(row.dibayar)}
+                        {fmt(row.terbayar)}
                       </td>
                       <td className="py-3 text-sm tabular-nums font-semibold text-[#DC2626] text-right">
-                        {fmt(row.sisa)}
+                        {fmt(row.nominal - row.terbayar)}
                       </td>
                     </tr>
                   ))}
@@ -577,7 +625,7 @@ export function Pembayaran() {
               />
 
               <button
-                onClick={() => setShowSuccess(true)}
+                onClick={handleCatatPembayaran}
                 className="w-full py-3.5 rounded-lg bg-[#3E8A2F] text-white font-semibold text-sm hover:bg-[#2E6B22] transition-colors"
                 style={{ marginTop: 4 }}
               >
@@ -682,16 +730,22 @@ export function Pembayaran() {
       </div>
 
       {/* ── Receipt dialog ── */}
-      <ReceiptDialog
-        open={showSuccess}
-        onOpenChange={setShowSuccess}
-        student={student}
-        nominal={nominal}
-        tanggal={tanggal}
-        metode={metode}
-        nomorKuitansi="KW/2026/07/0143"
-        alokasi={alokasi}
-      />
+      {rawSelectedStudent && lastTx && (
+        <ReceiptDialog
+          open={showSuccess}
+          onOpenChange={setShowSuccess}
+          student={rawSelectedStudent}
+          nominal={lastTx.nominal}
+          tanggal={tanggal}
+          metode={lastTx.metode}
+          nomorKuitansi={lastTx.nomorKuitansi}
+          alokasi={lastTx.alokasi.map((a: any) => ({
+            kategori: a.namaTagihan,
+            alloc: a.nominalAlokasi,
+            lunas: false // compute lunas status if needed
+          }))}
+        />
+      )}
 
     </div>
   );

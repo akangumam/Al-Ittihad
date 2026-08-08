@@ -1,3 +1,35 @@
+// ─── Core Pembayaran Types ───────────────────────────────────────────────────────
+
+export interface TagihanSiswa {
+  id: string; // unique ID
+  nis: string;
+  namaTagihan: string; // e.g. "SPP Bulan Juli 2026", "Administrasi PPDB"
+  kategori: string; // e.g. "SPP", "Daftar Ulang"
+  nominal: number;
+  terbayar: number; // how much has been paid so far
+  jatuhTempo: string; // "YYYY-MM-DD"
+  isLunas: boolean;
+}
+
+export interface TransaksiAlokasi {
+  tagihanId: string;
+  nominalAlokasi: number;
+  namaTagihan: string;
+}
+
+export interface TransaksiPembayaran {
+  id: string;
+  nis: string;
+  tanggal: string; // ISO string
+  nominal: number;
+  metode: string; // "Tunai", "Transfer"
+  nomorKuitansi: string;
+  alokasi: TransaksiAlokasi[];
+}
+
+export const initialTagihanSiswa: TagihanSiswa[] = [];
+export const initialTransaksiPembayaran: TransaksiPembayaran[] = [];
+
 // ─── Tunggakan Data ────────────────────────────────────────────────────────────
 
 export const tunggakanRows = [

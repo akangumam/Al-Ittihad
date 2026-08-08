@@ -8,6 +8,7 @@ import { Guru } from "@/app/components/Guru";
 import { KelasJadwal } from "@/app/components/KelasJadwal";
 import { Absensi } from "@/app/components/Absensi";
 import { AbsensiSiswa } from "@/app/components/AbsensiSiswa";
+import { NilaiSiswaComponent } from "@/app/components/NilaiSiswa";
 import { MobileAbsensi } from "@/app/components/MobileAbsensi";
 import { Pembayaran } from "@/app/components/Pembayaran";
 import { MobilePembayaran } from "@/app/components/MobilePembayaran";
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
       { path: "akademik/absensi/:tab", element: <AbsensiRoute /> },
       { path: "akademik/absensi-siswa", element: <Navigate to="/akademik/absensi-siswa/scan" replace /> },
       { path: "akademik/absensi-siswa/:tab", element: <AbsensiSiswa /> },
+      { path: "akademik/nilai-siswa", element: <NilaiSiswaComponent /> },
 
       // Keuangan
       { path: "keuangan/pembayaran", element: <PembayaranRoute /> },

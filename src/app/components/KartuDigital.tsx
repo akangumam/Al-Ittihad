@@ -5,6 +5,7 @@ import { Printer, Search, ChevronDown, User, X, ZoomIn } from "lucide-react";
 import logoEmblem from "../../imports/aliet_logo.png";
 import { useAppContext } from "@/context/AppContext";
 import { kelasOptions } from "@/data/constants";
+import { defaultSettings } from "@/data/settings";
 
 export function KartuPelajar({
   siswa,
@@ -17,6 +18,8 @@ export function KartuPelajar({
   onZoom?: (s: any) => void;
   onClick?: () => void;
 }) {
+  const { tahunAjaran } = useAppContext();
+
   return (
     <div
       onClick={onClick}
@@ -27,7 +30,9 @@ export function KartuPelajar({
       }`}
       style={{ 
         border: "1px solid #E2E8DE", 
-        breakInside: "avoid" 
+        breakInside: "avoid",
+        WebkitPrintColorAdjust: "exact",
+        printColorAdjust: "exact"
       }}
     >
       {/* Header Kartu */}
@@ -40,8 +45,8 @@ export function KartuPelajar({
           />
         </div>
         <div>
-          <h3 className={`text-white font-bold tracking-wide leading-tight ${isModal ? 'text-sm' : 'text-xs'}`}>MADRASAH AL-ITTIHAD</h3>
-          <p className={`text-white/80 mt-0.5 ${isModal ? 'text-[11px]' : 'text-[9px]'}`}>Kartu Identitas Siswa - TP 2026/2027</p>
+          <h3 className={`text-white font-bold tracking-wide leading-tight ${isModal ? 'text-sm' : 'text-xs'}`}>{defaultSettings.namaMadrasah.toUpperCase()}</h3>
+          <p className={`text-white/80 mt-0.5 ${isModal ? 'text-[11px]' : 'text-[9px]'}`}>Kartu Identitas Siswa - TP {tahunAjaran}</p>
         </div>
       </div>
 
@@ -97,7 +102,7 @@ export function KartuPelajar({
           title={isModal ? "Perbesar QR Code" : undefined}
         >
           <QRCode
-            value={`MADRASAH AL-ITTIHAD|${siswa.nis}|${siswa.nama}`}
+            value={`${defaultSettings.namaMadrasah.toUpperCase()}|${siswa.nis}|${siswa.nama}`}
             size={isModal ? 80 : 64}
             level="M"
           />

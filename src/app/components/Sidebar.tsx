@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Calendar, Users, GraduationCap, BookOpen,
   ClipboardList, CreditCard, AlertTriangle, FileText, Landmark,
   BarChart3, Calculator, Shield, Activity, Settings,
-  ChevronLeft, ChevronRight, IdCard, Archive, UserCheck
+  ChevronLeft, ChevronRight, IdCard, Archive, UserCheck, Award
 } from "lucide-react";
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
@@ -46,6 +46,7 @@ const getNavGroups = (absensiCount: number, tunggakanCount: number): NavGroup[] 
       { icon: Archive,       label: "Data Alumni",   path: "/akademik/alumni",        roles: ["Admin"] },
       { icon: GraduationCap, label: "Guru",          path: "/akademik/guru",          roles: ["Admin", "TU"] },
       { icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal",  roles: ["Admin", "TU"] },
+      { icon: Award,         label: "Nilai Siswa",   path: "/akademik/nilai-siswa",   roles: ["Admin", "TU"] },
       { icon: ClipboardList, label: "Absensi Guru",  path: "/akademik/absensi",       roles: ["Admin", "TU"], badge: absensiCount },
     ],
   },

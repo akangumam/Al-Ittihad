@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, Upload, MoreHorizontal, X, Eye, Pencil,
-  MessageCircle, Trash2, Check, FileText, IdCard, ZoomIn
+  MessageCircle, Trash2, Check, FileText, IdCard, ZoomIn,
+  GraduationCap, ArrowRightLeft, CheckCircle2
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
@@ -579,7 +580,19 @@ export function Siswa() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  const { siswaList, addSiswa, updateSiswa } = useAppContext();
+  const { siswaList, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa, tahunAjaran } = useAppContext();
+
+  // Bulk actions state
+  const [bulkAction, setBulkAction] = useState<"kelas" | "lulus" | "hapus" | null>(null);
+  const [bulkKelasTarget, setBulkKelasTarget] = useState(kelasOptions.find(o => o !== "Semua Kelas")?.replace("Kelas ", "") || "8A");
+  const [bulkTahunLulus, setBulkTahunLulus] = useState(tahunAjaran);
+
+  // Initialize bulk tahun lulus when it opens
+  useEffect(() => {
+    if (bulkAction === "lulus") {
+      setBulkTahunLulus(tahunAjaran);
+    }
+  }, [bulkAction, tahunAjaran]);
 
   const kpiData = useMemo(() => {
     const aktif = siswaList.filter(s => s.status === "Aktif");
@@ -614,6 +627,19 @@ export function Siswa() {
     const next = new Set(checked);
     next.has(id) ? next.delete(id) : next.add(id);
     setChecked(next);
+  };
+
+  const handleExecuteBulkAction = () => {
+    const ids = Array.from(checked);
+    if (bulkAction === "kelas") {
+      bulkUpdateSiswa(ids, { kelas: bulkKelasTarget });
+    } else if (bulkAction === "lulus") {
+      graduateSiswa(ids, bulkTahunLulus);
+    } else if (bulkAction === "hapus") {
+      bulkDeleteSiswa(ids);
+    }
+    setChecked(new Set());
+    setBulkAction(null);
   };
 
   return (
@@ -986,6 +1012,90 @@ export function Siswa() {
             >
               Tutup
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Actions Floating Bar ── */}
+      {checked.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <div className="bg-[#1C2517] text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-6" style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
+            <div className="flex items-center gap-3 pr-6 border-r border-white/20">
+              <div className="w-6 h-6 rounded-md bg-[#3E8A2F] flex items-center justify-center text-xs font-bold tabular-nums">
+                {checked.size}
+              </div>
+              <span className="text-sm font-medium">siswa dipilih</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button onClick={() => setBulkAction("kelas")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium hover:bg-white/10 transition-colors">
+                <ArrowRightLeft size={16} /> Ubah Kelas
+              </button>
+              <button onClick={() => setBulkAction("lulus")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium hover:bg-white/10 transition-colors">
+                <GraduationCap size={16} /> Luluskan
+              </button>
+              <div className="w-px h-6 bg-white/20 mx-1"></div>
+              <button onClick={() => setBulkAction("hapus")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-400/10 transition-colors">
+                <Trash2 size={16} /> Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Action Modals ── */}
+      {bulkAction && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setBulkAction(null)}>
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 relative animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setBulkAction(null)} className="absolute top-4 right-4 text-[#9CA3A0] hover:text-[#1C2517] transition-colors"><X size={20} /></button>
+            
+            {bulkAction === "kelas" && (
+              <>
+                <h3 className="text-lg font-bold text-[#1C2517] mb-2 flex items-center gap-2"><ArrowRightLeft size={20} className="text-[#3E8A2F]"/> Ubah Kelas Massal</h3>
+                <p className="text-sm text-[#6B7769] mb-5">Pindahkan {checked.size} siswa terpilih ke kelas baru.</p>
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#6B7769] mb-1">Pilih Kelas Tujuan</label>
+                    <div className="relative">
+                      <select value={bulkKelasTarget} onChange={(e) => setBulkKelasTarget(e.target.value)} className="w-full appearance-none px-4 py-2.5 rounded-lg text-sm text-[#1C2517] font-medium outline-none bg-[#F5F9F4] border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors">
+                        {kelasOptions.filter(o => o !== "Semua Kelas").map(o => <option key={o} value={o.replace("Kelas ", "")}>{o.replace("Kelas ", "")}</option>)}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+                <button onClick={handleExecuteBulkAction} className="w-full py-2.5 bg-[#3E8A2F] text-white font-semibold rounded-xl hover:bg-[#2E6B22] transition-colors shadow-sm">
+                  Simpan Perubahan
+                </button>
+              </>
+            )}
+
+            {bulkAction === "lulus" && (
+              <>
+                <h3 className="text-lg font-bold text-[#1C2517] mb-2 flex items-center gap-2"><GraduationCap size={20} className="text-[#3E8A2F]"/> Luluskan Siswa</h3>
+                <p className="text-sm text-[#6B7769] mb-5">{checked.size} siswa terpilih akan dipindahkan ke data Alumni.</p>
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#6B7769] mb-1">Tahun Lulus</label>
+                    <input type="text" value={bulkTahunLulus} onChange={e => setBulkTahunLulus(e.target.value)} className="w-full px-4 py-2.5 rounded-lg text-sm text-[#1C2517] font-medium outline-none bg-[#F5F9F4] border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors" />
+                  </div>
+                </div>
+                <button onClick={handleExecuteBulkAction} className="w-full py-2.5 bg-[#3E8A2F] text-white font-semibold rounded-xl hover:bg-[#2E6B22] transition-colors shadow-sm">
+                  Proses Kelulusan
+                </button>
+              </>
+            )}
+
+            {bulkAction === "hapus" && (
+              <>
+                <h3 className="text-lg font-bold text-[#DC2626] mb-2 flex items-center gap-2"><Trash2 size={20}/> Hapus Data</h3>
+                <p className="text-sm text-[#6B7769] mb-6">Apakah Anda yakin ingin menghapus {checked.size} siswa terpilih? Data tidak dapat dipulihkan.</p>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setBulkAction(null)} className="flex-1 py-2.5 font-semibold text-[#374040] hover:bg-[#F5F9F4] rounded-xl transition-colors">Batal</button>
+                  <button onClick={handleExecuteBulkAction} className="flex-1 py-2.5 bg-[#DC2626] text-white font-semibold rounded-xl hover:bg-[#B91C1C] transition-colors shadow-sm">Hapus</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

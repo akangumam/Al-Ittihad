@@ -20,17 +20,21 @@ export default function AppLayout() {
 
   return (
     <div
-      className="flex h-screen overflow-hidden"
+      className="flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible"
       style={{
         background: "#FAFBF9",
         fontFamily: "'Space Grotesk', sans-serif",
         "--sidebar-w": sidebarCollapsed ? "64px" : "260px",
       } as React.CSSProperties}
     >
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TopBar />
-        <main className="flex-1 overflow-y-auto p-6">
+      <div className="print:hidden h-full shrink-0">
+        <Sidebar />
+      </div>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:block print:overflow-visible">
+        <div className="print:hidden">
+          <TopBar />
+        </div>
+        <main className="flex-1 overflow-y-auto p-6 print:block print:overflow-visible print:p-0">
           <Outlet />
         </main>
       </div>

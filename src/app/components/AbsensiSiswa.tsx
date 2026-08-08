@@ -54,7 +54,7 @@ function ScanTab() {
   }, []);
 
   const processScan = (scannedText: string) => {
-    // Format QR Card: "MADRASAH AL-ITTIHAD|NIS|Nama"
+    // Format QR Card: "NAMA_SEKOLAH|NIS|Nama" (contoh: "MTS AL-ITTIHAD PEDALEMAN|2024-0089|Ahmad")
     let nis = scannedText;
     if (scannedText.includes("|")) {
       nis = scannedText.split("|")[1];
@@ -150,7 +150,7 @@ function ScanTab() {
           <div className="flex flex-col items-center text-center animate-in slide-in-from-bottom-4 fade-in duration-300 w-full">
             <div className="relative mb-6">
               <div className="w-40 h-40 rounded-full overflow-hidden border-4" style={{ borderColor: lastScanned.status === 'success' ? '#3E8A2F' : '#DC2626' }}>
-                <img src={lastScanned.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt="Foto" className={`w-full h-full object-cover ${lastScanned.siswa.id === 0 ? 'grayscale opacity-30' : ''}`} />
+                <img src={(lastScanned.siswa as any).foto || (lastScanned.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png')} alt="Foto" className={`w-full h-full object-cover ${lastScanned.siswa.id === 0 ? 'grayscale opacity-30' : ''}`} />
               </div>
               <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center border-4 border-white" style={{ background: lastScanned.status === 'success' ? '#3E8A2F' : '#DC2626' }}>
                 {lastScanned.status === 'success' ? <CheckCircle2 size={24} color="white" /> : <AlertCircle size={24} color="white" />}
@@ -270,7 +270,7 @@ function ManualTab() {
                   <td className="py-3.5 pl-6 pr-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 overflow-hidden" style={{ background: "#3E8A2F", color: "#FFFFFF" }}>
-                        <img src={row.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt={row.nama} className="w-full h-full object-cover" />
+                        <img src={(row as any).foto || (row.jk === 'L' ? '/foto_L.png' : '/foto_P.png')} alt={row.nama} className="w-full h-full object-cover" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-[#1C2517] leading-none">{row.nama}</p>

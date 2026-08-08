@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   MessageCircle, Search, ChevronDown, ChevronLeft,
   ChevronRight, Download, Check, AlertTriangle, Users, TrendingDown,
@@ -8,7 +8,8 @@ import { fmt, fmtJt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 
-import { tunggakanRows as rows, agingTabs } from "@/data/pembayaran";
+import { agingTabs } from "@/data/pembayaran";
+import { useAppContext } from "@/context/AppContext";
 import { kelasOptions } from "@/data/constants";
 
 const AVATAR_STYLE: Record<string, { avatar: string; avatarText: string }> = {
@@ -47,7 +48,7 @@ function Checkbox({
 
 // ─── MOBILE sub-components ────────────────────────────────────────────────────
 
-function StudentCard({ row }: { row: typeof rows[0] }) {
+function StudentCard({ row }: { row: any }) {
   const avatarStyle = AVATAR_STYLE[row.badge] ?? { avatar: "#EDF7EC", avatarText: "#3E8A2F" };
   return (
     <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
@@ -122,16 +123,48 @@ function ClassFilterSheet({
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Tunggakan() {
+  const { siswaList, tagihanList } = useAppContext();
+  
   const [activeTab, setActiveTab]       = useState(0);
   const [searchQuery, setSearchQuery]   = useState("");
   const [kelasFilter, setKelasFilter]   = useState("Semua Kelas");
-  const [checked, setChecked]           = useState<Set<number>>(new Set([1, 2, 3]));
+  const [checked, setChecked]           = useState<Set<number>>(new Set());
   const [filterOpen, setFilterOpen]     = useState(false);
 
-  const allChecked = checked.size === rows.length;
+  // Derive rows from AppContext
+  const rows = React.useMemo(() => {
+    const studentsWithDebt = siswaList.filter(s => s.status === "Aktif").map(s => {
+      const sTagihans = tagihanList.filter(t => t.nis === s.nis && t.nominal > t.terbayar);
+      if (sTagihans.length === 0) return null;
+      
+      const jumlah = sTagihans.reduce((sum, t) => sum + (t.nominal - t.terbayar), 0);
+      let badge = "Perhatian";
+      if (jumlah >= 2_000_000) badge = "Kritis";
+      else if (jumlah >= 1_000_000) badge = "Waspada";
+      
+      return {
+        id: s.id,
+        nama: s.nama,
+        nis: s.nis,
+        kelas: s.kelas,
+        inits: s.inits,
+        jumlah,
+        badge,
+        jatuhTempo: sTagihans[0]?.jatuhTempo || "-",
+        terakhirBayar: "-" // we don't track last payment date easily here without transaction history, but can mock
+      };
+    }).filter(Boolean) as any[];
+    
+    return studentsWithDebt.filter(r => 
+      (kelasFilter === "Semua Kelas" || r.kelas === kelasFilter) &&
+      (r.nama.toLowerCase().includes(searchQuery.toLowerCase()) || r.nis.includes(searchQuery))
+    );
+  }, [siswaList, tagihanList, kelasFilter, searchQuery]);
+
+  const allChecked = rows.length > 0 && checked.size === rows.length;
   const someChecked = checked.size > 0 && checked.size < rows.length;
 
-  const toggleAll  = () => setChecked(allChecked ? new Set() : new Set(rows.map((r) => r.id)));
+  const toggleAll  = () => setChecked(allChecked ? new Set() : new Set(rows.map((r: any) => r.id)));
   const toggleRow  = (id: number) => {
     const next = new Set(checked);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -145,15 +178,19 @@ export function Tunggakan() {
         {/* Summary strip */}
         <div className="grid grid-cols-3 divide-x bg-white rounded-xl overflow-hidden" style={{ border: "1px solid #E2E8DE", borderColor: "#E2E8DE" }}>
           <div className="flex flex-col items-center justify-center text-center" style={{ padding: "14px 8px" }}>
-            <span className="tabular-nums font-bold text-[#DC2626]" style={{ fontSize: 16 }}>{fmtJt(45_200_000)}</span>
+            <span className="tabular-nums font-bold text-[#DC2626]" style={{ fontSize: 16 }}>
+              {fmtJt(rows.reduce((sum, r) => sum + r.jumlah, 0))}
+            </span>
             <span className="text-[10px] text-[#6B7769]" style={{ marginTop: 3 }}>Total</span>
           </div>
           <div className="flex flex-col items-center justify-center text-center" style={{ padding: "14px 8px" }}>
-            <span className="tabular-nums font-bold text-[#1C2517]" style={{ fontSize: 16 }}>68</span>
+            <span className="tabular-nums font-bold text-[#1C2517]" style={{ fontSize: 16 }}>{rows.length}</span>
             <span className="text-[10px] text-[#6B7769]" style={{ marginTop: 3 }}>Siswa</span>
           </div>
           <div className="flex flex-col items-center justify-center text-center" style={{ padding: "14px 8px" }}>
-            <span className="tabular-nums font-bold text-[#1C2517]" style={{ fontSize: 16 }}>{fmtJt(664_000)}</span>
+            <span className="tabular-nums font-bold text-[#1C2517]" style={{ fontSize: 16 }}>
+              {fmtJt(rows.length ? rows.reduce((sum, r) => sum + r.jumlah, 0) / rows.length : 0)}
+            </span>
             <span className="text-[10px] text-[#6B7769]" style={{ marginTop: 3 }}>Rata-rata</span>
           </div>
         </div>
@@ -251,7 +288,9 @@ export function Tunggakan() {
               </div>
               <span className="text-xs font-semibold text-[#6B7769]">Total Tunggakan</span>
             </div>
-            <p className="text-xl font-bold tabular-nums tracking-tight text-[#DC2626]">{fmt(45_200_000)}</p>
+            <p className="text-xl font-bold tabular-nums tracking-tight text-[#DC2626]">
+              {fmt(rows.reduce((sum, r) => sum + r.jumlah, 0))}
+            </p>
           </div>
           <div className="bg-white rounded-xl px-6 py-5" style={{ border: "1px solid #E2E8DE" }}>
             <div className="flex items-center gap-2.5 mb-3">
@@ -261,7 +300,7 @@ export function Tunggakan() {
               <span className="text-xs font-semibold text-[#6B7769]">Siswa Menunggak</span>
             </div>
             <p className="text-xl font-bold tabular-nums tracking-tight text-[#1C2517]">
-              68 <span className="text-sm font-normal text-[#6B7769]">dari 355 siswa</span>
+              {rows.length} <span className="text-sm font-normal text-[#6B7769]">siswa</span>
             </p>
           </div>
           <div className="bg-white rounded-xl px-6 py-5" style={{ border: "1px solid #E2E8DE" }}>
@@ -272,7 +311,7 @@ export function Tunggakan() {
               <span className="text-xs font-semibold text-[#6B7769]">Rata-rata Tunggakan</span>
             </div>
             <p className="text-xl font-bold tabular-nums tracking-tight text-[#1C2517]">
-              {fmt(664_000)}<span className="text-sm font-normal text-[#6B7769]"> / siswa</span>
+              {fmt(rows.length ? rows.reduce((sum, r) => sum + r.jumlah, 0) / rows.length : 0)}<span className="text-sm font-normal text-[#6B7769]"> / siswa</span>
             </p>
           </div>
         </div>
@@ -394,7 +433,7 @@ export function Tunggakan() {
 
           {/* Pagination footer */}
           <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: "1px solid #E2E8DE" }}>
-            <span className="text-xs text-[#6B7769]">1–8 dari <span className="font-semibold text-[#1C2517]">68</span> siswa</span>
+            <span className="text-xs text-[#6B7769]">1–{Math.min(8, rows.length)} dari <span className="font-semibold text-[#1C2517]">{rows.length}</span> siswa</span>
             <div className="flex items-center gap-1">
               <button disabled className="w-8 h-8 rounded-lg flex items-center justify-center text-[#D1D5DB] cursor-not-allowed" style={{ border: "1px solid #E2E8DE" }}>
                 <ChevronLeft size={14} />

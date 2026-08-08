@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
-  MoreHorizontal, Eye, MessageCircle, X
+  MoreHorizontal, Eye, MessageCircle, X, Plus
 } from "lucide-react";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { AlumniRow } from "@/data/alumni";
@@ -170,15 +170,86 @@ function AlumniSheet({ alumni, onClose }: { alumni: AlumniRow; onClose: () => vo
   );
 }
 
+function AlumniFormSheet({ onClose, onSave }: { onClose: () => void; onSave: (form: Partial<AlumniRow>) => void; }) {
+  const { tahunAjaran } = useAppContext();
+  const [form, setForm] = useState({
+    nis: "", nisn: "", nama: "", jk: "L" as "L" | "P", tahunLulus: tahunAjaran, angkatan: "", keterangan: "",
+    tempatLahir: "", tanggalLahir: "", alamat: "", waliHp: ""
+  });
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose} />
+      <div className="fixed inset-0 md:inset-y-0 md:left-auto md:right-0 md:w-[500px] z-50 flex flex-col bg-white" style={{ borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}>
+        <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
+          <div>
+            <h3 className="font-bold text-[#1C2517]">Tambah Alumni Manual</h3>
+            <p className="text-xs text-[#6B7769] mt-0.5">Masukkan data alumni masa lalu.</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] hover:text-[#1C2517] transition-colors"><X size={16} /></button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1">NIS *</label>
+              <input type="text" value={form.nis} onChange={e => setForm({...form, nis: e.target.value.replace(/\D/g, "")})} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none bg-white border border-[#E2E8DE] focus:border-[#3E8A2F]" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1">Nama Lengkap *</label>
+              <input type="text" value={form.nama} onChange={e => setForm({...form, nama: e.target.value.replace(/[^a-zA-Z\s.,'-]/g, "")})} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none bg-white border border-[#E2E8DE] focus:border-[#3E8A2F]" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-[#6B7769] mb-1">Tahun Lulus *</label>
+                <input type="text" value={form.tahunLulus} onChange={e => setForm({...form, tahunLulus: e.target.value})} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none bg-white border border-[#E2E8DE] focus:border-[#3E8A2F]" placeholder="Contoh: 2018/2019" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[#6B7769] mb-1">Angkatan Ke-</label>
+                <input type="text" value={form.angkatan} onChange={e => setForm({...form, angkatan: e.target.value})} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none bg-white border border-[#E2E8DE] focus:border-[#3E8A2F]" placeholder="Contoh: 15" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1">Jenis Kelamin</label>
+              <div className="flex items-center gap-4 mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={form.jk === "L"} onChange={() => setForm({...form, jk: "L"})} className="accent-[#3E8A2F]" />
+                  <span className="text-sm text-[#1C2517]">Laki-laki</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={form.jk === "P"} onChange={() => setForm({...form, jk: "P"})} className="accent-[#3E8A2F]" />
+                  <span className="text-sm text-[#1C2517]">Perempuan</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1">Keterangan / Lanjut Studi</label>
+              <input type="text" value={form.keterangan} onChange={e => setForm({...form, keterangan: e.target.value})} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none bg-white border border-[#E2E8DE] focus:border-[#3E8A2F]" placeholder="Contoh: Lanjut ke SMA Negeri 1" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-6 py-4 shrink-0" style={{ borderTop: "1px solid #E2E8DE" }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:bg-[#F5F9F4] transition-colors">Batal</button>
+          <button onClick={() => { if(form.nama && form.nis && form.tahunLulus) onSave({...form, angkatan: Number(form.angkatan) || 0}); }} disabled={!form.nama || !form.nis || !form.tahunLulus} className="px-5 py-2 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+            Simpan Alumni
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function Alumni() {
   const [search, setSearch] = useState("");
   const [tahunFilter, setTahunFilter] = useState("Semua Tahun");
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [selectedAlumni, setSelectedAlumni] = useState<AlumniRow | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
-  const { alumniList } = useAppContext();
+  const { alumniList, addAlumni } = useAppContext();
 
   const tahunOptions = useMemo(() => {
     const years = Array.from(new Set(alumniList.map(a => a.tahunLulus))).sort().reverse();
@@ -237,29 +308,35 @@ export function Alumni() {
         </div>
       </div>
 
-      <div className="hidden md:flex items-center gap-2">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 max-w-xs" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
-          <Search size={13} className="text-[#9CA3A0] shrink-0" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nama/NIS/NISN..."
-            className="bg-transparent outline-none text-sm text-[#1C2517] w-full"
-          />
+      <div className="hidden md:flex items-center justify-between gap-2">
+        <div className="flex gap-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 max-w-xs" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+            <Search size={13} className="text-[#9CA3A0] shrink-0" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari nama/NIS/NISN..."
+              className="bg-transparent outline-none text-sm text-[#1C2517] w-full"
+            />
+          </div>
+
+          <div className="relative">
+            <select
+              value={tahunFilter}
+              onChange={(e) => setTahunFilter(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none h-full"
+              style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
+            >
+              {tahunOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+          </div>
         </div>
 
-        <div className="relative">
-          <select
-            value={tahunFilter}
-            onChange={(e) => setTahunFilter(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
-            style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
-          >
-            {tahunOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-          <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
-        </div>
+        <button onClick={() => setIsAdding(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shadow-sm">
+          <Plus size={16} /> Tambah Alumni
+        </button>
       </div>
 
       <div className="md:hidden flex gap-2">
@@ -377,6 +454,26 @@ export function Alumni() {
 
       {selectedAlumni && (
         <AlumniSheet alumni={selectedAlumni} onClose={() => setSelectedAlumni(null)} />
+      )}
+
+      {isAdding && (
+        <AlumniFormSheet 
+          onClose={() => setIsAdding(false)} 
+          onSave={(form) => {
+            addAlumni({
+              id: Date.now(),
+              nama: form.nama!,
+              nis: form.nis!,
+              nisn: form.nisn || "",
+              jk: form.jk as "L" | "P",
+              tahunLulus: form.tahunLulus!,
+              angkatan: form.angkatan!,
+              keterangan: form.keterangan || "",
+              inits: form.nama!.substring(0,2).toUpperCase()
+            } as AlumniRow);
+            setIsAdding(false);
+          }} 
+        />
       )}
     </div>
   );
