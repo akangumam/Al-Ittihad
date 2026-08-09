@@ -7,6 +7,7 @@ export interface SiswaRow {
   tempatLahir: string; tanggalLahir: string;
   namaAyah: string; namaIbu: string;
   alamat: string; kelurahan: string; kecamatan: string;
+  asalSekolah?: string; tahunMasuk?: string;
 }
 
 export const siswaData: SiswaRow[] = [

@@ -1,6 +1,8 @@
 import { useState, useRef } from "react";
-import { Plus, MoreHorizontal, Pencil, Trash2, CheckCircle2, Archive } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, CheckCircle2, Archive, Clock } from "lucide-react";
 import logoEmblem from "../../imports/aliet_logo.png";
+import { useAppContext } from "@/context/AppContext";
+import { type WaktuJam } from "@/data/kelas";
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
 
@@ -212,7 +214,47 @@ function TahunAjaranCard() {
   );
 }
 
-// ─── Akademik card ────────────────────────────────────────────────────────────
+// ─── Akademik ─────────────────────────────────────────────────────────────────
+
+function WaktuPelajaranCard() {
+  const { waktuJamList, updateWaktuJam } = useAppContext();
+  const [localList, setLocalList] = useState<WaktuJam[]>(waktuJamList);
+
+  const handleUpdate = (id: number, range: string) => {
+    setLocalList(prev => prev.map(w => w.id === id ? { ...w, range } : w));
+  };
+
+  const handleSave = () => {
+    updateWaktuJam(localList);
+  };
+
+  return (
+    <Card title="Waktu Pelajaran & Istirahat" onSave={handleSave}>
+      <div className="space-y-3">
+        <p className="text-sm text-[#6B7769] mb-4">
+          Atur rentang waktu untuk setiap jam pelajaran dan istirahat. Perubahan di sini akan langsung berlaku di Papan Jadwal.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {localList.map(w => (
+            <div key={w.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-[#E2E8DE] bg-white gap-2">
+              <span className={`text-sm font-semibold flex items-center gap-1.5 ${w.type === "break" ? "text-[#D97706]" : "text-[#1C2517]"}`}>
+                {w.type === "break" && <Clock size={14} />}
+                {w.label}
+              </span>
+              <input
+                type="text"
+                value={w.range}
+                onChange={(e) => handleUpdate(w.id, e.target.value)}
+                className="px-3 py-1.5 rounded-md text-sm text-[#1C2517] outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] w-full sm:w-32 sm:text-center transition-colors"
+                placeholder="00.00-00.00"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 function AkademikCard() {
   const [kapasitas, setKapasitas] = useState("32");
@@ -351,6 +393,7 @@ export function Pengaturan() {
       </div>
 
       <TahunAjaranCard />
+      <WaktuPelajaranCard />
       <AkademikCard />
       <KeuanganCard />
       <IdentitasCard />

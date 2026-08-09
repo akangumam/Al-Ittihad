@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, MoreHorizontal, X, Eye, Pencil,
@@ -9,6 +9,9 @@ import { DataTable, Th } from "@/app/components/shared/DataTable";
 
 import { GuruRow, guruData } from "@/data/guru";
 import { mapelOptions } from "@/data/constants";
+import { useAppContext } from "@/context/AppContext";
+import { absensiRekapData } from "@/data/absensi";
+import { DAYS } from "@/data/kelas";
 
 // ─── palette ──────────────────────────────────────────────────────────────────
 
@@ -62,46 +65,65 @@ function KehadiranCell({ pct }: { pct: number }) {
   );
 }
 
-function RowMenu({ onView }: { onView: () => void }) {
+function RowMenu({ onView, onWA, onNonaktif }: { onView: () => void, onWA: () => void, onNonaktif: () => void }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+
   return (
-    <div className="relative">
+    <>
       <button
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3A0] hover:bg-[#F5F9F4] hover:text-[#374040] transition-colors"
+        onClick={(e) => { 
+          e.stopPropagation(); 
+          const rect = e.currentTarget.getBoundingClientRect();
+          // Jika menu terlalu dekat ke bawah layar, buka ke atas
+          const spaceBelow = window.innerHeight - rect.bottom;
+          const menuHeight = 160; 
+          
+          setCoords({
+            left: rect.right - 176, // 176 = w-44 (44 * 4px)
+            top: spaceBelow < menuHeight ? rect.top - menuHeight - 8 : rect.bottom + 8
+          });
+          setOpen((o) => !o); 
+        }}
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3A0] hover:bg-[#F5F9F4] hover:text-[#374040] transition-colors relative"
       >
         <MoreHorizontal size={14} />
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
           <div
-            className="absolute right-0 top-8 z-50 w-44 bg-white rounded-xl py-1"
-            style={{ border: "1px solid #E2E8DE", boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}
+            className="fixed z-50 w-44 bg-white rounded-xl py-1"
+            style={{ 
+              top: coords.top, 
+              left: coords.left,
+              border: "1px solid #E2E8DE", 
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)" 
+            }}
           >
             <button
-              onClick={() => { onView(); setOpen(false); }}
+              onClick={(e) => { e.stopPropagation(); onView(); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
             >
               <Eye size={13} className="text-[#6B7769]" /> Lihat Detail
             </button>
             <button
-              onClick={() => { onView(); setOpen(false); }}
+              onClick={(e) => { e.stopPropagation(); onView(); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
             >
               <Pencil size={13} className="text-[#6B7769]" /> Edit Data
             </button>
-            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); onWA(); setOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors">
               <MessageCircle size={13} className="text-[#6B7769]" /> Kirim WA
             </button>
             <div className="h-px mx-2 my-1 bg-[#E2E8DE]" />
-            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors">
+            <button onClick={(e) => { e.stopPropagation(); onNonaktif(); setOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors">
               <Trash2 size={13} /> Nonaktifkan
             </button>
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
 
@@ -114,7 +136,7 @@ function FloatingInput({
   required?: boolean; type?: string;
 }) {
   const [focused, setFocused] = useState(false);
-  const raised = focused || value.length > 0;
+  const raised = focused || value.length > 0 || type === "date";
   return (
     <div
       className="relative rounded-lg transition-colors"
@@ -158,6 +180,7 @@ function FloatingSelect({
         onBlur={() => setFocused(false)}
         className={`w-full appearance-none bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 pr-8 ${raised ? "pt-6" : "pt-4"}`}
       >
+        <option value="" disabled hidden></option>
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
       <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
@@ -192,21 +215,95 @@ function FloatingTextarea({
   );
 }
 
-// "Mata Pelajaran" multi-select display (visual mockup)
-function MapelMultiSelect({ values, label }: { values: string[]; label: string }) {
+function MapelMultiSelect({ values, onChange, label, options, required = false }: { values: string[]; onChange: (v: string[]) => void; label: string; options: string[]; required?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  
+  const filteredOptions = options.filter(o => 
+    !values.includes(o) && 
+    o !== "Semua Mapel" &&
+    o.toLowerCase().includes(query.toLowerCase())
+  );
+  
+  const exactMatch = options.find(o => o.toLowerCase() === query.trim().toLowerCase());
+  const showAdd = query.trim().length > 0 && !exactMatch && !values.some(v => v.toLowerCase() === query.trim().toLowerCase());
+
   return (
     <div className="relative rounded-lg px-3 pt-6 pb-2.5" style={{ border: "1px solid #E2E8DE" }}>
-      <label className="absolute left-3 top-1.5 text-[10px] text-[#6B7769] pointer-events-none">{label}</label>
+      <label className="absolute left-3 top-1.5 text-[10px] text-[#6B7769] pointer-events-none">{label}{required && <span className="text-[#DC2626] ml-0.5">*</span>}</label>
       <div className="flex flex-wrap gap-1.5">
         {values.map((v) => (
           <span key={v} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EDF7EC] text-[#3E8A2F] text-xs font-semibold">
             {v}
-            <span className="text-[#9CA3A0] cursor-pointer hover:text-[#DC2626] leading-none">×</span>
+            <span 
+              className="text-[#9CA3A0] cursor-pointer hover:text-[#DC2626] leading-none"
+              onClick={() => onChange(values.filter(mapel => mapel !== v))}
+            >×</span>
           </span>
         ))}
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#F5F9F4] text-[#9CA3A0] text-xs cursor-pointer hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors">
-          + Tambah
-        </span>
+        <div className="relative">
+          <span 
+            className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-[#F5F9F4] text-[#9CA3A0] text-xs cursor-pointer hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors"
+            onClick={() => { setIsOpen(!isOpen); setQuery(""); }}
+          >
+            + Tambah
+          </span>
+          {isOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+              <div className="absolute top-full left-0 mt-1 z-20 w-52 max-h-56 flex flex-col bg-white rounded-lg shadow-lg border border-[#E2E8DE] py-1">
+                <div className="px-2 pb-1 mb-1 border-b border-[#E2E8DE]">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Ketik mapel baru..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && showAdd) {
+                        e.preventDefault();
+                        onChange([...values, query.trim()]);
+                        setIsOpen(false);
+                        setQuery("");
+                      }
+                    }}
+                    className="w-full bg-transparent outline-none text-[13px] text-[#1C2517] px-2 py-1.5"
+                  />
+                </div>
+                <div className="overflow-y-auto flex-1">
+                  {showAdd && (
+                    <div 
+                      className="px-3 py-2 text-[13px] hover:bg-[#EDF7EC] cursor-pointer text-[#3E8A2F] font-semibold flex items-center gap-2"
+                      onClick={() => {
+                        onChange([...values, query.trim()]);
+                        setIsOpen(false);
+                        setQuery("");
+                      }}
+                    >
+                      + Tambah "{query.trim()}"
+                    </div>
+                  )}
+                  {filteredOptions.length === 0 && !showAdd && (
+                    <div className="px-3 py-2 text-[13px] text-[#9CA3A0] italic">Tidak ditemukan</div>
+                  )}
+                  {filteredOptions.map(opt => (
+                    <div 
+                      key={opt}
+                      className="px-3 py-1.5 text-[13px] hover:bg-[#F5F9F4] cursor-pointer text-[#374040]"
+                      onClick={() => {
+                        onChange([...values, opt]);
+                        setIsOpen(false);
+                        setQuery("");
+                      }}
+                    >
+                      {opt}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -216,7 +313,8 @@ function MapelMultiSelect({ values, label }: { values: string[]; label: string }
 
 type SheetTab = "profil" | "jadwal" | "absensi";
 
-function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
+function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions }: { guru: GuruRow; onClose: () => void; onSave: (data: Partial<GuruRow>) => void; isNew?: boolean; mapelOptions: string[] }) {
+  const { jadwalList, waktuJamList } = useAppContext();
   const [tab, setTab] = useState<SheetTab>("profil");
   const [form, setForm] = useState({
     nama: guru.nama,
@@ -230,9 +328,11 @@ function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
     hp: guru.hp,
     email: guru.email,
     alamat: guru.alamat,
+    mapel: guru.mapel || [],
+    waliKelas: guru.waliKelas || "",
     foto: (guru as any)?.foto || "",
   });
-  const set = (key: keyof typeof form) => (v: string) =>
+  const set = (key: keyof typeof form) => (v: any) =>
     setForm((prev) => ({ ...prev, [key]: v }));
 
   const TAB_LABELS: Record<SheetTab, string> = {
@@ -368,7 +468,7 @@ function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
                     ))}
                   </div>
                 </div>
-                <FloatingInput label="Tanggal Lahir" value={form.tanggalLahir} onChange={set("tanggalLahir")} />
+                <FloatingInput label="Tanggal Lahir" value={form.tanggalLahir} onChange={set("tanggalLahir")} type="date" required />
               </section>
 
               <div className="h-px bg-[#E2E8DE]" />
@@ -381,8 +481,12 @@ function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
                   options={["GTY", "PNS", "Honorer"]}
                 />
                 <FloatingInput label="Jabatan" value={form.jabatan} onChange={set("jabatan")} />
-                <MapelMultiSelect label="Mata Pelajaran" values={guru.mapel} />
-                <FloatingInput label="Pendidikan Terakhir" value={form.pendidikan} onChange={set("pendidikan")} />
+                <FloatingInput label="Wali Kelas (Opsional)" value={form.waliKelas} onChange={set("waliKelas")} />
+                <MapelMultiSelect label="Mata Pelajaran" values={form.mapel} onChange={set("mapel")} options={mapelOptions} required />
+                <FloatingSelect 
+                  label="Pendidikan Terakhir" value={form.pendidikan} onChange={set("pendidikan")} required
+                  options={["SMA/SMK", "D1/D2", "D3", "D4/S1", "S2", "S3", "Lainnya"]} 
+                />
               </section>
 
               <div className="h-px bg-[#E2E8DE]" />
@@ -395,22 +499,104 @@ function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
                   <p className="text-[11px] text-[#9CA3A0] mt-1 px-1">Untuk pengiriman notifikasi &amp; koordinasi WA</p>
                 </div>
                 <FloatingInput label="Email" value={form.email} onChange={set("email")} type="email" />
-                <FloatingTextarea label="Alamat" value={form.alamat} onChange={set("alamat")} />
+                <FloatingTextarea label="Alamat" value={form.alamat} onChange={set("alamat")} required />
               </section>
 
               <div className="h-2" />
             </div>
+          ) : tab === "jadwal" ? (
+            <div className="py-6 space-y-4">
+              {(() => {
+                const myJadwal = jadwalList.filter(j => j.guruId === guru.id);
+                if (myJadwal.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-14 text-center">
+                      <div className="w-12 h-12 rounded-xl bg-[#F5F9F4] flex items-center justify-center mx-auto mb-4">
+                        <Calendar size={22} className="text-[#D1D5DB]" />
+                      </div>
+                      <p className="text-sm font-semibold text-[#6B7769] mb-1">{TAB_LABELS[tab]}</p>
+                      <p className="text-xs text-[#9CA3A0]">Belum ada jadwal mengajar yang dialokasikan.</p>
+                    </div>
+                  );
+                }
+                return DAYS.map(hari => {
+                  const jHari = myJadwal.filter(j => j.hari === hari).sort((a, b) => a.jam - b.jam);
+                  if (jHari.length === 0) return null;
+                  return (
+                    <div key={hari} className="border border-[#E2E8DE] rounded-xl overflow-hidden mx-2">
+                      <div className="bg-[#F5F9F4] px-4 py-2 border-b border-[#E2E8DE]">
+                        <p className="text-xs font-bold text-[#3E8A2F] uppercase">{hari}</p>
+                      </div>
+                      <div className="divide-y divide-[#E2E8DE]">
+                        {jHari.map(j => {
+                          const wJam = waktuJamList.find(w => w.jam === j.jam);
+                          return (
+                            <div key={j.id} className="p-3 flex items-center justify-between bg-white">
+                              <div>
+                                <p className="text-sm font-semibold text-[#1C2517]">{j.mapel} <span className="text-xs font-normal text-[#6B7769]">({j.ruang || j.kelas})</span></p>
+                                <p className="text-xs text-[#9CA3A0]">Jam ke-{j.jam} {wJam ? `(${wJam.range})` : ""}</p>
+                              </div>
+                              <span className="px-2.5 py-1 rounded-full bg-[#EDF7EC] text-[#3E8A2F] text-[10px] font-bold">Kelas {j.kelas}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="w-12 h-12 rounded-xl bg-[#F5F9F4] flex items-center justify-center mx-auto mb-4">
-                {tab === "jadwal" ? <Calendar size={22} className="text-[#D1D5DB]" /> : <FileText size={22} className="text-[#D1D5DB]" />}
-              </div>
-              <p className="text-sm font-semibold text-[#6B7769] mb-1">{TAB_LABELS[tab]}</p>
-              <p className="text-xs text-[#9CA3A0]">
-                {tab === "jadwal"
-                  ? "Jadwal mengajar guru akan ditampilkan di sini"
-                  : "Rekapitulasi kehadiran bulanan akan ditampilkan di sini"}
-              </p>
+            <div className="py-6 space-y-4">
+              {(() => {
+                const rekap = absensiRekapData.find(r => r.id === guru.id);
+                if (!rekap) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-14 text-center">
+                      <div className="w-12 h-12 rounded-xl bg-[#F5F9F4] flex items-center justify-center mx-auto mb-4">
+                        <FileText size={22} className="text-[#D1D5DB]" />
+                      </div>
+                      <p className="text-sm font-semibold text-[#6B7769] mb-1">{TAB_LABELS[tab]}</p>
+                      <p className="text-xs text-[#9CA3A0]">Belum ada data absensi untuk guru ini.</p>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-6 mx-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="border border-[#E2E8DE] rounded-xl p-4 flex flex-col justify-center bg-[#F4FBF4]">
+                        <p className="text-[10px] font-semibold text-[#6B7769] mb-1 uppercase tracking-widest">Tingkat Kehadiran</p>
+                        <p className="text-3xl font-bold text-[#3E8A2F]">{rekap.pct}%</p>
+                      </div>
+                      <div className="grid grid-rows-2 gap-3">
+                        <div className="border border-[#E2E8DE] rounded-xl px-4 flex items-center justify-between">
+                          <p className="text-xs text-[#6B7769] font-semibold">Hadir</p>
+                          <p className="text-lg font-bold text-[#1C2517]">{rekap.hadir}</p>
+                        </div>
+                        <div className="border border-[#E2E8DE] rounded-xl px-4 flex items-center justify-between">
+                          <p className="text-xs text-[#6B7769] font-semibold">Terlambat</p>
+                          <p className="text-lg font-bold text-[#F6B31E]">{rekap.terlambat}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="border border-[#E2E8DE] rounded-xl px-4 py-3 flex items-center justify-between">
+                        <p className="text-xs text-[#6B7769] font-semibold">Izin/Sakit</p>
+                        <p className="text-lg font-bold text-[#374040]">{rekap.izin}</p>
+                      </div>
+                      <div className="border border-[#E2E8DE] rounded-xl px-4 py-3 flex items-center justify-between">
+                        <p className="text-xs text-[#6B7769] font-semibold">Alpa</p>
+                        <p className="text-lg font-bold text-[#DC2626]">{rekap.alpa}</p>
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#FAFAFA] border border-[#E2E8DE]">
+                      <p className="text-xs text-[#9CA3A0] leading-relaxed">
+                        Data ini direkap berdasarkan pengisian kehadiran harian di menu Absensi Guru. Rekapitulasi di atas adalah untuk data bulan ini (Juli 2026).
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
@@ -424,7 +610,16 @@ function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
           >
             Batal
           </button>
-          <button className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+          <button 
+            onClick={() => {
+              if (!form.nama || !form.statusKepeg || !form.hp || !form.tanggalLahir || !form.alamat || !form.pendidikan || form.mapel.length === 0) {
+                alert("Mohon lengkapi semua kolom yang wajib diisi (bertanda *).");
+                return;
+              }
+              onSave(form as unknown as Partial<GuruRow>);
+            }} 
+            className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
+          >
             Simpan
           </button>
         </div>
@@ -436,24 +631,33 @@ function GuruSheet({ guru, onClose }: { guru: GuruRow; onClose: () => void }) {
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Guru() {
+  const { guruList, addGuru, updateGuru, deleteGuru } = useAppContext();
   const [search,      setSearch]      = useState("");
   const [mapelFilter, setMapelFilter] = useState("Semua Mapel");
   const [statusFilter,setStatusFilter]= useState("Semua Status");
-  // Sheet does not open automatically anymore
   const [selectedGuru, setSelectedGuru] = useState<GuruRow | null>(null);
+  const [isAddingGuru, setIsAddingGuru] = useState(false);
+
+  const dynamicMapelOptions = useMemo(() => {
+    const base = new Set(mapelOptions);
+    guruList.forEach(g => {
+      g.mapel.forEach(m => base.add(m));
+    });
+    return Array.from(base).sort();
+  }, [guruList]);
 
   const kpiData = useMemo(() => {
     return [
-      { label: "Total", value: guruData.length },
-      { label: "PNS",   value: guruData.filter(g => g.statusKepeg === "PNS").length },
-      { label: "GTY",   value: guruData.filter(g => g.statusKepeg === "GTY").length },
-      { label: "Honorer", value: guruData.filter(g => g.statusKepeg === "Honorer").length },
+      { label: "Total", value: guruList.length },
+      { label: "PNS",   value: guruList.filter(g => g.statusKepeg === "PNS").length },
+      { label: "GTY",   value: guruList.filter(g => g.statusKepeg === "GTY").length },
+      { label: "Honorer", value: guruList.filter(g => g.statusKepeg === "Honorer").length },
     ];
-  }, []);
+  }, [guruList]);
 
   const rows = useMemo(() => {
     const q = search.toLowerCase();
-    return guruData.filter((r) => {
+    return guruList.filter((r) => {
       const matchSearch = !q ||
         r.nama.toLowerCase().includes(q) ||
         r.nuptk.includes(q) ||
@@ -462,7 +666,20 @@ export function Guru() {
       const matchStatus = statusFilter === "Semua Status" || r.statusKepeg === statusFilter;
       return matchSearch && matchMapel && matchStatus;
     });
+  }, [search, mapelFilter, statusFilter, guruList]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
+  useEffect(() => {
+    setCurrentPage(1);
   }, [search, mapelFilter, statusFilter]);
+
+  const totalPages = Math.ceil(rows.length / itemsPerPage) || 1;
+  const paginatedRows = rows.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  
+  const startIdx = rows.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endIdx = Math.min(currentPage * itemsPerPage, rows.length);
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-5">
@@ -512,7 +729,7 @@ export function Guru() {
             className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
             style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
           >
-            {mapelOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            {["Semua Mapel", ...dynamicMapelOptions.filter(o => o !== "Semua Mapel")].map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
           <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
         </div>
@@ -531,7 +748,7 @@ export function Guru() {
         </div>
 
         <div className="ml-auto">
-          <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+          <button onClick={() => setIsAddingGuru(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
             <Plus size={13} />
             Tambah Guru
           </button>
@@ -555,7 +772,7 @@ export function Guru() {
       <div className="md:hidden flex flex-col gap-2.5">
         {rows.length === 0 ? (
           <p className="text-sm text-[#9CA3A0] text-center py-8">Belum ada data guru</p>
-        ) : rows.map((row) => {
+        ) : paginatedRows.map((row) => {
           const pct = row.kehadiran;
           const pctColor = pct >= 90 ? "#3E8A2F" : pct >= 75 ? "#D97706" : "#DC2626";
           return (
@@ -587,7 +804,7 @@ export function Guru() {
           );
         })}
         <div className="py-1">
-          <span className="text-[12px] text-[#6B7769]">1–{rows.length} dari <strong className="text-[#1C2517]">38</strong> guru</span>
+          <span className="text-[12px] text-[#6B7769]">{startIdx}–{endIdx} dari <strong className="text-[#1C2517]">{rows.length}</strong> guru</span>
         </div>
       </div>
 
@@ -607,11 +824,11 @@ export function Guru() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, i) => (
+              {paginatedRows.map((row, i) => (
                 <tr
                   key={row.id}
                   className="hover:bg-[#FAFBF9] transition-colors cursor-pointer"
-                  style={{ borderBottom: i < rows.length - 1 ? "1px solid #F0F7EE" : "none" }}
+                  style={{ borderBottom: i < paginatedRows.length - 1 ? "1px solid #F0F7EE" : "none" }}
                   onClick={() => setSelectedGuru(row)}
                 >
                   {/* Guru */}
@@ -663,7 +880,15 @@ export function Guru() {
 
                   {/* Aksi */}
                   <td className="py-3.5 pr-6" onClick={(e) => e.stopPropagation()}>
-                    <RowMenu onView={() => setSelectedGuru(row)} />
+                    <RowMenu 
+                      onView={() => setSelectedGuru(row)} 
+                      onWA={() => {
+                        const no = row.hp.replace(/\D/g, "");
+                        const waNumber = no.startsWith("0") ? "62" + no.slice(1) : no;
+                        window.open(`https://wa.me/${waNumber}`, "_blank");
+                      }}
+                      onNonaktif={() => updateGuru(row.id, { status: "Nonaktif" })}
+                    />
                   </td>
                 </tr>
               ))}
@@ -677,21 +902,32 @@ export function Guru() {
           style={{ borderTop: "1px solid #E2E8DE" }}
         >
           <span className="text-xs text-[#6B7769]">
-            1–{rows.length} dari <span className="font-semibold text-[#1C2517]">38</span> guru
+            {startIdx}–{endIdx} dari <span className="font-semibold text-[#1C2517]">{rows.length}</span> guru
           </span>
           <div className="flex items-center gap-1">
             <button
-              disabled
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#D1D5DB] cursor-not-allowed"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${currentPage === 1 ? "text-[#D1D5DB] cursor-not-allowed" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
               style={{ border: "1px solid #E2E8DE" }}
             >
               <ChevronLeft size={14} />
             </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#3E8A2F] text-white text-xs font-bold">1</button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] text-xs hover:bg-[#EDF7EC] transition-colors">2</button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] text-xs hover:bg-[#EDF7EC] transition-colors">3</button>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-colors ${currentPage === page ? "bg-[#3E8A2F] text-white font-bold" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
+              >
+                {page}
+              </button>
+            ))}
+
             <button
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] hover:bg-[#EDF7EC] transition-colors"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${currentPage === totalPages ? "text-[#D1D5DB] cursor-not-allowed" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
               style={{ border: "1px solid #E2E8DE" }}
             >
               <ChevronRight size={14} />
@@ -702,10 +938,50 @@ export function Guru() {
 
       {/* ── Detail sheet ── */}
       {selectedGuru && (
-        <GuruSheet
-          key={selectedGuru.id}
-          guru={selectedGuru}
+        <GuruSheet 
+          guru={selectedGuru} 
+          mapelOptions={dynamicMapelOptions}
           onClose={() => setSelectedGuru(null)}
+          onSave={(data) => {
+            updateGuru(selectedGuru.id, data);
+            setSelectedGuru(null);
+          }}
+        />
+      )}
+      {isAddingGuru && (
+        <GuruSheet 
+          isNew
+          mapelOptions={dynamicMapelOptions}
+          guru={{
+            id: Date.now(),
+            nama: "", nuptk: "", nip: "",
+            mapel: [], statusKepeg: "Honorer", waliKelas: null,
+            kehadiran: 100, status: "Aktif", jk: "L", tanggalLahir: "",
+            jabatan: "", pendidikan: "", hp: "", email: "", alamat: "", inits: "N"
+          }} 
+          onClose={() => setIsAddingGuru(false)}
+          onSave={(data) => {
+            addGuru({
+              id: Date.now(),
+              nama: data.nama || "",
+              nuptk: data.nuptk || "",
+              nip: data.nip || "",
+              mapel: data.mapel || [],
+              statusKepeg: (data.statusKepeg || "Honorer") as any,
+              waliKelas: data.waliKelas || null,
+              kehadiran: 100,
+              status: "Aktif",
+              jk: (data.jk || "L") as any,
+              tanggalLahir: data.tanggalLahir || "",
+              jabatan: data.jabatan || "",
+              pendidikan: data.pendidikan || "",
+              hp: data.hp || "",
+              email: data.email || "",
+              alamat: data.alamat || "",
+              inits: (data.nama || "N").substring(0, 2).toUpperCase()
+            });
+            setIsAddingGuru(false);
+          }}
         />
       )}
     </div>

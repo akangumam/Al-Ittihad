@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, Upload, MoreHorizontal, X, Eye, Pencil,
@@ -222,6 +223,38 @@ function FloatingTextarea({
   );
 }
 
+function FloatingSelect({
+  label, value, onChange, required = false, options, disabled = false,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  required?: boolean; options: string[]; disabled?: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  const raised = focused || value.length > 0;
+  return (
+    <div
+      className="relative rounded-lg transition-colors"
+      style={{ border: raised && focused ? "1.5px solid #3E8A2F" : "1px solid #E2E8DE" }}
+    >
+      <label className={`absolute left-3 pointer-events-none transition-all duration-150 ${raised ? "top-1.5 text-[10px] text-[#6B7769]" : "top-4 text-sm text-[#9CA3A0]"}`}>
+        {label}{required && <span className="text-[#DC2626] ml-0.5">*</span>}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        disabled={disabled}
+        className={`w-full appearance-none bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 pr-8 ${raised ? "pt-6" : "pt-4"} ${disabled ? "opacity-75 cursor-default" : ""}`}
+      >
+        <option value="" disabled hidden></option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
+    </div>
+  );
+}
+
 // ─── Student sheet (detail / edit) ────────────────────────────────────────────
 
 type SheetTab = "profil" | "tagihan" | "riwayat";
@@ -232,6 +265,7 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
     nis: siswa?.nis || "", nisn: siswa?.nisn || "", nama: siswa?.nama || "",
     jk: (siswa?.jk as string) || "L",
     tempatLahir: siswa?.tempatLahir || "", tanggalLahir: siswa?.tanggalLahir || "",
+    asalSekolah: siswa?.asalSekolah || "", tahunMasuk: siswa?.tahunMasuk || new Date().getFullYear().toString(),
     namaAyah: siswa?.namaAyah || "", namaIbu: siswa?.namaIbu || "", waliHp: siswa?.waliHp || "",
     alamat: siswa?.alamat || "", kelurahan: siswa?.kelurahan || "", kecamatan: siswa?.kecamatan || "",
     kelas: siswa?.kelas || kelasOptions.find(o => o !== "Semua Kelas")?.replace("Kelas ", "") || "7A",
@@ -255,7 +289,7 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
   };
 
   const handleSave = () => {
-    if (!form.nis || !form.nisn || !form.nama || !form.waliHp || !form.tempatLahir || !form.tanggalLahir || !form.alamat) {
+    if (!form.nis || !form.nisn || !form.nama || !form.namaAyah || !form.waliHp || !form.tempatLahir || !form.tanggalLahir || !form.alamat || !form.asalSekolah || !form.tahunMasuk) {
       alert("Harap lengkapi semua kolom yang wajib diisi!");
       return;
     }
@@ -432,31 +466,24 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
                   <FloatingInput label="Tanggal Lahir" value={form.tanggalLahir} onChange={set("tanggalLahir")} required type="date" readOnly={isReadOnly} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="relative rounded-lg transition-colors border-[#E2E8DE] border">
-                    <label className="absolute left-3 pointer-events-none transition-all duration-150 top-1.5 text-[10px] text-[#6B7769]">Kelas</label>
-                    <select
-                      value={form.kelas}
-                      onChange={(e) => set("kelas")(e.target.value)}
-                      disabled={isReadOnly}
-                      className="w-full bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 pt-6 appearance-none"
-                    >
-                      {kelasOptions.filter(o => o !== "Semua Kelas").map(o => <option key={o} value={o.replace("Kelas ", "")}>{o.replace("Kelas ", "")}</option>)}
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
-                  </div>
-                  <div className="relative rounded-lg transition-colors border-[#E2E8DE] border">
-                    <label className="absolute left-3 pointer-events-none transition-all duration-150 top-1.5 text-[10px] text-[#6B7769]">Status Siswa</label>
-                    <select
-                      value={form.status}
-                      onChange={(e) => set("status")(e.target.value)}
-                      disabled={isReadOnly}
-                      className="w-full bg-transparent outline-none text-sm text-[#1C2517] px-3 pb-2 pt-6 appearance-none"
-                    >
-                      <option value="Aktif">Aktif</option>
-                      <option value="Nonaktif">Nonaktif</option>
-                    </select>
-                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
-                  </div>
+                  <FloatingInput label="Asal Sekolah (SD/MI)" value={form.asalSekolah} onChange={set("asalSekolah")} required readOnly={isReadOnly} />
+                  <FloatingInput label="Tahun Masuk" value={form.tahunMasuk} onChange={set("tahunMasuk")} required readOnly={isReadOnly} type="number" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FloatingSelect
+                    label="Kelas"
+                    value={form.kelas}
+                    onChange={set("kelas")}
+                    disabled={isReadOnly}
+                    options={kelasOptions.filter(o => o !== "Semua Kelas").map(o => o.replace("Kelas ", ""))}
+                  />
+                  <FloatingSelect
+                    label="Status Siswa"
+                    value={form.status}
+                    onChange={set("status")}
+                    disabled={isReadOnly}
+                    options={["Aktif", "Nonaktif"]}
+                  />
                 </div>
               </section>
 
@@ -465,7 +492,7 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
               {/* ── Data Wali ── */}
               <section className="space-y-3">
                 <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest">Data Wali</p>
-                <FloatingInput label="Nama Ayah" value={form.namaAyah} onChange={set("namaAyah")} readOnly={isReadOnly} />
+                <FloatingInput label="Nama Ayah" value={form.namaAyah} onChange={set("namaAyah")} required readOnly={isReadOnly} />
                 <FloatingInput label="Nama Ibu" value={form.namaIbu} onChange={set("namaIbu")} readOnly={isReadOnly} />
                 <div>
                   <FloatingInput label="No. HP Wali" value={form.waliHp} onChange={set("waliHp")} required readOnly={isReadOnly} />
@@ -525,19 +552,59 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
               )}
             </div>
           ) : (
-            <div className="space-y-6">
-              <div className="relative pl-4 border-l border-[#E2E8DE] space-y-6 ml-2 mt-2">
-                <div className="relative">
-                  <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#3E8A2F] border-2 border-white" />
-                  <p className="text-sm font-semibold text-[#1C2517]">Data diperbarui</p>
-                  <p className="text-xs text-[#6B7769] mt-0.5">Oleh Admin Utama • Hari ini, 09:30</p>
+            <div className="space-y-8 pb-4">
+              {/* Riwayat Kelas (Akademik) */}
+              <section>
+                <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest mb-4">Riwayat Kelas (Akademik)</p>
+                {siswa ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-[#3E8A2F] bg-[#F4FBF4]">
+                      <div>
+                        <p className="text-sm font-semibold text-[#3E8A2F]">{siswa.kelas}</p>
+                        <p className="text-xs text-[#6B7769]">Tahun Ajaran 2026/2027</p>
+                      </div>
+                      <span className="text-[10px] px-2 py-1 bg-[#3E8A2F] text-white rounded-full font-medium">Kelas Saat Ini</span>
+                    </div>
+                    {siswa.kelas.startsWith("9") ? (
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-[#E2E8DE] bg-[#FAFAFA]">
+                        <div>
+                          <p className="text-sm font-semibold text-[#1C2517]">8{siswa.kelas.charAt(1) || 'A'}</p>
+                          <p className="text-xs text-[#9CA3A0]">Tahun Ajaran 2025/2026</p>
+                        </div>
+                        <span className="text-[10px] px-2 py-1 bg-[#F3F4F6] text-[#6B7769] rounded-full font-medium border border-[#E5E7EB]">Selesai</span>
+                      </div>
+                    ) : null}
+                    {siswa.kelas.startsWith("8") || siswa.kelas.startsWith("9") ? (
+                      <div className="flex items-center justify-between p-3 rounded-lg border border-[#E2E8DE] bg-[#FAFAFA]">
+                        <div>
+                          <p className="text-sm font-semibold text-[#1C2517]">7{siswa.kelas.charAt(1) || 'A'}</p>
+                          <p className="text-xs text-[#9CA3A0]">Tahun Ajaran {siswa.kelas.startsWith("9") ? "2024/2025" : "2025/2026"}</p>
+                        </div>
+                        <span className="text-[10px] px-2 py-1 bg-[#F3F4F6] text-[#6B7769] rounded-full font-medium border border-[#E5E7EB]">Selesai</span>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-sm text-[#9CA3A0] italic">Belum ada riwayat kelas.</p>
+                )}
+              </section>
+
+              {/* Log Aktivitas Data */}
+              <section>
+                <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest mb-4">Log Aktivitas Data</p>
+                <div className="relative pl-4 border-l border-[#E2E8DE] space-y-6 ml-2 mt-2">
+                  <div className="relative">
+                    <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#3E8A2F] border-2 border-white" />
+                    <p className="text-sm font-semibold text-[#1C2517]">Data diperbarui</p>
+                    <p className="text-xs text-[#6B7769] mt-0.5">Oleh Admin Utama • Hari ini, 09:30</p>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#D1D5DB] border-2 border-white" />
+                    <p className="text-sm font-semibold text-[#1C2517]">Siswa didaftarkan</p>
+                    <p className="text-xs text-[#6B7769] mt-0.5">Sistem • 10 Juli 2025</p>
+                  </div>
                 </div>
-                <div className="relative">
-                  <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#D1D5DB] border-2 border-white" />
-                  <p className="text-sm font-semibold text-[#1C2517]">Siswa didaftarkan</p>
-                  <p className="text-xs text-[#6B7769] mt-0.5">Sistem • 10 Juli 2025</p>
-                </div>
-              </div>
+              </section>
             </div>
           )}
         </div>
@@ -568,8 +635,9 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Siswa() {
+  const { state } = useLocation();
   const [search, setSearch] = useState("");
-  const [kelasFilter, setKelasFilter] = useState("Semua Kelas");
+  const [kelasFilter, setKelasFilter] = useState(state?.kelasFilter || "Semua Kelas");
   const [statusFilter, setStatusFilter] = useState("Semua Status");
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [selectedSiswa, setSelectedSiswa] = useState<SiswaRow | null>(null);
