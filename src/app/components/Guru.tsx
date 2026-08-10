@@ -314,7 +314,7 @@ function MapelMultiSelect({ values, onChange, label, options, required = false }
 type SheetTab = "profil" | "jadwal" | "absensi";
 
 function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions }: { guru: GuruRow; onClose: () => void; onSave: (data: Partial<GuruRow>) => void; isNew?: boolean; mapelOptions: string[] }) {
-  const { jadwalList, waktuJamList } = useAppContext();
+  const { jadwalList } = useAppContext();
   const [tab, setTab] = useState<SheetTab>("profil");
   const [form, setForm] = useState({
     nama: guru.nama,
@@ -520,7 +520,7 @@ function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions }: { guru: GuruR
                   );
                 }
                 return DAYS.map(hari => {
-                  const jHari = myJadwal.filter(j => j.hari === hari).sort((a, b) => a.jam - b.jam);
+                  const jHari = myJadwal.filter(j => j.hari === hari).sort((a, b) => a.waktuMulai.localeCompare(b.waktuMulai));
                   if (jHari.length === 0) return null;
                   return (
                     <div key={hari} className="border border-[#E2E8DE] rounded-xl overflow-hidden mx-2">
@@ -529,12 +529,11 @@ function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions }: { guru: GuruR
                       </div>
                       <div className="divide-y divide-[#E2E8DE]">
                         {jHari.map(j => {
-                          const wJam = waktuJamList.find(w => w.jam === j.jam);
                           return (
                             <div key={j.id} className="p-3 flex items-center justify-between bg-white">
                               <div>
                                 <p className="text-sm font-semibold text-[#1C2517]">{j.mapel} <span className="text-xs font-normal text-[#6B7769]">({j.ruang || j.kelas})</span></p>
-                                <p className="text-xs text-[#9CA3A0]">Jam ke-{j.jam} {wJam ? `(${wJam.range})` : ""}</p>
+                                <p className="text-xs text-[#9CA3A0]">{j.waktuMulai} - {j.waktuSelesai}</p>
                               </div>
                               <span className="px-2.5 py-1 rounded-full bg-[#EDF7EC] text-[#3E8A2F] text-[10px] font-bold">Kelas {j.kelas}</span>
                             </div>

@@ -156,9 +156,9 @@ export function KartuDigital() {
   };
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto p-4 md:p-0 space-y-6 pb-20 md:pb-0">
+    <div className="w-full max-w-[1600px] mx-auto p-4 md:p-0 pb-20 md:pb-0 relative">
       {/* ── Header & Toolbar (Sembunyikan saat print) ── */}
-      <div className="print:hidden flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="print:hidden sticky top-0 md:-top-6 md:-mt-6 md:pt-8 z-30 bg-[#FAFBF9]/95 backdrop-blur-md -mx-4 px-4 pt-4 pb-4 md:px-0 md:mx-0 md:pb-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8DE]/50">
         <div>
           <h2 className="text-[#1C2517] text-2xl font-bold">Kartu Digital Siswa</h2>
           <p className="text-sm text-[#6B7769]">Kartu identitas dengan QR Code & Barcode siap cetak</p>

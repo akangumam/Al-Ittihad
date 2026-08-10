@@ -1,30 +1,55 @@
 import { useState, useMemo } from "react";
 import { Search, ChevronDown, Upload, Download, Edit3, Save, X } from "lucide-react";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
-import { dataMataPelajaran, dataNilaiSiswa, NilaiSiswa } from "@/data/nilai";
+import { dataMataPelajaran, type NilaiSiswa } from "@/data/nilai";
 import { kelasOptions } from "@/data/constants";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { toast } from "sonner";
+import { useAppContext } from "@/context/AppContext";
 
 export function NilaiSiswaComponent() {
+  const { nilaiList, bulkUpdateNilai, siswaList } = useAppContext();
   const [mapelFilter, setMapelFilter] = useState(dataMataPelajaran[3].id); // Default to Matematika
-  const [kelasFilter, setKelasFilter] = useState("7A");
+  const [kelasFilter, setKelasFilter] = useState("Semua Kelas");
   const [search, setSearch] = useState("");
   
   // State for manual input mode
   const [isEditing, setIsEditing] = useState(false);
   const [editableGrades, setEditableGrades] = useState<Record<string, Partial<NilaiSiswa>>>({});
 
-  // Calculate filtered rows
+  // Calculate filtered rows based on ALL students in siswaList
   const filteredRows = useMemo(() => {
     const q = search.toLowerCase();
-    return dataNilaiSiswa.filter(r => {
-      const matchSearch = !q || r.namaSiswa.toLowerCase().includes(q) || r.nisn.includes(q);
-      const matchMapel = r.mapelId === mapelFilter;
-      const matchKelas = kelasFilter === "Semua Kelas" || r.kelas === kelasFilter.replace("Kelas ", "");
-      return matchSearch && matchMapel && matchKelas;
+    
+    // First, filter students based on search and class filter
+    const matchedSiswa = siswaList.filter(s => {
+      const matchSearch = !q || s.nama.toLowerCase().includes(q) || s.nisn.includes(q);
+      const matchKelas = kelasFilter === "Semua Kelas" || s.kelas === kelasFilter.replace("Kelas ", "");
+      const matchAktif = s.status === "Aktif";
+      return matchSearch && matchKelas && matchAktif;
     });
-  }, [search, mapelFilter, kelasFilter]);
+
+    // Then, for each student, find their grade for the active mapel, or create a blank one
+    return matchedSiswa.map(s => {
+      const existingGrade = nilaiList.find(n => n.siswaId === s.id.toString() && n.mapelId === mapelFilter);
+      if (existingGrade) {
+        return { ...existingGrade, namaSiswa: s.nama, nisn: s.nisn, kelas: s.kelas }; // ensure latest student info
+      }
+      return {
+        id: `${s.id}_${mapelFilter}`,
+        siswaId: s.id.toString(),
+        namaSiswa: s.nama,
+        nisn: s.nisn,
+        kelas: s.kelas,
+        mapelId: mapelFilter,
+        nilaiTugas: 0,
+        nilaiUts: 0,
+        nilaiUas: 0,
+        nilaiAkhir: 0,
+        status: "Belum Tuntas"
+      } as NilaiSiswa;
+    });
+  }, [search, mapelFilter, kelasFilter, nilaiList, siswaList]);
 
   const mapelAktif = dataMataPelajaran.find(m => m.id === mapelFilter);
 
@@ -44,8 +69,9 @@ export function NilaiSiswaComponent() {
   };
 
   const handleSave = () => {
-    // In a real app, this would save to the database/context.
-    // For now we just mock the success.
+    if (Object.keys(editableGrades).length > 0) {
+      bulkUpdateNilai(editableGrades);
+    }
     toast.success("Nilai berhasil disimpan!");
     setIsEditing(false);
   };
@@ -109,7 +135,7 @@ export function NilaiSiswaComponent() {
                 className="flex items-center gap-2 px-4 py-2 bg-[#3E8A2F] text-white rounded-lg text-sm font-semibold hover:bg-[#2F6B23] transition-colors shadow-sm"
               >
                 <Edit3 size={16} />
-                Input Manual
+                Edit Nilai
               </button>
             ) : (
               <div className="flex gap-2">

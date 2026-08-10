@@ -11,7 +11,8 @@ import { absensiGuruList } from "@/data/absensi";
 import { siswaData, type SiswaRow } from "@/data/siswa";
 import { alumniData, type AlumniRow } from "@/data/alumni";
 import { guruData, type GuruRow } from "@/data/guru";
-import { type JadwalRow, type WaktuJam, DEFAULT_WAKTU_JAM, type KelasRow, kelasData, type JadwalOverride } from "@/data/kelas";
+import { type JadwalRow, type KelasRow, kelasData, type JadwalOverride, jadwalData } from "@/data/kelas";
+import { dataNilaiSiswa, type NilaiSiswa } from "@/data/nilai";
 
 interface AppContextValue {
   tahunAjaran: string;
@@ -51,9 +52,6 @@ interface AppContextValue {
   setJadwalOverride: (override: JadwalOverride) => void;
   clearJadwalOverride: (id: string) => void;
 
-  waktuJamList: WaktuJam[];
-  updateWaktuJam: (newList: WaktuJam[]) => void;
-
   absensiSiswaHariIni: Record<string, string>; // nis -> status (Hadir, Izin, Sakit, Alpa)
   setAbsensiSiswaHariIni: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 
@@ -61,6 +59,9 @@ interface AppContextValue {
   transaksiList: TransaksiPembayaran[];
   addTagihan: (tagihan: TagihanSiswa[]) => void;
   addTransaksi: (transaksi: TransaksiPembayaran, updatedTagihan: TagihanSiswa[]) => void;
+
+  nilaiList: NilaiSiswa[];
+  bulkUpdateNilai: (updates: Record<string, Partial<NilaiSiswa>>) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -73,12 +74,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [alumniList, setAlumniList] = useState<AlumniRow[]>(alumniData);
   const [guruList, setGuruList] = useState<GuruRow[]>(guruData);
   const [kelasList, setKelasList] = useState<KelasRow[]>(kelasData);
-  const [jadwalList, setJadwalList] = useState<JadwalRow[]>([]);
+  const [jadwalList, setJadwalList] = useState<JadwalRow[]>(jadwalData);
   const [jadwalOverridesList, setJadwalOverridesList] = useState<JadwalOverride[]>([]);
-  const [waktuJamList, setWaktuJamList] = useState<WaktuJam[]>(DEFAULT_WAKTU_JAM);
   const [absensiSiswaHariIni, setAbsensiSiswaHariIni] = useState<Record<string, string>>({});
   const [tagihanList, setTagihanList] = useState<TagihanSiswa[]>(initialTagihanSiswa);
   const [transaksiList, setTransaksiList] = useState<TransaksiPembayaran[]>(initialTransaksiPembayaran);
+  const [nilaiList, setNilaiList] = useState<NilaiSiswa[]>(dataNilaiSiswa);
 
   const isElectron = !!(window as any).electronAPI;
 
@@ -93,26 +94,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
           savedGuru = await (window as any).electronAPI.getStoreValue("alittihad_guru");
         } else {
           const s1 = localStorage.getItem("alittihad_siswa");
+          if (s1) {
+            const parsed = JSON.parse(s1);
+            if (parsed.length > 20) {
+              savedSiswa = parsed;
+            }
+          }
           const s2 = localStorage.getItem("alittihad_alumni");
           const s3 = localStorage.getItem("alittihad_absensi_siswa");
           const s4 = localStorage.getItem("alittihad_tagihan");
           const s5 = localStorage.getItem("alittihad_transaksi");
           const s6 = localStorage.getItem("alittihad_jadwal");
-          const s7 = localStorage.getItem("alittihad_waktujam");
           const s8 = localStorage.getItem("alittihad_guru");
           const s9 = localStorage.getItem("alittihad_kelas");
           const s10 = localStorage.getItem("alittihad_jadwal_overrides");
-          
-          if (s1) savedSiswa = JSON.parse(s1);
+          const s11 = localStorage.getItem("alittihad_nilai");
+          // s1 handled above
           if (s2) savedAlumni = JSON.parse(s2);
           if (s3) savedAbsensi = JSON.parse(s3);
           if (s4) setTagihanList(JSON.parse(s4));
           if (s5) setTransaksiList(JSON.parse(s5));
-          if (s6) setJadwalList(JSON.parse(s6));
-          if (s7) setWaktuJamList(JSON.parse(s7));
+          if (s6) {
+            const parsed = JSON.parse(s6);
+            if (parsed.length >= 576) setJadwalList(parsed);
+          }
           if (s8) savedGuru = JSON.parse(s8);
-          if (s9) setKelasList(JSON.parse(s9));
+          if (s9) {
+            const parsed = JSON.parse(s9);
+            if (parsed.length >= 12) setKelasList(parsed);
+          }
           if (s10) setJadwalOverridesList(JSON.parse(s10));
+          if (s11) setNilaiList(JSON.parse(s11));
         }
 
         if (savedSiswa) setSiswaList(savedSiswa);
@@ -180,14 +192,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [kelasList, isElectron]);
 
   useEffect(() => {
-    if (isElectron) {
-      (window as any).electronAPI.setStoreValue("alittihad_waktujam", waktuJamList);
-    } else {
-      localStorage.setItem("alittihad_waktujam", JSON.stringify(waktuJamList));
-    }
-  }, [waktuJamList, isElectron]);
-
-  useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     const payload = { date: today, data: absensiSiswaHariIni };
     if (isElectron) {
@@ -212,6 +216,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       (window as any).electronAPI.setStoreValue("alittihad_transaksi", transaksiList);
     }
   }, [transaksiList, isElectron]);
+
+  useEffect(() => {
+    if (!isElectron) {
+      localStorage.setItem("alittihad_nilai", JSON.stringify(nilaiList));
+    } else {
+      (window as any).electronAPI.setStoreValue("alittihad_nilai", nilaiList);
+    }
+  }, [nilaiList, isElectron]);
 
   const addKelas = (kelas: KelasRow) => setKelasList(prev => [...prev, kelas]);
   const updateKelas = (id: string, data: Partial<KelasRow>) => {
@@ -284,19 +296,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setJadwalOverridesList(prev => prev.filter(o => o.id !== id));
   };
 
-  const updateWaktuJam = (newList: WaktuJam[]) => setWaktuJamList(newList);
-
-  const addTagihan = (newTagihan: TagihanSiswa[]) => {
-    setTagihanList(prev => [...newTagihan, ...prev]);
-  };
-
+  const addTagihan = (tagihan: TagihanSiswa[]) => setTagihanList(prev => [...tagihan, ...prev]);
   const addTransaksi = (transaksi: TransaksiPembayaran, updatedTagihan: TagihanSiswa[]) => {
     setTransaksiList(prev => [transaksi, ...prev]);
-    // update state tagihan dengan yang baru (yang sudah lunas / bertambah terbayar)
-    setTagihanList(prev => prev.map(t => {
-      const up = updatedTagihan.find(ut => ut.id === t.id);
-      return up ? up : t;
-    }));
+    setTagihanList(updatedTagihan);
+  };
+
+  const bulkUpdateNilai = (updates: Record<string, Partial<NilaiSiswa>>) => {
+    setNilaiList(prev => {
+      let next = [...prev];
+      Object.keys(updates).forEach(id => {
+        const idx = next.findIndex(n => n.id === id);
+        if (idx >= 0) {
+          next[idx] = { ...next[idx], ...updates[id] } as NilaiSiswa;
+        } else {
+          next.push(updates[id] as NilaiSiswa);
+        }
+      });
+      return next;
+    });
   };
 
   // Derived counts for sidebar badges
@@ -319,9 +337,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kelasList, addKelas, updateKelas, deleteKelas,
         jadwalList, addJadwal, updateJadwal, deleteJadwal,
         jadwalOverridesList, setJadwalOverride, clearJadwalOverride,
-        waktuJamList, updateWaktuJam,
         absensiSiswaHariIni, setAbsensiSiswaHariIni,
-        tagihanList, transaksiList, addTagihan, addTransaksi
+        tagihanList, transaksiList, addTagihan, addTransaksi,
+        nilaiList, bulkUpdateNilai
       }}
     >
       {children}

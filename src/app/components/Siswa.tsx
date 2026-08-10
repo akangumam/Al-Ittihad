@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate, useLocation } from "react-router";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
@@ -23,6 +24,12 @@ const KELAS_COLOR: Record<string, string> = {
   "9": "bg-[#DCFCE7] text-[#166534]",
 };
 
+function getVisiblePages(current: number, total: number) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "...", total];
+  if (current >= total - 3) return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "...", current - 1, current, current + 1, "...", total];
+}
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 
@@ -80,7 +87,7 @@ function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatu
           const rect = e.currentTarget.getBoundingClientRect();
           // Jika menu terlalu dekat ke bawah layar, buka ke atas
           const spaceBelow = window.innerHeight - rect.bottom;
-          const menuHeight = 160; 
+          const menuHeight = 220; 
           
           setCoords({
             left: rect.right - 176, // 176 = w-44 (44 * 4px)
@@ -92,7 +99,7 @@ function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatu
       >
         <MoreHorizontal size={14} />
       </button>
-      {open && (
+      {open && createPortal(
         <>
           <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
           <div
@@ -148,7 +155,8 @@ function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatu
               {isActive ? "Nonaktifkan" : "Aktifkan"}
             </button>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </>
   );
@@ -646,7 +654,15 @@ export function Siswa() {
   const [selectedCardSiswa, setSelectedCardSiswa] = useState<SiswaRow | null>(null);
   const [qrZoomSiswa, setQrZoomSiswa] = useState<SiswaRow | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [toastMsg, setToastMsg] = useState("");
   const ITEMS_PER_PAGE = 10;
+
+  useEffect(() => {
+    if (toastMsg) {
+      const t = setTimeout(() => setToastMsg(""), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [toastMsg]);
 
   const { siswaList, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa, tahunAjaran } = useAppContext();
 
@@ -673,13 +689,28 @@ export function Siswa() {
 
   const filteredRows = useMemo(() => {
     const q = search.toLowerCase();
-    return siswaList.filter((r) => {
+    const result = siswaList.filter((r) => {
       const matchSearch = !q || r.nama.toLowerCase().includes(q) || r.nis.includes(q) || r.nisn.includes(q);
       const matchKelas  = kelasFilter === "Semua Kelas" || r.kelas === kelasFilter.slice(6);
       const matchStatus = statusFilter === "Semua Status" || r.status === statusFilter;
       return matchSearch && matchKelas && matchStatus;
     });
+    
+    if (statusFilter === "Semua Status") {
+      result.sort((a, b) => {
+        if (a.status === "Aktif" && b.status === "Nonaktif") return -1;
+        if (a.status === "Nonaktif" && b.status === "Aktif") return 1;
+        return 0;
+      });
+    }
+
+    return result;
   }, [search, kelasFilter, statusFilter, siswaList]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, kelasFilter, statusFilter]);
 
   const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
   const rows = filteredRows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -696,6 +727,17 @@ export function Siswa() {
     next.has(id) ? next.delete(id) : next.add(id);
     setChecked(next);
   };
+
+  const { canGraduate, canChangeClass } = useMemo(() => {
+    if (checked.size === 0) return { canGraduate: false, canChangeClass: false };
+    const selectedStudents = siswaList.filter(s => checked.has(s.id));
+    const allActive = selectedStudents.every(s => s.status === "Aktif");
+    const allGrade9 = selectedStudents.every(s => s.kelas.startsWith("9"));
+    return {
+      canGraduate: allActive && allGrade9,
+      canChangeClass: allActive
+    };
+  }, [checked, siswaList]);
 
   const handleExecuteBulkAction = () => {
     const ids = Array.from(checked);
@@ -942,7 +984,11 @@ export function Siswa() {
                         onView={() => { setSheetMode("view"); setSelectedSiswa(row); }} 
                         onEdit={() => { setSheetMode("edit"); setSelectedSiswa(row); }} 
                         onShowCard={() => setSelectedCardSiswa(row)}
-                        onToggleStatus={() => updateSiswa(row.id, { status: nonaktif ? "Aktif" : "Nonaktif" })} 
+                        onToggleStatus={() => {
+                          const newStatus = nonaktif ? "Aktif" : "Nonaktif";
+                          updateSiswa(row.id, { status: newStatus });
+                          setToastMsg(`Status ${row.nama} berhasil diubah menjadi ${newStatus}`);
+                        }} 
                       />
                     </td>
                   </tr>
@@ -970,14 +1016,18 @@ export function Siswa() {
               <ChevronLeft size={14} />
             </button>
             
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <button 
-                key={p} 
-                onClick={() => setCurrentPage(p)}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${currentPage === p ? "bg-[#3E8A2F] text-white" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
-              >
-                {p}
-              </button>
+            {getVisiblePages(currentPage, totalPages).map((p, idx) => (
+              p === "..." ? (
+                <span key={`dots-${idx}`} className="px-1 text-[#9CA3A0]">...</span>
+              ) : (
+                <button 
+                  key={p} 
+                  onClick={() => setCurrentPage(p as number)}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${currentPage === p ? "bg-[#3E8A2F] text-white" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
+                >
+                  {p}
+                </button>
+              )
             ))}
 
             <button
@@ -1096,15 +1146,34 @@ export function Siswa() {
             </div>
             
             <div className="flex items-center gap-2">
-              <button onClick={() => setBulkAction("kelas")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium hover:bg-white/10 transition-colors">
+              <button 
+                onClick={() => setBulkAction("kelas")} 
+                disabled={!canChangeClass}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${!canChangeClass ? "opacity-40 cursor-not-allowed" : "hover:bg-white/10"}`}
+                title={!canChangeClass ? "Siswa nonaktif tidak dapat diubah kelasnya" : ""}
+              >
                 <ArrowRightLeft size={16} /> Ubah Kelas
               </button>
-              <button onClick={() => setBulkAction("lulus")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium hover:bg-white/10 transition-colors">
+              <button 
+                onClick={() => setBulkAction("lulus")} 
+                disabled={!canGraduate}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${!canGraduate ? "opacity-40 cursor-not-allowed" : "hover:bg-white/10"}`}
+                title={!canGraduate ? "Hanya siswa aktif kelas 9 yang dapat diluluskan" : ""}
+              >
                 <GraduationCap size={16} /> Luluskan
               </button>
               <div className="w-px h-6 bg-white/20 mx-1"></div>
               <button onClick={() => setBulkAction("hapus")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-400/10 transition-colors">
                 <Trash2 size={16} /> Hapus
+              </button>
+              
+              <div className="w-px h-6 bg-white/20 ml-2 mr-1"></div>
+              <button 
+                onClick={() => setChecked(new Set())} 
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9CA3A0] hover:text-white hover:bg-white/10 transition-colors"
+                title="Batal / Tutup"
+              >
+                <X size={16} />
               </button>
             </div>
           </div>
@@ -1166,6 +1235,15 @@ export function Siswa() {
             )}
           </div>
         </div>
+      )}
+
+      {/* ── Toast Notification ── */}
+      {toastMsg && createPortal(
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] bg-[#1C2517] text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
+          <CheckCircle2 size={18} className="text-[#3E8A2F]" />
+          <span className="text-sm font-medium">{toastMsg}</span>
+        </div>,
+        document.body
       )}
     </div>
   );

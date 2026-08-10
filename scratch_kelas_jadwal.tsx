@@ -1,13 +1,12 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   Plus, Printer, MoreHorizontal, AlertTriangle, Info,
   ChevronLeft, ChevronRight, ChevronDown, Eye, Pencil, Trash2, X
 } from "lucide-react";
 
-import { KelasRow, JadwalRow, JadwalOverride, DAYS } from "@/data/kelas";
+import { ScheduleSegment, DAYS, getTimeRange, JadwalRow, WaktuJam } from "@/data/kelas";
 import { useAppContext } from "@/context/AppContext";
-import { PrintJadwalKelas, PrintMasterJadwal } from "./PrintJadwal";
 
 // ─── subject color palette ────────────────────────────────────────────────────
 const SUBJECT_STYLE: Record<string, { bg: string; accent: string; text: string }> = {
@@ -214,56 +213,93 @@ function KelasEditorModal({
 
 // ─── timetable components ─────────────────────────────────────────────────────
 
-function SlotRow({ seg, onClickSlot }: { seg: any; onClickSlot: () => void }) {
-  const isBreak = seg.subject === "Jam Kosong / Istirahat" || seg.subject === "Istirahat";
-  
-  if (isBreak) {
+function SlotCard({ seg, onClick }: { seg: ScheduleSegment & { type: "period" | "empty" }; onClick: () => void }) {
+  if (seg.type === "empty") {
     return (
-      <div className="flex gap-3 items-center py-1 group cursor-pointer" onClick={onClickSlot}>
-        <div className="w-[112px] shrink-0">
-          <p className="text-[11px] text-[#9CA3A0] tabular-nums group-hover:text-[#3E8A2F] transition-colors">{seg.timeRange}</p>
-        </div>
-        <div className="flex-1 flex items-center gap-3">
-          <div className="flex-1 h-px" style={{ background:"#E2E8DE" }} />
-          <p className="text-xs font-semibold text-[#D97706] bg-[#FFFBEB] px-3 py-1 rounded-full border border-[#FDE68A] group-hover:border-[#D97706] transition-colors">{seg.subject}</p>
-          <div className="flex-1 h-px" style={{ background:"#E2E8DE" }} />
-        </div>
+      <div
+        onClick={onClick}
+        className="flex-1 rounded-xl flex items-center justify-center group cursor-pointer transition-colors"
+        style={{
+          border: "2px dashed #D1D5DB",
+          padding: "18px 16px",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLDivElement).style.borderColor = "#3E8A2F";
+          (e.currentTarget as HTMLDivElement).style.background  = "#F5FBF4";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLDivElement).style.borderColor = "#D1D5DB";
+          (e.currentTarget as HTMLDivElement).style.background  = "transparent";
+        }}
+      >
+        <span className="text-sm text-[#D1D5DB] group-hover:text-[#3E8A2F] transition-colors select-none print:text-transparent">
+          + Isi jam kosong
+        </span>
       </div>
     );
   }
 
   const style  = SUBJECT_STYLE[seg.subject] ?? { bg:"#F9FAFB", accent:"#6B7280", text:"#374151" };
+  const double = seg.jams.length > 1;
+
+  return (
+    <div
+      onClick={onClick}
+      className="flex-1 rounded-xl relative cursor-pointer hover:opacity-90 transition-opacity"
+      style={{
+        background: style.bg,
+        borderLeft: `3px solid ${style.accent}`,
+        padding: double ? "18px 16px" : "12px 16px",
+      }}
+    >
+      {/* Conflict badge */}
+      {seg.conflict && (
+        <div
+          className="absolute top-2.5 right-3 inline-flex items-center px-2 py-0.5 rounded-full"
+          style={{ background:"#FEE2E2" }}
+        >
+          <span className="text-[10px] font-bold text-[#DC2626]">Bentrok</span>
+        </div>
+      )}
+
+      <p className="text-sm font-bold leading-none" style={{ color: style.text }}>{seg.subject}</p>
+      <p className="text-xs text-[#6B7769] mt-1">{seg.teacher}</p>
+      <p className="text-[11px] text-[#9CA3A0] mt-0.5">{seg.room}</p>
+
+      {seg.conflict && seg.conflictNote && (
+        <p className="text-[11px] text-[#DC2626] mt-2 leading-tight">{seg.conflictNote}</p>
+      )}
+    </div>
+  );
+}
+
+function SlotRow({ seg, onClickSlot }: { seg: ScheduleSegment & { type: "period" | "empty" }; onClickSlot: (jam: number) => void }) {
+  const jamLabel =
+    seg.jams.length > 1
+      ? `Jam ke-${seg.jams[0]}–${seg.jams[seg.jams.length - 1]}`
+      : `Jam ke-${seg.jams[0]}`;
 
   return (
     <div className="flex gap-3 items-stretch">
       <div className="w-[112px] shrink-0 flex flex-col justify-center py-0.5">
-        <p className="text-[11px] text-[#9CA3A0] tabular-nums">{seg.timeRange}</p>
+        <p className="text-xs font-semibold text-[#374040]">{jamLabel}</p>
+        <p className="text-[11px] text-[#9CA3A0] mt-0.5 tabular-nums">{seg.timeRange}</p>
       </div>
-      <div
-        onClick={onClickSlot}
-        className="flex-1 rounded-xl relative cursor-pointer hover:opacity-90 transition-opacity"
-        style={{
-          background: style.bg,
-          borderLeft: `3px solid ${style.accent}`,
-          padding: "12px 16px",
-        }}
-      >
-        {seg.conflict && (
-          <div
-            className="absolute top-2.5 right-3 inline-flex items-center px-2 py-0.5 rounded-full"
-            style={{ background:"#FEE2E2" }}
-          >
-            <span className="text-[10px] font-bold text-[#DC2626]">Bentrok</span>
-          </div>
-        )}
+      <SlotCard seg={seg} onClick={() => onClickSlot(seg.jams[0])} />
+    </div>
+  );
+}
 
-        <p className="text-sm font-bold leading-none" style={{ color: style.text }}>{seg.subject}</p>
-        <p className="text-xs text-[#6B7769] mt-1">{seg.teacher}</p>
-        <p className="text-[11px] text-[#9CA3A0] mt-0.5">{seg.room}</p>
-
-        {seg.conflict && seg.conflictNote && (
-          <p className="text-[11px] text-[#DC2626] mt-2 leading-tight">{seg.conflictNote}</p>
-        )}
+function BreakRow({ seg }: { seg: ScheduleSegment & { type: "break" } }) {
+  return (
+    <div className="flex gap-3 items-center py-1">
+      <div className="w-[112px] shrink-0">
+        <p className="text-[11px] text-[#9CA3A0] tabular-nums">{seg.time}</p>
+      </div>
+      <div className="flex-1 flex items-center gap-3">
+        <div className="flex-1 h-px" style={{ background:"#E2E8DE" }} />
+        <span className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest px-2">{seg.label}</span>
+        <div className="flex-1 h-px" style={{ background:"#E2E8DE" }} />
       </div>
     </div>
   );
@@ -271,7 +307,7 @@ function SlotRow({ seg, onClickSlot }: { seg: any; onClickSlot: () => void }) {
 
 // ─── right summary panel ──────────────────────────────────────────────────────
 
-function RingkasanPanel({ day, ringkasan }: { day: string; ringkasan: { nama: string; inits: string; jam: number; overloaded: boolean }[] }) {
+function RingkasanPanel({ day, ringkasan }: { day: string; ringkasan: { nama: string; inits: string; jam: number; warning: boolean }[] }) {
   return (
     <div
       className="w-[300px] shrink-0 bg-white rounded-xl flex flex-col"
@@ -289,7 +325,6 @@ function RingkasanPanel({ day, ringkasan }: { day: string; ringkasan: { nama: st
            <p className="text-sm text-[#9CA3A0] italic">Belum ada jam mengajar</p>
         ) : ringkasan.map((t) => (
           <div key={t.nama} className="flex items-center gap-3">
-            {t.overloaded && <span className="w-2 h-2 rounded-full bg-[#DC2626]" title="Lebih dari 8 jam/hari" />}
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
               style={{ background:"#3E8A2F" }}
@@ -300,7 +335,7 @@ function RingkasanPanel({ day, ringkasan }: { day: string; ringkasan: { nama: st
               <p className="text-sm text-[#1C2517] leading-none truncate">{t.nama}</p>
               <p className="text-[11px] text-[#6B7769] mt-0.5">{t.jam} jam mengajar</p>
             </div>
-            {t.overloaded && (
+            {t.warning && (
               <div title="Melebihi 8 jam mengajar sehari" className="shrink-0">
                 <AlertTriangle size={14} className="text-[#D97706]" />
               </div>
@@ -324,21 +359,18 @@ function RingkasanPanel({ day, ringkasan }: { day: string; ringkasan: { nama: st
 
 // ─── Slot Editor Modal ────────────────────────────────────────────────────────
 
-function JadwalEditorModal({ 
-  kelas, hari, editJadwal, onClose 
+function SlotEditorModal({ 
+  kelas, hari, jam, onClose 
 }: { 
-  kelas: string; hari: string; editJadwal?: any; onClose: () => void 
+  kelas: string; hari: string; jam: number; onClose: () => void 
 }) {
   const { guruList, jadwalList, addJadwal, updateJadwal, deleteJadwal } = useAppContext();
   
-  const currentJadwal = editJadwal;
+  const currentJadwal = jadwalList.find(j => j.kelas === kelas && j.hari === hari && j.jam === jam);
   
-  const [waktuMulai, setWaktuMulai] = useState(currentJadwal?.waktuMulai || "07:00");
-  const [waktuSelesai, setWaktuSelesai] = useState(currentJadwal?.waktuSelesai || "08:00");
   const [mapel, setMapel] = useState(currentJadwal?.mapel || "");
   const [guruId, setGuruId] = useState<number | "">(currentJadwal?.guruId || "");
   const [ruang, setRuang] = useState(currentJadwal?.ruang || `R. ${kelas}`);
-  const [errorMsg, setErrorMsg] = useState("");
 
   // Auto-recommend gurus based on mapel
   const recommendedGurus = useMemo(() => {
@@ -354,38 +386,19 @@ function JadwalEditorModal({
   }, [guruList]);
 
   const handleSave = () => {
-    setErrorMsg("");
-    if (!mapel || !waktuMulai || !waktuSelesai) return;
-    if (mapel !== "Istirahat" && guruId === "") return;
+    if (!mapel || guruId === "") return;
     
-    // Overlap validation
-    const isOverlap = jadwalList.some(j => {
-      if (j.kelas !== kelas || j.hari !== hari) return false;
-      if (currentJadwal && j.id === currentJadwal.id) return false;
-      return (waktuMulai < j.waktuSelesai) && (waktuSelesai > j.waktuMulai);
-    });
-
-    if (isOverlap) {
-      setErrorMsg("Gagal menyimpan: Jadwal bentrok dengan jam lain di kelas ini!");
-      return;
-    }
-
-    const data = {
-      waktuMulai,
-      waktuSelesai,
-      mapel,
-      guruId: mapel === "Istirahat" ? null : Number(guruId),
-      ruang
-    };
-
     if (currentJadwal) {
-      updateJadwal(currentJadwal.id, data);
+      updateJadwal(currentJadwal.id, { mapel, guruId: Number(guruId), ruang });
     } else {
       addJadwal({
         id: Date.now(),
         kelas,
         hari,
-        ...data
+        jam,
+        mapel,
+        guruId: Number(guruId),
+        ruang
       });
     }
     onClose();
@@ -402,7 +415,7 @@ function JadwalEditorModal({
         <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl" style={{ border: "1px solid #E2E8DE" }}>
           <div className="flex justify-between items-center px-5 py-4 border-b border-[#E2E8DE]">
             <div>
-              <h3 className="text-lg font-bold text-[#1C2517]">{currentJadwal ? "Edit Jadwal" : "Tambah Jadwal"}</h3>
+              <h3 className="text-lg font-bold text-[#1C2517]">Atur Jam ke-{jam}</h3>
               <p className="text-xs text-[#6B7769] mt-0.5">{hari}, Kelas {kelas}</p>
             </div>
             <button onClick={onClose} className="p-2 -mr-2 text-[#9CA3A0] hover:text-[#374040] hover:bg-[#F5F9F4] rounded-full transition-colors">
@@ -411,23 +424,6 @@ function JadwalEditorModal({
           </div>
           
           <div className="p-5 space-y-4">
-            {errorMsg && (
-              <div className="p-3 bg-[#FEF2F2] border border-[#FCA5A5] rounded-lg flex gap-2 items-start">
-                <AlertTriangle size={16} className="text-[#DC2626] shrink-0 mt-0.5" />
-                <p className="text-xs font-semibold text-[#B91C1C] leading-relaxed">{errorMsg}</p>
-              </div>
-            )}
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Waktu Mulai</label>
-                <input type="time" value={waktuMulai} onChange={e => setWaktuMulai(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none" style={{ border: "1px solid #E2E8DE" }} />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Waktu Selesai</label>
-                <input type="time" value={waktuSelesai} onChange={e => setWaktuSelesai(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none" style={{ border: "1px solid #E2E8DE" }} />
-              </div>
-            </div>
-            
             <div>
               <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Mata Pelajaran</label>
               <select
@@ -440,7 +436,6 @@ function JadwalEditorModal({
                 style={{ border: "1px solid #E2E8DE" }}
               >
                 <option value="">-- Pilih Mata Pelajaran --</option>
-                <option value="Istirahat">Istirahat</option>
                 {mapelOptions.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
@@ -449,17 +444,17 @@ function JadwalEditorModal({
               <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Guru Pengajar</label>
               <select
                 value={guruId}
-                onChange={(e) => setGuruId(e.target.value === "" ? "" : Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none disabled:opacity-50 disabled:bg-[#FAFBF9]"
+                onChange={(e) => setGuruId(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none"
                 style={{ border: "1px solid #E2E8DE" }}
-                disabled={!mapel || mapel === "Istirahat"}
+                disabled={!mapel}
               >
                 <option value="">-- Pilih Guru --</option>
                 {recommendedGurus.map(g => (
                   <option key={g.id} value={g.id}>{g.nama}</option>
                 ))}
               </select>
-              {mapel && mapel !== "Istirahat" && recommendedGurus.length === 0 && (
+              {mapel && recommendedGurus.length === 0 && (
                 <p className="text-xs text-[#DC2626] mt-1">Tidak ada guru yang mengajar {mapel}</p>
               )}
             </div>
@@ -490,7 +485,7 @@ function JadwalEditorModal({
               <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[#374040] hover:bg-[#F5F9F4] rounded-lg transition-colors border border-[#E2E8DE]">Batal</button>
               <button 
                 onClick={handleSave} 
-                disabled={!mapel || (mapel !== "Istirahat" && guruId === "") || !waktuMulai || !waktuSelesai}
+                disabled={!mapel || guruId === ""}
                 className="px-4 py-2 text-sm font-semibold text-white bg-[#3E8A2F] disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#2E6B22] rounded-lg transition-colors"
               >
                 Simpan
@@ -512,137 +507,195 @@ function getCurrentDay() {
   return DAYS.includes(todayName) ? todayName : DAYS[0];
 }
 
-function JadwalTab({ uniqueClasses }: { uniqueClasses: string[] }) {
+function JadwalTab({ uniqueClasses, handlePrint }: { uniqueClasses: string[]; handlePrint: () => void }) {
   const [activeClass, setActiveClass] = useState(uniqueClasses[0] || "7A");
   const [activeDay,   setActiveDay]   = useState(getCurrentDay());
-  const [editJadwal, setEditJadwal] = useState<any>(null);
-  const [printMode, setPrintMode] = useState<"kelas" | "master" | null>(null);
+  const [editSlot, setEditSlot] = useState<{ jam: number } | null>(null);
 
-  const { jadwalList, guruList } = useAppContext();
+  const { jadwalList, guruList, waktuProfiles, kelasList } = useAppContext();
 
-  useEffect(() => {
-    const handleAfterPrint = () => setPrintMode(null);
-    window.addEventListener("afterprint", handleAfterPrint);
-    return () => window.removeEventListener("afterprint", handleAfterPrint);
-  }, []);
+  const waktuJamList = useMemo(() => {
+    const kelas = kelasList.find(k => k.id === activeClass);
+    const profileId = kelas?.waktuProfileId || waktuProfiles[0]?.id;
+    const profile = waktuProfiles.find(p => p.id === profileId) || waktuProfiles[0];
+    return profile?.waktuPerHari[activeDay] || profile?.waktuPerHari["Default"] || [];
+  }, [activeClass, activeDay, kelasList, waktuProfiles]);
 
-  const handleCetak = (mode: "kelas" | "master") => {
-    setPrintMode(mode);
-    setTimeout(() => {
-      window.print();
-    }, 100);
-  };
-
+  // Dynamically calculate segments for activeClass and activeDay
   const segments = useMemo(() => {
     const dailyJadwal = jadwalList.filter(j => j.kelas === activeClass && j.hari === activeDay);
-    dailyJadwal.sort((a, b) => a.waktuMulai.localeCompare(b.waktuMulai));
+    const segs: ScheduleSegment[] = [];
+    let currentPeriod: any = null;
 
-    const segs: any[] = dailyJadwal.map(j => {
-      const conflictJadwal = j.guruId ? jadwalList.find(c => c.guruId === j.guruId && c.hari === activeDay && c.waktuMulai < j.waktuSelesai && c.waktuSelesai > j.waktuMulai && c.kelas !== activeClass) : undefined;
-      const conflict = !!conflictJadwal;
-      const conflictNote = conflictJadwal ? `Mengajar juga di Kelas ${conflictJadwal.kelas}` : "";
-      const guru = j.guruId ? guruList.find(g => g.id === j.guruId) : undefined;
+    waktuJamList.forEach((w) => {
+      if (w.type === "break") {
+        if (currentPeriod) { segs.push(currentPeriod); currentPeriod = null; }
+        segs.push({ type: "break", label: w.label, time: w.range });
+        return;
+      }
 
-      return {
-        id: j.id,
-        type: "period",
-        timeRange: `${j.waktuMulai} - ${j.waktuSelesai}`,
-        subject: j.mapel,
-        teacher: guru?.nama || (j.mapel === "Istirahat" ? "" : "Unknown"),
-        teacherId: j.guruId,
-        room: j.ruang || `R. ${activeClass}`,
-        conflict,
-        conflictNote
-      };
+      const jadwal = dailyJadwal.find(j => j.jam === w.jam);
+
+      if (jadwal) {
+        // Conflict detection: Does this teacher teach another class exactly right now?
+        const conflictJadwal = jadwalList.find(j => j.guruId === jadwal.guruId && j.hari === activeDay && j.jam === w.jam && j.kelas !== activeClass);
+        const conflict = !!conflictJadwal;
+        const conflictNote = conflictJadwal ? `Mengajar juga di Kelas ${conflictJadwal.kelas}` : "";
+        const guru = guruList.find(g => g.id === jadwal.guruId);
+
+        if (currentPeriod && currentPeriod.subject === jadwal.mapel && currentPeriod.teacherId === jadwal.guruId) {
+          // extend period
+          currentPeriod.jams.push(w.jam);
+          if (conflict) {
+            currentPeriod.conflict = true;
+            currentPeriod.conflictNote = conflictNote;
+          }
+        } else {
+          if (currentPeriod) segs.push(currentPeriod);
+          currentPeriod = {
+            type: "period",
+            jams: [w.jam],
+            subject: jadwal.mapel,
+            teacher: guru?.nama || "Unknown",
+            teacherId: jadwal.guruId,
+            room: jadwal.ruang || `R. ${activeClass}`,
+            conflict,
+            conflictNote
+          };
+        }
+      } else {
+        if (currentPeriod) { segs.push(currentPeriod); currentPeriod = null; }
+        segs.push({ type: "empty", jams: [w.jam!], timeRange: w.range });
+      }
+    });
+
+    if (currentPeriod) segs.push(currentPeriod);
+
+    // Apply timeRange for periods
+    segs.forEach(s => {
+      if (s.type === "period") {
+        s.timeRange = getTimeRange(s.jams, waktuJamList);
+      }
     });
 
     return segs;
   }, [jadwalList, activeClass, activeDay, guruList]);
 
+  // Dynamically calculate ringkasan guru
   const ringkasan = useMemo(() => {
     const counts: Record<number, number> = {};
-    jadwalList.filter(j => j.hari === activeDay && j.guruId !== null).forEach(j => {
-      counts[j.guruId as number] = (counts[j.guruId as number] || 0) + 1;
+    jadwalList.filter(j => j.hari === activeDay).forEach(j => {
+      counts[j.guruId] = (counts[j.guruId] || 0) + 1;
     });
-    return Object.entries(counts).map(([guruId, count]) => {
+    return Object.entries(counts).map(([guruId, jam]) => {
       const guru = guruList.find(g => g.id === Number(guruId));
       const nama = guru?.nama || "Unknown Guru";
+      // Basic initials
       const parts = nama.split(" ").filter(p => !p.includes("."));
       const inits = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].substring(0,2).toUpperCase();
       
-      return { nama, inits, jam: count, overloaded: count >= 8 };
+      return {
+        nama,
+        inits,
+        jam,
+        warning: jam > 8
+      };
     }).sort((a,b) => b.jam - a.jam);
   }, [jadwalList, activeDay, guruList]);
 
   return (
-    <>
-      <div className="space-y-4 print:hidden">
-        {editJadwal !== null && (
-          <JadwalEditorModal 
-            kelas={activeClass} hari={activeDay} editJadwal={editJadwal === "new" ? undefined : editJadwal} 
-            onClose={() => setEditJadwal(null)} 
-          />
-        )}
-
-      <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
-        <div className="flex gap-2 w-full sm:w-auto">
-          <select value={activeClass} onChange={(e) => setActiveClass(e.target.value)} className="px-3 py-2 rounded-lg text-sm font-semibold bg-white text-[#1C2517] outline-none shadow-sm" style={{ border: "1px solid #E2E8DE" }}>
-            {uniqueClasses.map(c => <option key={c} value={c}>Kelas {c}</option>)}
+    <div className="space-y-4">
+      {editSlot && (
+        <SlotEditorModal 
+          kelas={activeClass} 
+          hari={activeDay} 
+          jam={editSlot.jam} 
+          onClose={() => setEditSlot(null)} 
+        />
+      )}
+      
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap print:hidden">
+        {/* Class picker dropdown */}
+        <div className="relative">
+          <select
+            value={activeClass}
+            onChange={(e) => setActiveClass(e.target.value)}
+            className="appearance-none bg-white border border-[#E2E8DE] text-[#1C2517] text-sm font-semibold rounded-lg pl-4 pr-10 py-2 focus:outline-none focus:border-[#3E8A2F] focus:ring-1 focus:ring-[#3E8A2F] cursor-pointer transition-colors"
+          >
+            {uniqueClasses.length === 0 && <option value="" disabled>Tidak ada data kelas</option>}
+            {uniqueClasses.map((c) => (
+              <option key={c} value={c}>Kelas {c}</option>
+            ))}
           </select>
-          <div className="flex bg-[#F5F9F4] rounded-lg p-1 overflow-x-auto border border-[#E2E8DE]">
-            {DAYS.map(d => (
-              <button key={d} onClick={() => setActiveDay(d)} className={`px-4 py-1.5 rounded-md text-sm font-semibold whitespace-nowrap transition-colors ${activeDay === d ? "bg-white text-[#3E8A2F] shadow-sm" : "text-[#6B7769] hover:text-[#1C2517]"}`}>
-                {d}
-              </button>
-            ))}
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#6B7769]">
+            <ChevronDown size={14} />
           </div>
         </div>
-        
-        <div className="flex gap-2">
-          <button onClick={() => setEditJadwal("new")} className="flex items-center gap-1.5 px-3 py-2 bg-[#3E8A2F] hover:bg-[#2E6B22] text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
-            <Plus size={16} /> Tambah Jadwal
-          </button>
-          <button onClick={() => handleCetak("kelas")} className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-[#374040] rounded-lg text-sm font-semibold transition-colors shadow-sm border border-[#E2E8DE]">
-            <Printer size={16} /> Cetak Kelas
-          </button>
-          <button onClick={() => handleCetak("master")} className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 text-[#374040] rounded-lg text-sm font-semibold transition-colors shadow-sm border border-[#E2E8DE]">
-            <Printer size={16} /> Cetak Master
+
+        {/* Divider */}
+        <div className="w-px h-5 bg-[#E2E8DE] mx-1 shrink-0" />
+
+        {/* Day tabs (shadcn muted container) */}
+        <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
+          {DAYS.map((d) => (
+            <button
+              key={d}
+              onClick={() => setActiveDay(d)}
+              className={[
+                "px-3 py-1.5 rounded-md text-xs font-semibold transition-all whitespace-nowrap",
+                activeDay === d ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]",
+              ].join(" ")}
+              style={activeDay === d ? { boxShadow:"0 1px 2px rgba(0,0,0,0.08)" } : undefined}
+            >
+              {d}
+            </button>
+          ))}
+        </div>
+
+        {/* Right buttons */}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors"
+            style={{ border:"1px solid #E2E8DE" }}
+          >
+            <Printer size={13} />
+            Cetak Jadwal
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="flex-1 min-w-0 bg-white rounded-xl shadow-sm border border-[#E2E8DE] p-4">
-          <h2 className="text-sm font-bold text-[#1C2517] mb-4">Jadwal Pelajaran • Kelas {activeClass}</h2>
-          <div className="space-y-3">
-            {segments.length === 0 && (
-              <div className="text-center py-10">
-                <p className="text-sm text-[#9CA3A0]">Tidak ada jadwal untuk hari ini.</p>
-                <button onClick={() => setEditJadwal("new")} className="mt-3 text-sm text-[#3E8A2F] hover:underline">Tambah Jadwal Pertama</button>
-              </div>
-            )}
-            {segments.map((seg, i) => (
-              <SlotRow key={i} seg={seg as any} onClickSlot={() => setEditJadwal(jadwalList.find(j => j.id === seg.id))} />
-            ))}
-          </div>
-        </div>
-        
-          <div className="w-full lg:w-72 shrink-0">
-            <RingkasanPanel day={activeDay} ringkasan={ringkasan} />
-          </div>
-        </div>
+      {/* Active state caption */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm text-[#6B7769] print:text-black print:text-lg">
+          Jadwal <span className="font-semibold text-[#1C2517] print:text-black">Kelas {activeClass}</span> — <span className="font-semibold text-[#1C2517] print:text-black">{activeDay}</span>
+        </span>
+        <span className="text-xs text-[#9CA3A0] italic print:hidden">Klik pada jam kosong atau mata pelajaran untuk mengatur jadwal</span>
       </div>
 
-      {printMode && (
-        <div className="hidden print:block">
-          {printMode === "kelas" ? (
-            <PrintJadwalKelas kelas={activeClass} jadwalList={jadwalList} guruList={guruList} />
-          ) : (
-            <PrintMasterJadwal uniqueClasses={uniqueClasses} jadwalList={jadwalList} guruList={guruList} />
+      {/* Main area: timetable + summary panel */}
+      <div className="flex gap-4 items-start">
+        {/* Timetable */}
+        <div
+          className="flex-1 bg-white rounded-xl p-5 space-y-2.5 print:p-0 print:border-none"
+          style={{ border:"1px solid #E2E8DE" }}
+        >
+          {segments.map((seg, i) =>
+            seg.type === "break" ? (
+              <BreakRow key={i} seg={seg as ScheduleSegment & { type:"break" }} />
+            ) : (
+              <SlotRow key={i} seg={seg as ScheduleSegment & { type:"period" | "empty" }} onClickSlot={(jam) => setEditSlot({ jam })} />
+            )
           )}
         </div>
-      )}
-    </>
+
+        {/* Summary panel */}
+        <div className="print:hidden">
+          <RingkasanPanel day={activeDay} ringkasan={ringkasan} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -711,19 +764,19 @@ function DataKelasTab({ kelasRows, onViewSiswa, onEdit, onDelete, onAdd }: { kel
 // ─── Jadwal Harian / Override Tab ─────────────────────────────────────────────
 
 function SlotOverrideModal({ 
-  tanggal, kelas, hari, editOverride, onClose 
+  tanggal, kelas, hari, jam, onClose 
 }: { 
-  tanggal: string; kelas: string; hari: string; editOverride?: any; onClose: () => void; 
+  tanggal: string; kelas: string; hari: string; jam: number; onClose: () => void; 
 }) {
-  const { guruList, jadwalOverridesList, setJadwalOverride, clearJadwalOverride } = useAppContext();
+  const { guruList, jadwalList, jadwalOverridesList, setJadwalOverride, clearJadwalOverride } = useAppContext();
   
-  const overrideSlot = editOverride;
+  // Base schedule for this slot
+  const baseSlot = jadwalList.find(j => j.kelas === kelas && j.hari === hari && j.jam === jam);
+  const overrideSlot = jadwalOverridesList.find(o => o.tanggal === tanggal && o.kelas === kelas && o.jam === jam);
   
-  const [waktuMulai, setWaktuMulai] = useState(overrideSlot?.waktuMulai || "07:00");
-  const [waktuSelesai, setWaktuSelesai] = useState(overrideSlot?.waktuSelesai || "08:00");
-  const [mapel, setMapel] = useState(overrideSlot?.mapel || "");
-  const [guruId, setGuruId] = useState<string | number>(overrideSlot?.guruId || "");
-  const [ruang, setRuang] = useState(overrideSlot?.ruang || `R. ${kelas}`);
+  const [mapel, setMapel] = useState(overrideSlot?.mapel !== undefined ? (overrideSlot.mapel || "") : (baseSlot?.mapel || ""));
+  const [guruId, setGuruId] = useState<string | number>(overrideSlot?.guruId !== undefined ? (overrideSlot.guruId || "") : (baseSlot?.guruId || ""));
+  const [ruang, setRuang] = useState(overrideSlot?.ruang !== undefined ? (overrideSlot.ruang || "") : (baseSlot?.ruang || `R. ${kelas}`));
   
   const mapelOptions = useMemo(() => {
     const set = new Set<string>();
@@ -733,11 +786,10 @@ function SlotOverrideModal({
 
   const handleSave = () => {
     setJadwalOverride({
-      id: overrideSlot?.id || `${tanggal}_${kelas}_${Date.now()}`,
+      id: `${tanggal}_${kelas}_${jam}`,
       tanggal,
       kelas,
-      waktuMulai,
-      waktuSelesai,
+      jam,
       mapel: mapel || null,
       guruId: guruId ? Number(guruId) : null,
       ruang: ruang || null
@@ -746,16 +798,27 @@ function SlotOverrideModal({
   };
 
   const handleClearOverride = () => {
-    if (overrideSlot) clearJadwalOverride(overrideSlot.id);
+    clearJadwalOverride(`${tanggal}_${kelas}_${jam}`);
     onClose();
   };
+
+  const handleEmptySlot = () => {
+    setJadwalOverride({
+      id: `${tanggal}_${kelas}_${jam}`,
+      tanggal, kelas, jam,
+      mapel: null, guruId: null, ruang: null
+    });
+    onClose();
+  };
+
+  const isOverridden = !!overrideSlot;
 
   return (
     <div className="fixed inset-0 bg-black/20 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl" style={{ border: "1px solid #E2E8DE" }}>
         <div className="flex justify-between items-center px-5 py-4 border-b border-[#E2E8DE]">
           <div>
-            <h3 className="text-lg font-bold text-[#1C2517]">{overrideSlot ? "Edit Override" : "Tambah Override Harian"}</h3>
+            <h3 className="text-lg font-bold text-[#1C2517]">Override Jam ke-{jam}</h3>
             <p className="text-xs text-[#6B7769] mt-0.5">{tanggal} • Kelas {kelas}</p>
           </div>
           <button onClick={onClose} className="p-2 -mr-2 text-[#9CA3A0] hover:text-[#374040] hover:bg-[#F5F9F4] rounded-full">
@@ -768,22 +831,10 @@ function SlotOverrideModal({
             <Info size={16} className="text-[#D97706] shrink-0 mt-0.5" />
             <p className="text-xs text-[#92400E]">Perubahan ini hanya berlaku untuk tanggal <b>{tanggal}</b> dan tidak mengubah Master Jadwal.</p>
           </div>
-          
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Waktu Mulai</label>
-              <input type="time" value={waktuMulai} onChange={e => setWaktuMulai(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none" style={{ border: "1px solid #E2E8DE" }} />
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Waktu Selesai</label>
-              <input type="time" value={waktuSelesai} onChange={e => setWaktuSelesai(e.target.value)} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none" style={{ border: "1px solid #E2E8DE" }} />
-            </div>
-          </div>
-
           <div>
-            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Mata Pelajaran (Kosongkan jika jam kosong/istirahat)</label>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Mata Pelajaran</label>
             <select value={mapel} onChange={(e) => { setMapel(e.target.value); setGuruId(""); }} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none" style={{ border: "1px solid #E2E8DE" }}>
-              <option value="">-- Jam Kosong / Istirahat --</option>
+              <option value="">-- Kosong --</option>
               {mapelOptions.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
@@ -804,9 +855,10 @@ function SlotOverrideModal({
         
         <div className="px-5 py-4 bg-[#FAFBF9] border-t border-[#E2E8DE] flex justify-between">
           <div className="flex gap-2">
-            {overrideSlot && (
-              <button onClick={handleClearOverride} className="px-3 py-2 text-xs font-semibold text-[#DC2626] hover:bg-[#FEF2F2] rounded-lg">Hapus Override</button>
+            {isOverridden && (
+              <button onClick={handleClearOverride} className="px-3 py-2 text-xs font-semibold text-[#374040] hover:bg-white rounded-lg border border-[#E2E8DE] bg-[#F5F9F4]">Kembali Normal</button>
             )}
+            <button onClick={handleEmptySlot} className="px-3 py-2 text-xs font-semibold text-[#DC2626] hover:bg-[#FEF2F2] rounded-lg">Kosongkan</button>
           </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[#374040] hover:bg-[#F5F9F4] rounded-lg border border-[#E2E8DE]">Batal</button>
@@ -822,12 +874,13 @@ function JadwalHarianTab({ uniqueClasses, handlePrint }: { uniqueClasses: string
   const [activeClass, setActiveClass] = useState(uniqueClasses[0] || "7A");
   const [activeDate, setActiveDate] = useState(() => {
     const d = new Date();
+    // adjust for local timezone so it doesn't default to yesterday evening
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().split("T")[0];
   });
-  const [editOverride, setEditOverride] = useState<any>(null);
+  const [editSlot, setEditSlot] = useState<{ jam: number } | null>(null);
 
-  const { jadwalList, jadwalOverridesList, guruList } = useAppContext();
+  const { jadwalList, jadwalOverridesList, guruList, waktuProfiles, kelasList } = useAppContext();
 
   const activeDayName = useMemo(() => {
     const d = new Date(activeDate);
@@ -835,125 +888,132 @@ function JadwalHarianTab({ uniqueClasses, handlePrint }: { uniqueClasses: string
     return dayNames[d.getDay()];
   }, [activeDate]);
 
+  const waktuJamList = useMemo(() => {
+    const kelas = kelasList.find(k => k.id === activeClass);
+    const profileId = kelas?.waktuProfileId || waktuProfiles[0]?.id;
+    const profile = waktuProfiles.find(p => p.id === profileId) || waktuProfiles[0];
+    return profile?.waktuPerHari[activeDayName] || profile?.waktuPerHari["Default"] || [];
+  }, [activeClass, activeDayName, kelasList, waktuProfiles]);
+
   const segments = useMemo(() => {
     const dailyMaster = jadwalList.filter(j => j.kelas === activeClass && j.hari === activeDayName);
     const dailyOverride = jadwalOverridesList.filter(o => o.tanggal === activeDate && o.kelas === activeClass);
     
-    // We combine master and override blocks. 
-    // If an override block exists, it overrides the master block with the same waktuMulai and waktuSelesai.
-    // In Solusi 2, overrides can be completely free. Let's just list them all, but remove master blocks that exactly match override times if we want to replace them.
-    // Actually, simple rule: an override with the same waktuMulai replaces the master block at that waktuMulai.
-    const overrideMap = new Map();
-    dailyOverride.forEach(o => overrideMap.set(o.waktuMulai, o));
+    const segs: ScheduleSegment[] = [];
+    let currentPeriod: any = null;
 
-    const combined: any[] = [];
-    dailyMaster.forEach(m => {
-      if (overrideMap.has(m.waktuMulai)) {
-        combined.push(overrideMap.get(m.waktuMulai));
-        overrideMap.delete(m.waktuMulai);
-      } else {
-        combined.push(m);
+    waktuJamList.forEach((w) => {
+      if (w.type === "break") {
+        if (currentPeriod) { segs.push(currentPeriod); currentPeriod = null; }
+        segs.push({ type: "break", label: w.label, time: w.range });
+        return;
       }
-    });
-    // Add remaining overrides (new blocks)
-    overrideMap.forEach(o => combined.push(o));
 
-    combined.sort((a, b) => a.waktuMulai.localeCompare(b.waktuMulai));
+      const override = dailyOverride.find(o => o.jam === w.jam);
+      let finalSlot = null;
+      let isOverridden = false;
+      
+      if (override) {
+        isOverridden = true;
+        if (override.mapel && override.guruId) {
+          finalSlot = { mapel: override.mapel, guruId: override.guruId, ruang: override.ruang };
+        }
+      } else {
+        const master = dailyMaster.find(j => j.jam === w.jam);
+        if (master) finalSlot = master;
+      }
 
-    return combined.map(finalSlot => {
-      const isOverridden = !!finalSlot.tanggal; // overrides have tanggal
-
-      if (finalSlot.mapel && finalSlot.guruId) {
-        const conflictJadwal = jadwalList.find(j => j.guruId === finalSlot.guruId && j.hari === activeDayName && j.waktuMulai < finalSlot.waktuSelesai && j.waktuSelesai > finalSlot.waktuMulai && j.kelas !== activeClass);
+      if (finalSlot) {
+        const conflictJadwal = jadwalList.find(j => j.guruId === finalSlot.guruId && j.hari === activeDayName && j.jam === w.jam && j.kelas !== activeClass);
         const conflict = !!conflictJadwal && !isOverridden; 
         const conflictNote = conflictJadwal ? `Mengajar di ${conflictJadwal.kelas}` : "";
         const guru = guruList.find(g => g.id === finalSlot.guruId);
 
-        return {
-          id: finalSlot.id,
-          type: "period",
-          timeRange: `${finalSlot.waktuMulai} - ${finalSlot.waktuSelesai}`,
-          subject: finalSlot.mapel,
-          teacher: guru?.nama || "Unknown",
-          teacherId: finalSlot.guruId,
-          room: finalSlot.ruang || `R. ${activeClass}`,
-          conflict, conflictNote,
-          isOverridden,
-          raw: finalSlot
-        };
+        if (currentPeriod && currentPeriod.subject === finalSlot.mapel && currentPeriod.teacherId === finalSlot.guruId && currentPeriod.isOverridden === isOverridden) {
+          currentPeriod.jams.push(w.jam);
+        } else {
+          if (currentPeriod) segs.push(currentPeriod);
+          currentPeriod = {
+            type: "period",
+            jams: [w.jam],
+            subject: finalSlot.mapel,
+            teacher: guru?.nama || "Unknown",
+            teacherId: finalSlot.guruId,
+            room: finalSlot.ruang || `R. ${activeClass}`,
+            conflict, conflictNote,
+            isOverridden
+          };
+        }
       } else {
-        return {
-          id: finalSlot.id,
-          type: "period",
-          timeRange: `${finalSlot.waktuMulai} - ${finalSlot.waktuSelesai}`,
-          subject: "Jam Kosong / Istirahat",
-          teacher: "-",
-          room: "-",
-          isOverridden,
-          raw: finalSlot
-        };
+        if (currentPeriod) { segs.push(currentPeriod); currentPeriod = null; }
+        segs.push({ type: "empty", jams: [w.jam!], timeRange: w.range });
       }
     });
-  }, [jadwalList, jadwalOverridesList, activeClass, activeDate, activeDayName, guruList]);
+
+    if (currentPeriod) segs.push(currentPeriod);
+
+    segs.forEach(s => {
+      if (s.type === "period") s.timeRange = getTimeRange(s.jams, waktuJamList);
+    });
+    return segs;
+  }, [jadwalList, jadwalOverridesList, activeClass, activeDate, activeDayName, guruList, waktuJamList]);
 
   return (
     <div className="space-y-4">
-      {editOverride !== null && (
+      {editSlot && (
         <SlotOverrideModal 
-          tanggal={activeDate} kelas={activeClass} hari={activeDayName} editOverride={editOverride === "new" ? undefined : editOverride} 
-          onClose={() => setEditOverride(null)} 
+          tanggal={activeDate} kelas={activeClass} hari={activeDayName} jam={editSlot.jam} 
+          onClose={() => setEditSlot(null)} 
         />
       )}
-
-      <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
-        <div className="flex gap-2 w-full sm:w-auto">
-          <input 
-            type="date" 
-            value={activeDate} 
-            onChange={e => setActiveDate(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm font-semibold bg-white text-[#1C2517] outline-none shadow-sm border border-[#E2E8DE]" 
-          />
-          <select value={activeClass} onChange={(e) => setActiveClass(e.target.value)} className="px-3 py-2 rounded-lg text-sm font-semibold bg-white text-[#1C2517] outline-none shadow-sm border border-[#E2E8DE]">
-            {uniqueClasses.map(c => <option key={c} value={c}>Kelas {c}</option>)}
+      
+      <div className="flex items-center gap-3 flex-wrap print:hidden">
+        <div className="relative">
+          <select value={activeClass} onChange={(e) => setActiveClass(e.target.value)} className="appearance-none bg-white border border-[#E2E8DE] text-[#1C2517] text-sm font-semibold rounded-lg pl-4 pr-10 py-2 focus:outline-none focus:border-[#3E8A2F] focus:ring-1 focus:ring-[#3E8A2F] cursor-pointer">
+            {uniqueClasses.map((c) => <option key={c} value={c}>Kelas {c}</option>)}
           </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[#6B7769]"><ChevronDown size={14} /></div>
         </div>
-        
-        <div className="flex gap-2">
-          <button onClick={() => setEditOverride("new")} className="flex items-center gap-1.5 px-3 py-2 bg-[#3E8A2F] hover:bg-[#2E6B22] text-white rounded-lg text-sm font-semibold transition-colors shadow-sm">
-            <Plus size={16} /> Tambah Override
+        <div className="w-px h-5 bg-[#E2E8DE] mx-1" />
+        <input 
+          type="date" 
+          value={activeDate} 
+          onChange={e => setActiveDate(e.target.value)}
+          className="border border-[#E2E8DE] text-sm font-semibold text-[#1C2517] rounded-lg px-3 py-2 outline-none focus:border-[#3E8A2F]"
+        />
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={handlePrint} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors border border-[#E2E8DE]">
+            <Printer size={13} /> Cetak Jadwal
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4">
-        <div className="flex-1 min-w-0 bg-white rounded-xl shadow-sm border border-[#E2E8DE] p-4">
-          <h2 className="text-sm font-bold text-[#1C2517] mb-4">
-            Jadwal Harian • Kelas {activeClass} • {activeDayName}, {activeDate}
-          </h2>
-          
-          <div className="space-y-3">
-            {segments.length === 0 && (
-              <div className="text-center py-10">
-                <p className="text-sm text-[#9CA3A0]">Tidak ada jadwal untuk tanggal ini.</p>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm text-[#6B7769] print:text-black print:text-lg">
+          Jadwal <span className="font-semibold text-[#1C2517] print:text-black">Kelas {activeClass}</span> — <span className="font-semibold text-[#1C2517] print:text-black">{activeDate} ({activeDayName})</span>
+        </span>
+        <span className="text-xs text-[#9CA3A0] italic print:hidden">Klik pada jam untuk mengatur override harian</span>
+      </div>
+
+      <div className="flex gap-4 items-start">
+        <div className="flex-1 bg-white rounded-xl p-5 space-y-2.5 print:p-0 print:border-none" style={{ border:"1px solid #E2E8DE" }}>
+          {segments.map((seg, i) =>
+            seg.type === "break" ? (
+              <BreakRow key={i} seg={seg as any} />
+            ) : (
+              <div key={i} className="relative">
+                {(seg as any).isOverridden && (
+                  <div className="absolute -left-1 top-2 bottom-2 w-1 bg-[#3E8A2F] rounded-r-md print:hidden z-10" title="Override aktif" />
+                )}
+                <SlotRow seg={seg as any} onClickSlot={(jam) => setEditSlot({ jam })} />
               </div>
-            )}
-            {segments.map((seg, i) => (
-              <SlotRow key={i} seg={seg as any} onClickSlot={() => setEditOverride(seg.raw)} />
-            ))}
-          </div>
+            )
+          )}
         </div>
-        
-        <div className="w-full lg:w-72 shrink-0 space-y-4">
-          <div className="bg-[#FFFBEB] rounded-xl shadow-sm border border-[#FDE68A] p-4">
-            <div className="flex items-start gap-2">
-              <Info size={16} className="text-[#D97706] mt-0.5 shrink-0" />
-              <div>
-                <h4 className="text-sm font-bold text-[#92400E]">Mode Jadwal Harian</h4>
-                <p className="text-xs text-[#92400E] mt-1 leading-relaxed">
-                  Perubahan di tab ini hanya berlaku untuk tanggal <b>{activeDate}</b> (misal: guru izin, ganti jam). Tidak mengubah Jadwal Master.
-                </p>
-              </div>
-            </div>
+        <div className="w-72 bg-white rounded-xl overflow-hidden print:hidden shrink-0" style={{ border: "1px solid #E2E8DE" }}>
+          <div className="px-5 py-4 border-b border-[#E2E8DE] bg-[#FFFBEB]">
+            <h4 className="text-sm font-bold text-[#92400E]">Mode Jadwal Harian</h4>
+            <p className="text-xs text-[#B45309] mt-1 leading-relaxed">Jadwal Harian digunakan untuk mengubah jadwal pada tanggal tertentu (misalnya ada guru Inval / Berhalangan) tanpa mengganggu Master Jadwal reguler.</p>
           </div>
         </div>
       </div>
@@ -1019,7 +1079,7 @@ export function KelasJadwal() {
         />
       )}
       {/* Title */}
-      <div className="print:hidden">
+      <div>
         <h2 className="text-[#1C2517]">Kelas &amp; Jadwal</h2>
         <p className="text-sm text-[#6B7769]">Manajemen data kelas, wali kelas, dan jadwal mengajar</p>
       </div>
@@ -1046,7 +1106,7 @@ export function KelasJadwal() {
       </div>
 
       {/* Tab content */}
-      {currentTab === "jadwal" && <JadwalTab uniqueClasses={uniqueClasses} />}
+      {currentTab === "jadwal" && <JadwalTab uniqueClasses={uniqueClasses} handlePrint={() => window.print()} />}
       {currentTab === "harian" && <JadwalHarianTab uniqueClasses={uniqueClasses} handlePrint={() => window.print()} />}
       {currentTab === "data"  && (
         <DataKelasTab 
