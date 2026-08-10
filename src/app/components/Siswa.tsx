@@ -5,9 +5,11 @@ import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, Upload, MoreHorizontal, X, Eye, Pencil,
   MessageCircle, Trash2, Check, FileText, IdCard, ZoomIn,
-  GraduationCap, ArrowRightLeft, CheckCircle2
+  GraduationCap, ArrowRightLeft, CheckCircle2, BarChart3, SlidersHorizontal
 } from "lucide-react";
 import QRCode from "react-qr-code";
+import { motion } from "motion/react";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { KartuPelajar } from "./KartuDigital";
@@ -655,7 +657,17 @@ export function Siswa() {
   const [qrZoomSiswa, setQrZoomSiswa] = useState<SiswaRow | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [toastMsg, setToastMsg] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [sortBy, setSortBy] = useState("default");
+  const [showStats, setShowStats] = useState(false);
+  const [showMobileFilter, setShowMobileFilter] = useState(false);
   const ITEMS_PER_PAGE = 10;
+
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => setIsLoading(false), 400);
+    return () => clearTimeout(timer);
+  }, [search, kelasFilter, statusFilter, sortBy]);
 
   useEffect(() => {
     if (toastMsg) {
@@ -678,15 +690,6 @@ export function Siswa() {
     }
   }, [bulkAction, tahunAjaran]);
 
-  const kpiData = useMemo(() => {
-    const aktif = siswaList.filter(s => s.status === "Aktif");
-    return [
-      { label: "Total Aktif", value: aktif.length },
-      { label: "Laki-laki",   value: aktif.filter(s => s.jk === "L").length },
-      { label: "Perempuan",   value: aktif.filter(s => s.jk === "P").length },
-    ];
-  }, [siswaList]);
-
   const filteredRows = useMemo(() => {
     const q = search.toLowerCase();
     const result = siswaList.filter((r) => {
@@ -696,21 +699,38 @@ export function Siswa() {
       return matchSearch && matchKelas && matchStatus;
     });
     
-    if (statusFilter === "Semua Status") {
-      result.sort((a, b) => {
-        if (a.status === "Aktif" && b.status === "Nonaktif") return -1;
-        if (a.status === "Nonaktif" && b.status === "Aktif") return 1;
-        return 0;
-      });
+    if (sortBy === "nama-asc") {
+      result.sort((a, b) => a.nama.localeCompare(b.nama));
+    } else if (sortBy === "status-spp") {
+      const getSppScore = (status: string) => status === "Tunggakan" ? 0 : (status === "Belum Lunas" ? 1 : 2);
+      result.sort((a, b) => getSppScore(a.statusSPP) - getSppScore(b.statusSPP));
+    } else {
+      if (statusFilter === "Semua Status") {
+        result.sort((a, b) => {
+          if (a.status === "Aktif" && b.status === "Nonaktif") return -1;
+          if (a.status === "Nonaktif" && b.status === "Aktif") return 1;
+          return 0;
+        });
+      }
     }
 
     return result;
-  }, [search, kelasFilter, statusFilter, siswaList]);
+  }, [search, kelasFilter, statusFilter, sortBy, siswaList]);
+
+  const kpiData = useMemo(() => {
+    const aktif = filteredRows.filter(s => s.status === "Aktif");
+    return [
+      { label: "Total Aktif", value: aktif.length },
+      { label: "Laki-laki",   value: aktif.filter(s => s.jk === "L").length },
+      { label: "Perempuan",   value: aktif.filter(s => s.jk === "P").length },
+    ];
+  }, [filteredRows]);
+
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, kelasFilter, statusFilter]);
+  }, [search, kelasFilter, statusFilter, sortBy]);
 
   const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
   const rows = filteredRows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -753,27 +773,42 @@ export function Siswa() {
   };
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto space-y-5">
+    <div className="w-full max-w-[1600px] mx-auto space-y-5 px-4 md:px-0">
       {/* ── Title + KPI chips ── */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-4">
         <div>
           <h2 className="text-[#1C2517]">Siswa</h2>
           <p className="text-sm text-[#6B7769]">Data dan rekam jejak seluruh peserta didik</p>
+          
+          {/* Mobile Compact Stats */}
+          <div className="md:hidden flex items-center gap-2 mt-3">
+            <div className="flex items-center px-2.5 py-1 bg-[#F5FBF4] text-[#3E8A2F] rounded-md border border-[#3E8A2F]/20">
+              <span className="text-[11px] font-semibold">Total: {kpiData[0].value}</span>
+            </div>
+            <div className="flex items-center px-2.5 py-1 bg-[#EFF6FF] text-[#2563EB] rounded-md border border-[#3B82F6]/20">
+              <span className="text-[11px] font-semibold">Laki-laki: {kpiData[1].value}</span>
+            </div>
+            <div className="flex items-center px-2.5 py-1 bg-[#FDF2F8] text-[#DB2777] rounded-md border border-[#EC4899]/20">
+              <span className="text-[11px] font-semibold">Perempuan: {kpiData[2].value}</span>
+            </div>
+          </div>
         </div>
         {/* KPI chips */}
-        <div className="hidden md:flex items-center gap-2 mt-1 shrink-0">
+        <div className="hidden md:flex flex-1 gap-3 overflow-x-auto pb-4 md:pb-0 hide-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
           {kpiData.map((kpi, i) => (
-            <div key={kpi.label} className="flex items-center gap-2">
-              {i > 0 && <span className="text-[#D1D5DB]">·</span>}
-              <div
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-white"
-                style={{ border: "1px solid #E2E8DE" }}
-              >
-                <span className="font-bold tabular-nums text-[#1C2517]">{kpi.value}</span>
-                <span className="text-[#6B7769]">{kpi.label}</span>
-              </div>
+            <div key={i} className="flex-1 min-w-[140px] md:min-w-0 bg-white rounded-xl shadow-sm p-4 flex flex-col justify-center" style={{ border: "1px solid #E2E8DE" }}>
+              <p className="text-xs font-medium text-[#6B7769] mb-1">{kpi.label}</p>
+              <p className="text-2xl font-bold text-[#1C2517] leading-none">{kpi.value}</p>
             </div>
           ))}
+          
+          <button 
+            onClick={() => setShowStats(true)}
+            className="min-w-[140px] md:min-w-0 bg-[#F5FBF4] hover:bg-[#EDF7EC] transition-colors rounded-xl p-4 flex flex-col justify-center items-center gap-2 cursor-pointer border border-[#3E8A2F]/20"
+          >
+            <BarChart3 size={24} className="text-[#3E8A2F]" />
+            <span className="text-xs font-semibold text-[#3E8A2F]">Lihat Statistik</span>
+          </button>
         </div>
       </div>
 
@@ -820,6 +855,21 @@ export function Siswa() {
           <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
         </div>
 
+        {/* Sort filter */}
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
+            style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
+          >
+            <option value="default">Urutkan: Terbaru</option>
+            <option value="nama-asc">Urutkan: Nama (A-Z)</option>
+            <option value="status-spp">Urutkan: Status Tagihan</option>
+          </select>
+          <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+        </div>
+
         <div className="ml-auto flex items-center gap-2">
           {/* Import Excel */}
           <button
@@ -842,51 +892,161 @@ export function Siswa() {
         <div className="flex-1 flex items-center gap-2 rounded-xl" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9", padding: "0 12px", minHeight: 44 }}>
           <Search size={14} className="text-[#9CA3A0] shrink-0" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari nama / NIS / NISN..."
+            placeholder="Cari nama/NIS..."
             className="flex-1 bg-transparent outline-none text-[13px] text-[#1C2517]" />
         </div>
+        <button onClick={() => setShowMobileFilter(true)}
+          className={`w-11 h-11 flex items-center justify-center rounded-xl shrink-0 transition-colors ${kelasFilter !== "Semua Kelas" || statusFilter !== "Semua Status" || sortBy !== "default" ? "bg-[#EDF7EC] text-[#3E8A2F] border border-[#3E8A2F]/30" : "bg-[#FAFBF9] text-[#6B7769] border border-[#E2E8DE]"}`}>
+          <SlidersHorizontal size={16} />
+        </button>
         <button onClick={() => setIsAddingSiswa(true)}
-          className="w-11 h-11 flex items-center justify-center rounded-xl bg-[#3E8A2F] shrink-0">
-          <Plus size={16} color="#FFF" />
+          className="w-11 h-11 flex items-center justify-center rounded-xl bg-[#3E8A2F] shrink-0 text-white">
+          <Plus size={16} />
         </button>
       </div>
 
+      {/* ── Mobile Filter Bottom Sheet ── */}
+      {showMobileFilter && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setShowMobileFilter(false)} />
+          <div className="fixed inset-x-0 bottom-0 z-[70] bg-white rounded-t-2xl p-6 animate-in slide-in-from-bottom-full duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-[#1C2517]">Filter & Urutkan</h3>
+              <button onClick={() => setShowMobileFilter(false)} className="text-[#9CA3A0] hover:text-[#1C2517]">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Kelas</label>
+                <div className="relative">
+                  <select value={kelasFilter} onChange={(e) => setKelasFilter(e.target.value)} className="w-full appearance-none pl-4 pr-10 py-3 rounded-xl text-sm text-[#1C2517] font-medium outline-none border border-[#E2E8DE] bg-[#FAFBF9]">
+                    {kelasOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Status Siswa</label>
+                <div className="relative">
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full appearance-none pl-4 pr-10 py-3 rounded-xl text-sm text-[#1C2517] font-medium outline-none border border-[#E2E8DE] bg-[#FAFBF9]">
+                    {["Semua Status", "Aktif", "Nonaktif"].map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Urutkan Berdasarkan</label>
+                <div className="relative">
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full appearance-none pl-4 pr-10 py-3 rounded-xl text-sm text-[#1C2517] font-medium outline-none border border-[#E2E8DE] bg-[#FAFBF9]">
+                    <option value="default">Terbaru</option>
+                    <option value="nama-asc">Nama (A-Z)</option>
+                    <option value="status-spp">Status Tagihan</option>
+                  </select>
+                  <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={() => { setShowMobileFilter(false); setShowStats(true); }} 
+                className="px-4 py-3 bg-[#F5F9F4] text-[#3E8A2F] font-semibold rounded-xl hover:bg-[#EDF7EC] border border-[#3E8A2F]/20"
+                title="Lihat Statistik"
+              >
+                <BarChart3 size={20} />
+              </button>
+              <button onClick={() => setShowMobileFilter(false)} className="flex-1 py-3 bg-[#3E8A2F] text-white font-semibold rounded-xl hover:bg-[#2E6B22]">
+                Terapkan Filter
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── Mobile student cards ── */}
       <div className="md:hidden flex flex-col gap-2.5">
-        {rows.length === 0 ? (
+        {isLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="w-full bg-white rounded-xl flex items-start gap-3 animate-pulse" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
+              <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
+              <div className="flex-1 space-y-2 mt-1">
+                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                <div className="h-3 bg-gray-200 rounded w-1/2" />
+                <div className="flex gap-2 mt-2">
+                  <div className="h-4 bg-gray-200 rounded w-10" />
+                  <div className="h-4 bg-gray-200 rounded w-16" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : filteredRows.length === 0 ? (
           <p className="text-sm text-[#9CA3A0] text-center py-8">Belum ada data siswa</p>
-        ) : rows.map((row) => {
+        ) : filteredRows.map((row) => {
           const nonaktif = row.status === "Nonaktif";
           return (
-            <button key={row.id} onClick={() => setSelectedSiswa(row)} className="w-full text-left bg-white rounded-xl"
-              style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 overflow-hidden"
-                  style={{ background: nonaktif ? "#E2E8DE" : "#3E8A2F", color: nonaktif ? "#9CA3A0" : "#FFF" }}>
-                  <img src={row.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt={row.nama} className={`w-full h-full object-cover ${nonaktif ? 'grayscale opacity-50' : ''}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
-                  <p className="text-[11px] text-[#6B7769]" style={{ marginTop: 2 }}>{row.nis}</p>
-                  <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 6 }}>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${KELAS_COLOR[row.kelas[0]] ?? "bg-[#F3F4F6] text-[#374040]"}`}>{row.kelas}</span>
-                    <StatusBadge status={row.statusSPP} />
-                    <StatusBadge status={row.status as "Aktif" | "Nonaktif"} />
+            <div key={row.id} className="relative w-full rounded-xl bg-[#F0F7EE] overflow-hidden" style={{ border: "1px solid #E2E8DE" }}>
+              {/* Actions behind the card */}
+              <div className="absolute inset-0 flex justify-between items-center px-6">
+                <button 
+                  onClick={() => { setSheetMode("edit"); setSelectedSiswa(row); }}
+                  className="flex flex-col items-center justify-center gap-1 text-[#3E8A2F] font-semibold"
+                >
+                  <Pencil size={18} />
+                  <span className="text-[10px]">Edit</span>
+                </button>
+                <button 
+                  onClick={() => setSelectedCardSiswa(row)}
+                  className="flex flex-col items-center justify-center gap-1 text-[#3E8A2F] font-semibold"
+                >
+                  <IdCard size={18} />
+                  <span className="text-[10px]">Kartu</span>
+                </button>
+              </div>
+              
+              {/* Swipeable Card */}
+              <motion.button
+                drag="x"
+                dragConstraints={{ left: -80, right: 80 }}
+                dragElastic={0.2}
+                onClick={() => setSelectedSiswa(row)}
+                className="relative w-full text-left bg-white z-10 flex flex-col"
+                style={{ padding: "14px 16px", touchAction: "pan-y", borderLeft: "1px solid #E2E8DE", borderRight: "1px solid #E2E8DE" }}
+              >
+                <div className="flex items-start gap-3 w-full">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 overflow-hidden"
+                    style={{ background: nonaktif ? "#E2E8DE" : "#3E8A2F", color: nonaktif ? "#9CA3A0" : "#FFF" }}>
+                    <img src={row.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt={row.nama} className={`w-full h-full object-cover ${nonaktif ? 'grayscale opacity-50' : ''}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
+                    <p className="text-[11px] text-[#6B7769]" style={{ marginTop: 2 }}>{row.nis}</p>
+                    <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 6 }}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${KELAS_COLOR[row.kelas[0]] ?? "bg-[#F3F4F6] text-[#374040]"}`}>{row.kelas}</span>
+                      <StatusBadge status={row.statusSPP} />
+                      <StatusBadge status={row.status as "Aktif" | "Nonaktif"} />
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between" style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F0F7EE" }}>
-                <div>
-                  <p className="text-[12px] text-[#374040]">{row.waliNama}</p>
-                  <p className="text-[11px] text-[#9CA3A0] tabular-nums">{row.waliHp}</p>
+                <div className="flex items-center justify-between w-full" style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F0F7EE" }}>
+                  <div>
+                    <p className="text-[12px] text-[#374040]">{row.waliNama}</p>
+                    <a href={`https://wa.me/62${row.waliHp.replace(/^0/, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 mt-0.5 text-[#3E8A2F] hover:underline">
+                      <MessageCircle size={10} />
+                      <span className="text-[11px] tabular-nums">{row.waliHp}</span>
+                    </a>
+                  </div>
+                  <span className="text-[12px] font-semibold text-[#3E8A2F]">Detail →</span>
                 </div>
-                <span className="text-[12px] font-semibold text-[#3E8A2F]">Detail →</span>
-              </div>
-            </button>
+              </motion.button>
+            </div>
           );
         })}
-        <div className="flex items-center justify-between py-1">
-          <span className="text-[12px] text-[#6B7769]">{startIndex}–{endIndex} dari <strong className="text-[#1C2517]">{filteredRows.length}</strong> siswa</span>
+        <div className="flex items-center justify-center py-4">
+          <span className="text-[12px] text-[#6B7769]">Menampilkan semua <strong className="text-[#1C2517]">{filteredRows.length}</strong> siswa</span>
         </div>
       </div>
 
@@ -909,7 +1069,23 @@ export function Siswa() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, i) => {
+              {isLoading ? (
+                Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
+                  <tr key={`skeleton-${i}`} className="animate-pulse" style={{ borderBottom: i < ITEMS_PER_PAGE - 1 ? "1px solid #F0F7EE" : "none" }}>
+                    <td className="pl-6 pr-3 py-3.5"><div className="w-4 h-4 bg-gray-200 rounded" /></td>
+                    <td className="py-3.5 pr-4 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 shrink-0" />
+                      <div className="flex flex-col gap-1.5 w-full max-w-[120px]"><div className="h-3.5 bg-gray-200 rounded w-full" /><div className="h-2.5 bg-gray-200 rounded w-2/3" /></div>
+                    </td>
+                    <td className="py-3.5 pr-4"><div className="h-5 bg-gray-200 rounded-full w-12" /></td>
+                    <td className="py-3.5 pr-4"><div className="h-4 bg-gray-200 rounded w-16" /></td>
+                    <td className="py-3.5 pr-4"><div className="flex flex-col gap-1.5"><div className="h-3.5 bg-gray-200 rounded w-24" /><div className="h-2.5 bg-gray-200 rounded w-16" /></div></td>
+                    <td className="py-3.5 pr-4"><div className="h-5 bg-gray-200 rounded-full w-16" /></td>
+                    <td className="py-3.5 pr-4"><div className="h-5 bg-gray-200 rounded-full w-12" /></td>
+                    <td className="py-3.5 pr-6"><div className="h-8 bg-gray-200 rounded-lg w-8 ml-auto" /></td>
+                  </tr>
+                ))
+              ) : rows.map((row, i) => {
                 const isChecked = checked.has(row.id);
                 const nonaktif  = row.status === "Nonaktif";
                 return (
@@ -1130,6 +1306,77 @@ export function Siswa() {
             >
               Tutup
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mini Chart Modal ── */}
+      {showStats && (
+        <div 
+          className="fixed inset-0 z-[80] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setShowStats(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+            style={{ border: "1px solid #E2E8DE" }}
+          >
+            <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid #E2E8DE" }}>
+              <h2 className="text-lg font-bold text-[#1C2517]">Statistik Siswa</h2>
+              <button onClick={() => setShowStats(false)} className="w-8 h-8 rounded-full bg-[#F5F9F4] flex items-center justify-center text-[#3E8A2F] hover:bg-[#E2E8DE] transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <h3 className="text-sm font-semibold text-[#374040] mb-4 text-center">Komposisi Gender Siswa Aktif</h3>
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Laki-laki", value: kpiData[1].value, color: "#3B82F6" },
+                        { name: "Perempuan", value: kpiData[2].value, color: "#EC4899" }
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {[
+                        { name: "Laki-laki", value: kpiData[1].value, color: "#3B82F6" },
+                        { name: "Perempuan", value: kpiData[2].value, color: "#EC4899" }
+                      ].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => [`${value} Siswa`, "Total"]}
+                      contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="flex justify-center gap-6 mt-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#3B82F6]" />
+                  <span className="text-xs text-[#374040] font-medium">Laki-laki ({kpiData[1].value})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#EC4899]" />
+                  <span className="text-xs text-[#374040] font-medium">Perempuan ({kpiData[2].value})</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="px-6 py-4 bg-[#FAFBF9] flex justify-end" style={{ borderTop: "1px solid #E2E8DE" }}>
+              <button onClick={() => setShowStats(false)} className="px-5 py-2 rounded-xl bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}

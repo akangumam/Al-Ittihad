@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import QRCode from "react-qr-code";
-import Barcode from "react-barcode";
 import { Printer, Search, ChevronDown, User, X, ZoomIn } from "lucide-react";
 import logoEmblem from "../../imports/aliet_logo.png";
 import { useAppContext } from "@/context/AppContext";
@@ -23,10 +22,10 @@ export function KartuPelajar({
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-xl overflow-hidden relative flex flex-col ${
+      className={`bg-white rounded-xl overflow-hidden relative flex flex-col items-center ${
         isModal 
-          ? 'shadow-2xl w-[90vw] max-w-sm mx-auto' 
-          : 'w-[280px] shadow-sm print:shadow-none print:border-gray-300 cursor-pointer transition-transform hover:scale-[1.02]'
+          ? 'shadow-2xl w-[90vw] max-w-[300px] h-[480px] mx-auto' 
+          : 'w-[240px] h-[382px] shadow-sm print:shadow-none print:border-gray-300 cursor-pointer transition-transform hover:scale-[1.02]'
       }`}
       style={{ 
         border: "1px solid #E2E8DE", 
@@ -36,63 +35,48 @@ export function KartuPelajar({
       }}
     >
       {/* Header Kartu */}
-      <div className={`bg-[#3E8A2F] flex items-center gap-3 ${isModal ? 'px-6 py-4' : 'px-4 py-3'}`}>
-        <div className={`rounded-full bg-white flex items-center justify-center p-1 shrink-0 ${isModal ? 'w-12 h-12' : 'w-9 h-9'}`}>
-          <img
-            src={logoEmblem}
-            alt="Logo"
-            className="w-full h-full object-contain"
-          />
+      <div className="bg-[#3E8A2F] w-full flex flex-col items-center pt-5 pb-16 shrink-0 relative overflow-hidden">
+        {/* Pattern Background */}
+        <div 
+          className="absolute inset-0 opacity-20 pointer-events-none" 
+          style={{ backgroundImage: "url('/card_pattern.png')", backgroundSize: "cover", backgroundPosition: "center" }}
+        />
+        
+        <div className={`relative z-10 rounded-full bg-white flex items-center justify-center p-1 ${isModal ? 'w-14 h-14' : 'w-12 h-12'} mb-2 shadow-sm`}>
+          <img src={logoEmblem} alt="Logo" className="w-full h-full object-contain" />
         </div>
-        <div>
-          <h3 className={`text-white font-bold tracking-wide leading-tight ${isModal ? 'text-sm' : 'text-xs'}`}>{defaultSettings.namaMadrasah.toUpperCase()}</h3>
-          <p className={`text-white/80 mt-0.5 ${isModal ? 'text-[11px]' : 'text-[9px]'}`}>Kartu Identitas Siswa - TP {tahunAjaran}</p>
-        </div>
+        <h3 className={`relative z-10 text-white font-bold tracking-wide text-center leading-tight ${isModal ? 'text-[13px]' : 'text-[11px]'}`}>
+          {defaultSettings.namaMadrasah.toUpperCase()}
+        </h3>
+        <p className={`relative z-10 text-white/90 text-center mt-0.5 ${isModal ? 'text-[10px]' : 'text-[8px]'}`}>Kartu Identitas Siswa - TP {tahunAjaran}</p>
       </div>
 
-      {/* Body Kartu */}
-      <div className={`flex gap-4 ${isModal ? 'p-5' : 'p-4'}`}>
-        {/* Foto Placeholder */}
-        <div className={`bg-gray-100 border border-gray-200 rounded-md overflow-hidden shrink-0 relative ${isModal ? 'w-24 h-32' : 'w-20 h-24'}`}>
-          <img 
-            src={siswa.foto || (siswa.jk === "L" ? "/foto_L.png" : "/foto_P.png")} 
-            alt={`Foto ${siswa.nama}`}
-            className="w-full h-full object-cover" 
-          />
-        </div>
+      {/* Foto over the header */}
+      <div className={`bg-gray-100 border-[3px] border-white shadow-sm rounded-xl overflow-hidden shrink-0 absolute ${isModal ? 'w-[96px] h-[128px] top-[125px]' : 'w-[84px] h-[112px] top-[105px]'} left-1/2 -translate-x-1/2 z-20`}>
+        <img 
+          src={siswa.foto || (siswa.jk === "L" ? "/foto_L.png" : "/foto_P.png")} 
+          alt={`Foto ${siswa.nama}`} 
+          className="w-full h-full object-cover" 
+        />
+      </div>
 
-        {/* Data Siswa */}
-        <div className="flex-1 min-w-0">
-          <h4 className={`font-bold text-[#1C2517] leading-tight truncate mb-2 ${isModal ? 'text-base' : 'text-sm'}`}>
-            {siswa.nama}
-          </h4>
-          <table className={`text-[#374040] ${isModal ? 'text-[12px]' : 'text-[10px]'}`}>
-            <tbody>
-              <tr>
-                <td className="py-0.5 pr-2 font-medium">NIS</td>
-                <td className="py-0.5">: {siswa.nis}</td>
-              </tr>
-              <tr>
-                <td className="py-0.5 pr-2 font-medium">NISN</td>
-                <td className="py-0.5">: {siswa.nisn || "-"}</td>
-              </tr>
-              <tr>
-                <td className="py-0.5 pr-2 font-medium">Kelas</td>
-                <td className="py-0.5">: {siswa.kelas}</td>
-              </tr>
-              <tr>
-                <td className="py-0.5 pr-2 font-medium">L/P</td>
-                <td className="py-0.5">: {siswa.jk === "L" ? "Laki-laki" : "Perempuan"}</td>
-              </tr>
-            </tbody>
-          </table>
+      {/* Spacer to push content down below photo */}
+      <div className={`${isModal ? 'h-[90px]' : 'h-[75px]'} shrink-0`} />
+
+      {/* Data Siswa */}
+      <div className="w-full flex flex-col items-center px-4 mt-1 shrink-0">
+        <h4 className={`font-bold text-[#1C2517] leading-tight text-center mb-1.5 w-full line-clamp-2 ${isModal ? 'text-lg' : 'text-base'}`}>
+          {siswa.nama}
+        </h4>
+        <div className={`text-[#6B7769] font-medium text-center ${isModal ? 'text-xs' : 'text-[10px]'}`}>
+          NIS: {siswa.nis} • Kelas {siswa.kelas}
         </div>
       </div>
 
       {/* Footer Codes */}
-      <div className={`mt-auto flex items-end justify-between ${isModal ? 'px-6 pb-6' : 'px-4 pb-4'}`}>
+      <div className={`w-full flex flex-col items-center justify-center gap-2 mt-auto ${isModal ? 'pb-5' : 'pb-4'} shrink-0`}>
         <div 
-          className={`relative p-1 bg-white border border-gray-200 rounded shrink-0 ${isModal ? 'cursor-pointer group' : ''}`}
+          className={`relative p-1 bg-white border border-[#E2E8DE] rounded-lg shrink-0 shadow-sm ${isModal ? 'cursor-pointer group' : ''}`}
           onClick={(e) => {
             if (isModal && onZoom) {
               e.stopPropagation();
@@ -103,7 +87,7 @@ export function KartuPelajar({
         >
           <QRCode
             value={`${defaultSettings.namaMadrasah.toUpperCase()}|${siswa.nis}|${siswa.nama}`}
-            size={isModal ? 80 : 64}
+            size={isModal ? 64 : 56}
             level="M"
           />
           {isModal && (
@@ -112,24 +96,12 @@ export function KartuPelajar({
             </div>
           )}
         </div>
-        <div className="flex flex-col items-center">
-          <Barcode
-            value={siswa.nis || "000000"}
-            format="CODE128"
-            width={isModal ? 1.5 : 1.2}
-            height={isModal ? 40 : 30}
-            displayValue={false}
-            background="transparent"
-            lineColor="#1C2517"
-            margin={0}
-          />
-          <p className={`font-medium text-[#374040] mt-1 tracking-widest ${isModal ? 'text-xs' : 'text-[10px]'}`}>{siswa.nis}</p>
-        </div>
+        <p className={`font-medium text-[#374040] tracking-widest ${isModal ? 'text-[11px]' : 'text-[9px]'}`}>{siswa.nis}</p>
       </div>
 
       {/* Footer Text */}
-      <div className={`bg-gray-50 border-t border-gray-100 text-center ${isModal ? 'px-6 py-2.5' : 'px-4 py-1.5'}`}>
-        <p className={`text-[#6B7769] ${isModal ? 'text-[10px]' : 'text-[9px]'}`}>Kartu Pelajar - Berlaku selama menjadi siswa</p>
+      <div className={`w-full bg-[#3E8A2F] text-center shrink-0 ${isModal ? 'py-2' : 'py-1.5'}`}>
+        <p className={`text-white/90 ${isModal ? 'text-[10px]' : 'text-[8px]'}`}>Berlaku selama menjadi siswa</p>
       </div>
     </div>
   );
@@ -158,7 +130,7 @@ export function KartuDigital() {
   return (
     <div className="w-full max-w-[1600px] mx-auto p-4 md:p-0 pb-20 md:pb-0 relative">
       {/* ── Header & Toolbar (Sembunyikan saat print) ── */}
-      <div className="print:hidden sticky top-0 md:-top-6 md:-mt-6 md:pt-8 z-30 bg-[#FAFBF9]/95 backdrop-blur-md -mx-4 px-4 pt-4 pb-4 md:px-0 md:mx-0 md:pb-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8DE]/50">
+      <div className="print:hidden relative md:sticky md:-top-6 md:-mt-6 md:pt-8 z-30 bg-[#FAFBF9]/95 backdrop-blur-md -mx-4 px-4 pt-4 pb-4 md:px-0 md:mx-0 md:pb-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#E2E8DE]/50">
         <div>
           <h2 className="text-[#1C2517] text-2xl font-bold">Kartu Digital Siswa</h2>
           <p className="text-sm text-[#6B7769]">Kartu identitas dengan QR Code & Barcode siap cetak</p>
