@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Html5Qrcode } from "html5-qrcode";
-import { QrCode, CalendarDays, Search, ChevronDown, CheckCircle2, AlertCircle } from "lucide-react";
+import { QrCode, CalendarDays, Search, ChevronDown, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
@@ -11,6 +11,7 @@ import { kelasOptions } from "@/data/constants";
 // ─── StatusControl ────────────────────────────────────────────────────────────
 const STATUS_ACTIVE: Record<string, string> = {
   Hadir: "bg-[#3E8A2F] text-white",
+  Terlambat: "bg-[#F59E0B] text-white",
   Izin:  "bg-[#F6B31E] text-white",
   Sakit: "bg-[#3B82F6] text-white",
   Alpa:  "bg-[#DC2626] text-white",
@@ -19,12 +20,12 @@ const STATUS_ACTIVE: Record<string, string> = {
 function StatusControl({ value, onChange }: { value: string | null; onChange: (v: string) => void; }) {
   return (
     <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #E2E8DE" }}>
-      {(["Hadir", "Izin", "Sakit", "Alpa"] as const).map((s, i) => (
+      {(["Hadir", "Terlambat", "Izin", "Sakit", "Alpa"] as const).map((s, i) => (
         <button
           key={s}
           onClick={() => onChange(s)}
           className={[
-            "px-3 py-1.5 text-xs font-semibold transition-colors",
+            "px-2 py-1.5 text-[11px] font-semibold transition-colors flex-1",
             i > 0 ? "border-l border-[#E2E8DE]" : "",
             value === s ? STATUS_ACTIVE[s] : "text-[#6B7769] hover:bg-[#F5F9F4]",
           ].join(" ")}
@@ -40,7 +41,7 @@ function StatusControl({ value, onChange }: { value: string | null; onChange: (v
 function ScanTab() {
   const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni } = useAppContext();
   const [scanValue, setScanValue] = useState("");
-  const [lastScanned, setLastScanned] = useState<{ siswa: SiswaRow; status: 'success' | 'error'; message: string; time: string } | null>(null);
+  const [lastScanned, setLastScanned] = useState<{ siswa: SiswaRow; status: 'success' | 'warning' | 'error'; message: string; time: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Keep focus on hidden input for physical scanner
@@ -61,18 +62,40 @@ function ScanTab() {
     }
     
     const siswa = siswaList.find(s => s.nis === nis);
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
     if (siswa) {
       if (siswa.status === "Nonaktif") {
-        setLastScanned({ siswa, status: 'error', message: "Siswa berstatus Nonaktif", time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) });
+        setLastScanned({ siswa, status: 'error', message: "Siswa berstatus Nonaktif", time: timeStr });
+      } else if (absensiSiswaHariIni[nis]) {
+        // Mencegah double tap
+        setLastScanned({ 
+          siswa, 
+          status: 'warning', 
+          message: `Sudah Tercatat: ${absensiSiswaHariIni[nis]}`, 
+          time: timeStr 
+        });
       } else {
-        setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: "Hadir" }));
-        setLastScanned({ siswa, status: 'success', message: "Berhasil Hadir", time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) });
+        // Cek keterlambatan (batas jam 08:00)
+        const batasMasuk = new Date();
+        batasMasuk.setHours(8, 0, 0, 0);
+
+        const isTerlambat = now > batasMasuk;
+        const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
+
+        setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: statusAbsen }));
+        setLastScanned({ 
+          siswa, 
+          status: isTerlambat ? 'warning' : 'success', 
+          message: isTerlambat ? "Terlambat" : "Berhasil Hadir", 
+          time: timeStr 
+        });
       }
     } else {
       setLastScanned({
         siswa: { id: 0, nis: nis, nisn: "", nama: "Tidak Ditemukan", jk: "L", kelas: "-", waliNama: "", waliHp: "", statusSPP: "Lunas", status: "Aktif", inits: "-", tempatLahir: "", tanggalLahir: "", namaAyah: "", namaIbu: "", alamat: "", kelurahan: "", kecamatan: "" },
-        status: 'error', message: "NIS tidak terdaftar", time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        status: 'error', message: "NIS tidak terdaftar", time: timeStr
       });
     }
 
@@ -103,7 +126,7 @@ function ScanTab() {
         html5QrCode = new Html5Qrcode("reader");
         await html5QrCode.start(
           { facingMode: "user" }, // Use front-facing camera for laptops
-          { fps: 10, qrbox: { width: 250, height: 250 } },
+          { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
           (decodedText) => {
             if (isComponentMounted) {
               processScan(decodedText);
@@ -132,9 +155,29 @@ function ScanTab() {
     };
   }, [lastScanned]);
 
+  let statusColor = '#DC2626'; // error
+  let statusBg = '#FEF2F2';
+  let statusText = '#991B1B';
+  let StatusIcon = AlertCircle;
+  if (lastScanned?.status === 'success') {
+    statusColor = '#3E8A2F';
+    statusBg = '#EDF7EC';
+    statusText = '#166534';
+    StatusIcon = CheckCircle2;
+  } else if (lastScanned?.status === 'warning') {
+    statusColor = '#F59E0B'; 
+    statusBg = '#FEF3C7'; 
+    statusText = '#92400E'; 
+    StatusIcon = Info;
+  }
+
   return (
     <div className="flex flex-col items-center min-h-[600px] bg-white rounded-xl py-8 px-4 relative" style={{ border: "1px solid #E2E8DE" }}>
-      
+      <style>{`
+        #reader video {
+          transform: scaleX(-1) !important;
+        }
+      `}</style>
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-lg mt-4">
         <form onSubmit={handleScan} className="opacity-0 absolute -top-10">
           <input ref={inputRef} type="text" value={scanValue} onChange={(e) => setScanValue(e.target.value)} autoFocus />
@@ -149,11 +192,11 @@ function ScanTab() {
         ) : (
           <div className="flex flex-col items-center text-center animate-in slide-in-from-bottom-4 fade-in duration-300 w-full">
             <div className="relative mb-6">
-              <div className="w-40 h-40 rounded-full overflow-hidden border-4" style={{ borderColor: lastScanned.status === 'success' ? '#3E8A2F' : '#DC2626' }}>
+              <div className="w-40 h-40 rounded-full overflow-hidden border-4" style={{ borderColor: statusColor }}>
                 <img src={(lastScanned.siswa as any).foto || (lastScanned.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png')} alt="Foto" className={`w-full h-full object-cover ${lastScanned.siswa.id === 0 ? 'grayscale opacity-30' : ''}`} />
               </div>
-              <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center border-4 border-white" style={{ background: lastScanned.status === 'success' ? '#3E8A2F' : '#DC2626' }}>
-                {lastScanned.status === 'success' ? <CheckCircle2 size={24} color="white" /> : <AlertCircle size={24} color="white" />}
+              <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center border-4 border-white" style={{ background: statusColor }}>
+                <StatusIcon size={24} color="white" />
               </div>
             </div>
             
@@ -161,10 +204,7 @@ function ScanTab() {
             <p className="text-xl font-medium text-[#6B7769] mb-6">NIS: {lastScanned.siswa.nis} • Kelas {lastScanned.siswa.kelas}</p>
             
             <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-2xl"
-              style={{ 
-                background: lastScanned.status === 'success' ? '#EDF7EC' : '#FEF2F2', 
-                color: lastScanned.status === 'success' ? '#166534' : '#991B1B' 
-              }}>
+              style={{ background: statusBg, color: statusText }}>
               {lastScanned.message} • {lastScanned.time}
             </div>
           </div>
@@ -196,24 +236,26 @@ function ManualTab() {
   }, [activeSiswa, search, kelasFilter]);
 
   const chips = useMemo(() => {
-    let hadir = 0, izin = 0, sakit = 0, alpa = 0, belum = 0;
+    let hadir = 0, terlambat = 0, izin = 0, sakit = 0, alpa = 0, belum = 0;
     activeSiswa.forEach(s => {
       const status = absensiSiswaHariIni[s.nis];
       if (status === "Hadir") hadir++;
+      else if (status === "Terlambat") terlambat++;
       else if (status === "Izin") izin++;
       else if (status === "Sakit") sakit++;
       else if (status === "Alpa") alpa++;
       else belum++;
     });
-    return { Hadir: hadir, Izin: izin, Sakit: sakit, Alpa: alpa, Belum: belum };
+    return { Hadir: hadir, Terlambat: terlambat, Izin: izin, Sakit: sakit, Alpa: alpa, Belum: belum };
   }, [activeSiswa, absensiSiswaHariIni]);
 
   const chipDefs = [
-    { label: "Hadir",       value: chips.Hadir, color: "#DCFCE7", text: "#166534" },
-    { label: "Izin",        value: chips.Izin,  color: "#FEF3C7", text: "#92400E" },
-    { label: "Sakit",       value: chips.Sakit, color: "#DBEAFE", text: "#1E40AF" },
-    { label: "Alpa",        value: chips.Alpa,  color: "#FEE2E2", text: "#991B1B" },
-    { label: "Belum Absen", value: chips.Belum, color: "#F3F4F6", text: "#374151" },
+    { label: "Hadir",       value: chips.Hadir,     color: "#DCFCE7", text: "#166534" },
+    { label: "Terlambat",   value: chips.Terlambat, color: "#FEF3C7", text: "#92400E" },
+    { label: "Izin",        value: chips.Izin,      color: "#FEF9C3", text: "#854D0E" },
+    { label: "Sakit",       value: chips.Sakit,     color: "#DBEAFE", text: "#1E40AF" },
+    { label: "Alpa",        value: chips.Alpa,      color: "#FEE2E2", text: "#991B1B" },
+    { label: "Belum Absen", value: chips.Belum,     color: "#F3F4F6", text: "#374151" },
   ];
 
   const todayStr = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
@@ -241,7 +283,7 @@ function ManualTab() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
           {chipDefs.map((c) => (
             <div key={c.label} className="flex flex-col items-center justify-center rounded-xl py-3 px-2" style={{ background: c.color }}>
               <span className="tabular-nums font-bold" style={{ fontSize: "1.25rem", color: c.text }}>{c.value}</span>
@@ -281,7 +323,7 @@ function ManualTab() {
                   <td className="py-3.5 pr-4 text-sm font-medium text-[#374040]">
                     {row.kelas}
                   </td>
-                  <td className="py-3.5 pr-6">
+                  <td className="py-3.5 pr-6 w-[420px]">
                     <StatusControl value={status} onChange={(v) => setStatus(row.nis, v)} />
                   </td>
                 </tr>

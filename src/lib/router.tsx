@@ -52,7 +52,7 @@ export const router = createBrowserRouter([
       { path: "akademik/guru", element: <Guru /> },
       { path: "akademik/kelas-jadwal", element: <Navigate to="/akademik/kelas-jadwal/data" replace /> },
       { path: "akademik/kelas-jadwal/:tab", element: <KelasJadwal /> },
-      { path: "akademik/absensi", element: <Navigate to="/akademik/absensi/hari-ini" replace /> },
+      { path: "akademik/absensi", element: <Navigate to="/akademik/absensi/scan" replace /> },
       { path: "akademik/absensi/:tab", element: <AbsensiRoute /> },
       { path: "akademik/absensi-siswa", element: <Navigate to="/akademik/absensi-siswa/scan" replace /> },
       { path: "akademik/absensi-siswa/:tab", element: <AbsensiSiswa /> },

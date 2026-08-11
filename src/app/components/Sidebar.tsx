@@ -41,13 +41,13 @@ const getNavGroups = (absensiCount: number, tunggakanCount: number): NavGroup[] 
     group: "AKADEMIK",
     items: [
       { icon: Users,         label: "Siswa",         path: "/akademik/siswa",         roles: ["Admin", "Bendahara"] },
-      { icon: IdCard,        label: "Kartu Digital", path: "/akademik/kartu-digital", roles: ["Admin", "TU"] },
       { icon: UserCheck,     label: "Absensi Siswa", path: "/akademik/absensi-siswa", roles: ["Admin", "TU"] },
+      { icon: Award,         label: "Nilai Siswa",   path: "/akademik/nilai-siswa",   roles: ["Admin", "TU"] },
       { icon: Archive,       label: "Data Alumni",   path: "/akademik/alumni",        roles: ["Admin"] },
       { icon: GraduationCap, label: "Guru",          path: "/akademik/guru",          roles: ["Admin", "TU"] },
-      { icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal",  roles: ["Admin", "TU"] },
-      { icon: Award,         label: "Nilai Siswa",   path: "/akademik/nilai-siswa",   roles: ["Admin", "TU"] },
       { icon: ClipboardList, label: "Absensi Guru",  path: "/akademik/absensi",       roles: ["Admin", "TU"], badge: absensiCount },
+      { icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal",  roles: ["Admin", "TU"] },
+      { icon: IdCard,        label: "Kartu Digital", path: "/akademik/kartu-digital", roles: ["Admin", "TU"] },
     ],
   },
   {
@@ -196,14 +196,14 @@ function NavRow({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
           {!collapsed && (
             <>
               <span className="flex-1 text-left truncate">{item.label}</span>
-              {item.badge !== undefined && (
+              {item.badge !== undefined && item.badge > 0 && (
                 <span className="ml-auto text-[10px] font-bold bg-red-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
                   {item.badge}
                 </span>
               )}
             </>
           )}
-          {collapsed && item.badge !== undefined && (
+          {collapsed && item.badge !== undefined && item.badge > 0 && (
             <span className="text-[9px] font-bold bg-red-500 text-white rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
               {item.badge}
             </span>

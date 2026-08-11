@@ -2,8 +2,9 @@ import { useState, useMemo, useEffect } from "react";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, MoreHorizontal, X, Eye, Pencil,
-  MessageCircle, Trash2, FileText, Calendar,
+  MessageCircle, Trash2, FileText, Calendar, IdCard, ZoomIn
 } from "lucide-react";
+import QRCode from "react-qr-code";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 
@@ -12,6 +13,7 @@ import { mapelOptions } from "@/data/constants";
 import { useAppContext } from "@/context/AppContext";
 import { absensiRekapData } from "@/data/absensi";
 import { DAYS } from "@/data/kelas";
+import { KartuGuru } from "./KartuDigital";
 
 // ─── palette ──────────────────────────────────────────────────────────────────
 
@@ -65,7 +67,7 @@ function KehadiranCell({ pct }: { pct: number }) {
   );
 }
 
-function RowMenu({ onView, onWA, onNonaktif }: { onView: () => void, onWA: () => void, onNonaktif: () => void }) {
+function RowMenu({ onView, onWA, onNonaktif, onShowCard }: { onView: () => void, onWA: () => void, onNonaktif: () => void, onShowCard: () => void }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
 
@@ -75,12 +77,11 @@ function RowMenu({ onView, onWA, onNonaktif }: { onView: () => void, onWA: () =>
         onClick={(e) => { 
           e.stopPropagation(); 
           const rect = e.currentTarget.getBoundingClientRect();
-          // Jika menu terlalu dekat ke bawah layar, buka ke atas
           const spaceBelow = window.innerHeight - rect.bottom;
           const menuHeight = 160; 
           
           setCoords({
-            left: rect.right - 176, // 176 = w-44 (44 * 4px)
+            left: rect.right - 176,
             top: spaceBelow < menuHeight ? rect.top - menuHeight - 8 : rect.bottom + 8
           });
           setOpen((o) => !o); 
@@ -101,6 +102,12 @@ function RowMenu({ onView, onWA, onNonaktif }: { onView: () => void, onWA: () =>
               boxShadow: "0 4px 16px rgba(0,0,0,0.08)" 
             }}
           >
+            <button
+              onClick={(e) => { e.stopPropagation(); onShowCard(); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
+            >
+              <IdCard size={13} className="text-[#3E8A2F]" /> Kartu Digital
+            </button>
             <button
               onClick={(e) => { e.stopPropagation(); onView(); setOpen(false); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
@@ -313,7 +320,7 @@ function MapelMultiSelect({ values, onChange, label, options, required = false }
 
 type SheetTab = "profil" | "jadwal" | "absensi";
 
-function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions }: { guru: GuruRow; onClose: () => void; onSave: (data: Partial<GuruRow>) => void; isNew?: boolean; mapelOptions: string[] }) {
+function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions, onShowCard }: { guru: GuruRow; onClose: () => void; onSave: (data: Partial<GuruRow>) => void; isNew?: boolean; mapelOptions: string[]; onShowCard?: () => void }) {
   const { jadwalList } = useAppContext();
   const [tab, setTab] = useState<SheetTab>("profil");
   const [form, setForm] = useState({
@@ -370,12 +377,23 @@ function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions }: { guru: GuruR
               </div>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] hover:text-[#1C2517] transition-colors"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {onShowCard && !isNew && (
+              <button
+                onClick={onShowCard}
+                title="Lihat Kartu Digital"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-[#3E8A2F] bg-[#F5F9F4] hover:bg-[#E2E8DE] transition-colors"
+              >
+                <IdCard size={16} />
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] hover:text-[#1C2517] transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -635,6 +653,9 @@ export function Guru() {
   const [mapelFilter, setMapelFilter] = useState("Semua Mapel");
   const [statusFilter,setStatusFilter]= useState("Semua Status");
   const [selectedGuru, setSelectedGuru] = useState<GuruRow | null>(null);
+  
+  const [selectedCardGuru, setSelectedCardGuru] = useState<GuruRow | null>(null);
+  const [qrZoomGuru, setQrZoomGuru] = useState<GuruRow | null>(null);
   const [isAddingGuru, setIsAddingGuru] = useState(false);
 
   const dynamicMapelOptions = useMemo(() => {
@@ -830,7 +851,6 @@ export function Guru() {
                   style={{ borderBottom: i < paginatedRows.length - 1 ? "1px solid #F0F7EE" : "none" }}
                   onClick={() => setSelectedGuru(row)}
                 >
-                  {/* Guru */}
                   <td className="px-6 py-3.5">
                     <div className="flex items-center gap-3">
                       <div
@@ -848,17 +868,14 @@ export function Guru() {
                     </div>
                   </td>
 
-                  {/* Mata Pelajaran */}
                   <td className="px-4 py-3.5">
                     <MapelBadges mapel={row.mapel} />
                   </td>
 
-                  {/* Status Kepegawaian */}
                   <td className="px-4 py-3.5">
                     <StatusBadge status={row.statusKepeg as "PNS" | "GTY" | "Honorer"} />
                   </td>
 
-                  {/* Wali Kelas */}
                   <td className="px-4 py-3.5 text-sm text-[#374040]">
                     {row.waliKelas ? (
                       <span className="font-medium">{row.waliKelas}</span>
@@ -867,17 +884,14 @@ export function Guru() {
                     )}
                   </td>
 
-                  {/* Kehadiran */}
                   <td className="px-4 py-3.5">
                     <KehadiranCell pct={row.kehadiran} />
                   </td>
 
-                  {/* Status */}
                   <td className="px-4 py-3.5">
                     <StatusDot status={row.status} />
                   </td>
 
-                  {/* Aksi */}
                   <td className="py-3.5 pr-6" onClick={(e) => e.stopPropagation()}>
                     <RowMenu 
                       onView={() => setSelectedGuru(row)} 
@@ -887,6 +901,7 @@ export function Guru() {
                         window.open(`https://wa.me/${waNumber}`, "_blank");
                       }}
                       onNonaktif={() => updateGuru(row.id, { status: "Nonaktif" })}
+                      onShowCard={() => setSelectedCardGuru(row)}
                     />
                   </td>
                 </tr>
@@ -945,6 +960,7 @@ export function Guru() {
             updateGuru(selectedGuru.id, data);
             setSelectedGuru(null);
           }}
+          onShowCard={() => setSelectedCardGuru(selectedGuru)}
         />
       )}
       {isAddingGuru && (
@@ -982,6 +998,65 @@ export function Guru() {
             setIsAddingGuru(false);
           }}
         />
+      )}
+
+      {/* ── Mobile Modal (Kartu Digital) ── */}
+      {selectedCardGuru && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex flex-col items-center justify-center overflow-hidden" onClick={() => setSelectedCardGuru(null)}>
+          <button 
+            onClick={() => setSelectedCardGuru(null)}
+            className="absolute top-6 right-6 z-10 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white cursor-pointer hover:bg-white/30 transition-colors"
+          >
+            <X size={20} />
+          </button>
+          
+          <div className="w-full" onClick={(e) => e.stopPropagation()}>
+            <KartuGuru 
+              key={`modal-guru-${selectedCardGuru.id}`}
+              guru={selectedCardGuru} 
+              isModal={true} 
+              onZoom={(g: any) => setQrZoomGuru(g)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── QR Zoom Modal ── */}
+      {qrZoomGuru && (
+        <div 
+          className="fixed inset-0 z-[70] bg-black/90 flex flex-col items-center justify-center p-6"
+          onClick={() => setQrZoomGuru(null)}
+        >
+          <div 
+            className="bg-white p-6 rounded-2xl flex flex-col items-center max-w-sm w-full relative animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setQrZoomGuru(null)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#F5F9F4] flex items-center justify-center text-[#6B7769] hover:bg-[#E2E8DE] transition-colors"
+            >
+              <X size={16} />
+            </button>
+            
+            <h3 className="text-[#1C2517] font-bold mb-5 text-center text-lg leading-tight">
+              Scan QR Code
+              <br/>
+              <span className="text-sm font-normal text-[#6B7769]">{qrZoomGuru.nama}</span>
+            </h3>
+            
+            <div className="p-3 border-2 border-[#E2E8DE] rounded-xl bg-white shadow-sm mb-6">
+              <QRCode
+                value={`MADRASAH AL-ITTIHAD|${qrZoomGuru.id}|${qrZoomGuru.nama}`}
+                size={220}
+                level="M"
+              />
+            </div>
+            
+            <p className="text-center text-[#9CA3A0] text-sm">
+              Gunakan alat pemindai (scanner) di gerbang/ruang guru untuk merekam kehadiran elektronik Anda.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

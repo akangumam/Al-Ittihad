@@ -55,6 +55,9 @@ interface AppContextValue {
   absensiSiswaHariIni: Record<string, string>; // nis -> status (Hadir, Izin, Sakit, Alpa)
   setAbsensiSiswaHariIni: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 
+  absensiGuruHariIni: Record<number, { status: string; jam: string }>;
+  setAbsensiGuruHariIni: React.Dispatch<React.SetStateAction<Record<number, { status: string; jam: string }>>>;
+
   tagihanList: TagihanSiswa[];
   transaksiList: TransaksiPembayaran[];
   addTagihan: (tagihan: TagihanSiswa[]) => void;
@@ -62,6 +65,8 @@ interface AppContextValue {
 
   nilaiList: NilaiSiswa[];
   bulkUpdateNilai: (updates: Record<string, Partial<NilaiSiswa>>) => void;
+
+  absensiGuruHistory: Record<string, Record<number, { status: string; jam: string }>>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -77,6 +82,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [jadwalList, setJadwalList] = useState<JadwalRow[]>(jadwalData);
   const [jadwalOverridesList, setJadwalOverridesList] = useState<JadwalOverride[]>([]);
   const [absensiSiswaHariIni, setAbsensiSiswaHariIni] = useState<Record<string, string>>({});
+  const [absensiGuruHariIni, setAbsensiGuruHariIni] = useState<Record<number, { status: string; jam: string }>>({});
+  const [absensiGuruHistory, setAbsensiGuruHistory] = useState<Record<string, Record<number, { status: string; jam: string }>>>({});
   const [tagihanList, setTagihanList] = useState<TagihanSiswa[]>(initialTagihanSiswa);
   const [transaksiList, setTransaksiList] = useState<TransaksiPembayaran[]>(initialTransaksiPembayaran);
   const [nilaiList, setNilaiList] = useState<NilaiSiswa[]>(dataNilaiSiswa);
@@ -118,7 +125,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const parsed = JSON.parse(s6);
             if (parsed.length >= 576) setJadwalList(parsed);
           }
-          if (s8) savedGuru = JSON.parse(s8);
+          if (s8) {
+            const parsed = JSON.parse(s8);
+            if (parsed.length >= 13) savedGuru = parsed;
+          }
           if (s9) {
             const parsed = JSON.parse(s9);
             if (parsed.length >= 12) setKelasList(parsed);
@@ -133,9 +143,66 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (savedAbsensi) {
           const today = new Date().toISOString().split("T")[0];
           if (savedAbsensi.date === today) {
-            setAbsensiSiswaHariIni(savedAbsensi.data);
+            setAbsensiSiswaHariIni(savedAbsensi.data || {});
+            setAbsensiGuruHariIni(savedAbsensi.dataGuru || {});
           }
         }
+
+        // Load Guru History
+        let savedGuruHistory: Record<string, Record<number, { status: string; jam: string }>> | null = null;
+        if (isElectron) {
+          savedGuruHistory = await (window as any).electronAPI.getStoreValue("alittihad_absensi_guru_history");
+        } else {
+          const raw = localStorage.getItem("alittihad_absensi_guru_history");
+          if (raw) savedGuruHistory = JSON.parse(raw);
+        }
+
+        if (savedGuruHistory && Object.keys(savedGuruHistory).length > 0) {
+          setAbsensiGuruHistory(savedGuruHistory);
+        } else {
+          // Generate mock data for Juli and Agustus 2026 if empty
+          const mockHistory: Record<string, Record<number, { status: string; jam: string }>> = {};
+          
+          const generateMockMonth = (year: number, month: number, daysInMonth: number) => {
+            for (let d = 1; d <= daysInMonth; d++) {
+              const date = new Date(year, month, d);
+              // Skip weekends (0 = Sunday, 6 = Saturday)
+              if (date.getDay() === 0 || date.getDay() === 6) continue;
+              
+              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+              mockHistory[dateStr] = {};
+              
+              // Fill with pseudo-random attendance based on guruData
+              guruData.forEach(guru => {
+                const rand = Math.random();
+                let status = "Hadir";
+                let jam = "06:45";
+                
+                if (rand > 0.95) {
+                  status = "Alpa"; jam = "";
+                } else if (rand > 0.9) {
+                  status = "Izin"; jam = "";
+                } else if (rand > 0.85) {
+                  status = "Sakit"; jam = "";
+                } else if (rand > 0.7) {
+                  status = "Terlambat"; 
+                  const m = Math.floor(Math.random() * 30);
+                  jam = `07:${String(m).padStart(2, '0')}`;
+                } else {
+                  const m = 30 + Math.floor(Math.random() * 29); // 06:30 - 06:59
+                  jam = `06:${String(m).padStart(2, '0')}`;
+                }
+                
+                mockHistory[dateStr][guru.id] = { status, jam };
+              });
+            }
+          };
+
+          generateMockMonth(2026, 6, 31); // Juli
+          generateMockMonth(2026, 7, 31); // Agustus
+          setAbsensiGuruHistory(mockHistory);
+        }
+
       } catch (e) {
         console.error("Failed to load initial data", e);
       }
@@ -193,13 +260,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
-    const payload = { date: today, data: absensiSiswaHariIni };
+    const payload = { date: today, data: absensiSiswaHariIni, dataGuru: absensiGuruHariIni };
     if (isElectron) {
       (window as any).electronAPI.setStoreValue("alittihad_absensi_siswa", payload);
     } else {
       localStorage.setItem("alittihad_absensi_siswa", JSON.stringify(payload));
     }
-  }, [absensiSiswaHariIni, isElectron]);
+
+    // Sync current day guru attendance to history
+    if (Object.keys(absensiGuruHariIni).length > 0) {
+      setAbsensiGuruHistory(prev => {
+        const currentDay = prev[today] || {};
+        const mergedDay = { ...currentDay, ...absensiGuruHariIni };
+        
+        if (JSON.stringify(currentDay) === JSON.stringify(mergedDay)) return prev;
+        return { ...prev, [today]: mergedDay };
+      });
+    }
+  }, [absensiSiswaHariIni, absensiGuruHariIni, isElectron]);
+
+  useEffect(() => {
+    if (Object.keys(absensiGuruHistory).length === 0) return;
+    if (isElectron) {
+      (window as any).electronAPI.setStoreValue("alittihad_absensi_guru_history", absensiGuruHistory);
+    } else {
+      localStorage.setItem("alittihad_absensi_guru_history", JSON.stringify(absensiGuruHistory));
+    }
+  }, [absensiGuruHistory, isElectron]);
 
   useEffect(() => {
     if (!isElectron) {
@@ -319,7 +406,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Derived counts for sidebar badges
   const tunggakanCount = useMemo(() => tunggakanRows.filter(r => r.badge === "Kritis" || r.badge === "Waspada").length, [tunggakanRows]);
-  const absensiCount = useMemo(() => absensiGuruList.filter(g => g.defaultStatus === "Belum Absen").length, []);
+  const absensiCount = useMemo(() => {
+    const activeGuru = guruList.filter(g => g.status === "Aktif");
+    const safeData = absensiGuruHariIni || {};
+    return activeGuru.filter(g => !safeData[g.id]).length;
+  }, [guruList, absensiGuruHariIni]);
 
   // TODO: ambil dari session/auth saat login diimplementasikan
   const role: Role = "Admin";
@@ -338,6 +429,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         jadwalList, addJadwal, updateJadwal, deleteJadwal,
         jadwalOverridesList, setJadwalOverride, clearJadwalOverride,
         absensiSiswaHariIni, setAbsensiSiswaHariIni,
+        absensiGuruHariIni, setAbsensiGuruHariIni,
+        absensiGuruHistory,
         tagihanList, transaksiList, addTagihan, addTransaksi,
         nilaiList, bulkUpdateNilai
       }}

@@ -5,10 +5,11 @@ import {
   LayoutDashboard, CreditCard, AlertTriangle, ClipboardList, MoreHorizontal,
   Calendar, Users, GraduationCap, BookOpen,
   FileText, Landmark, BarChart3, Calculator,
-  Shield, Activity, Settings, IdCard, Archive, UserCheck
+  Shield, Activity, Settings, IdCard, Archive, UserCheck, Award
 } from "lucide-react";
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
+import { useAppContext } from "@/context/AppContext";
 
 // ─── bottom nav data ──────────────────────────────────────────────────────────
 
@@ -23,8 +24,8 @@ interface BottomNavItem {
 const BOTTOM_NAV: BottomNavItem[] = [
   { id: "dashboard",  path: "/",                    Icon: LayoutDashboard, label: "Dashboard" },
   { id: "pembayaran", path: "/keuangan/pembayaran", Icon: CreditCard,       label: "Pembayaran" },
-  { id: "tunggakan",  path: "/keuangan/tunggakan",  Icon: AlertTriangle,    label: "Tunggakan", badge: 12 },
-  { id: "absensi",    path: "/akademik/absensi",    Icon: ClipboardList,    label: "Absensi Guru",   badge: 3 },
+  { id: "tunggakan",  path: "/keuangan/tunggakan",  Icon: AlertTriangle,    label: "Tunggakan" },
+  { id: "absensi",    path: "/akademik/absensi",    Icon: ClipboardList,    label: "Absensi Guru" },
   { id: "menu",                                     Icon: MoreHorizontal,   label: "Menu" },
 ];
 
@@ -44,11 +45,13 @@ const MENU_GROUPS: Array<{
     group: "AKADEMIK",
     items: [
       { Icon: Users,         label: "Siswa",         path: "/akademik/siswa" },
-      { Icon: IdCard,        label: "Kartu Digital", path: "/akademik/kartu-digital" },
       { Icon: UserCheck,     label: "Absensi Siswa", path: "/akademik/absensi-siswa" },
+      { Icon: Award,         label: "Nilai Siswa",   path: "/akademik/nilai-siswa" },
       { Icon: Archive,       label: "Data Alumni",   path: "/akademik/alumni" },
-      { Icon: GraduationCap, label: "Guru",           path: "/akademik/guru" },
+      { Icon: GraduationCap, label: "Guru",          path: "/akademik/guru" },
+      { Icon: ClipboardList, label: "Absensi Guru",  path: "/akademik/absensi" },
       { Icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal" },
+      { Icon: IdCard,        label: "Kartu Digital", path: "/akademik/kartu-digital" },
     ],
   },
   {
@@ -152,6 +155,7 @@ function BottomMenuSheet({ onClose }: { onClose: () => void }) {
 // ─── shell ────────────────────────────────────────────────────────────────────
 
 export function MobileShell({ children }: { children: ReactNode }) {
+  const { absensiCount, tunggakanCount } = useAppContext();
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState("");
@@ -258,21 +262,30 @@ export function MobileShell({ children }: { children: ReactNode }) {
                   color={isActive ? "#3E8A2F" : "#9CA3A0"}
                   strokeWidth={isActive ? 2.5 : 1.75}
                 />
-                {item.badge !== undefined && (
-                  <span
-                    className="absolute flex items-center justify-center font-bold"
-                    style={{
-                      top: -4, right: -5,
-                      minWidth: 15, height: 15,
-                      borderRadius: 99,
-                      background: "#DC2626", color: "#fff",
-                      fontSize: 8, padding: "0 3px", lineHeight: 1,
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    {item.badge}
-                  </span>
-                )}
+                {(() => {
+                  let badgeVal = item.badge;
+                  if (item.id === "tunggakan") badgeVal = tunggakanCount;
+                  if (item.id === "absensi") badgeVal = absensiCount;
+                  
+                  if (badgeVal !== undefined && badgeVal > 0) {
+                    return (
+                      <span
+                        className="absolute flex items-center justify-center font-bold"
+                        style={{
+                          top: -4, right: -5,
+                          minWidth: 15, height: 15,
+                          borderRadius: 99,
+                          background: "#DC2626", color: "#fff",
+                          fontSize: 8, padding: "0 3px", lineHeight: 1,
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        {badgeVal}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
               <span
                 className="text-[10px] font-medium leading-none"
