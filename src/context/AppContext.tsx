@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from "react";
-import type { Role } from "@/types";
-import { 
-  tunggakanRows as initialTunggakan, 
-  initialTagihanSiswa, 
+import { createContext, useContext, useState, useEffect, useRef, useMemo, type ReactNode } from "react";
+import type { Role, AbsensiGerbangRecord, AbsensiSettings, AppSettings, ActivityLogEntry } from "@/types";
+import { useAuth } from "@/context/AuthContext";
+import { fmt } from "@/lib/formatters";
+import {
+  initialTagihanSiswa,
   initialTransaksiPembayaran,
   type TagihanSiswa,
   type TransaksiPembayaran
@@ -11,7 +12,7 @@ import { absensiGuruList } from "@/data/absensi";
 import { siswaData, type SiswaRow } from "@/data/siswa";
 import { alumniData, type AlumniRow } from "@/data/alumni";
 import { guruData, type GuruRow } from "@/data/guru";
-import { type JadwalRow, type KelasRow, kelasData, type JadwalOverride, jadwalData } from "@/data/kelas";
+import { type JadwalRow, type KelasRow, kelasData, type JadwalOverride, jadwalData, type WaktuProfile, defaultWaktuProfile } from "@/data/kelas";
 import { dataNilaiSiswa, type NilaiSiswa } from "@/data/nilai";
 
 interface AppContextValue {
@@ -52,6 +53,9 @@ interface AppContextValue {
   setJadwalOverride: (override: JadwalOverride) => void;
   clearJadwalOverride: (id: string) => void;
 
+  waktuProfiles: WaktuProfile[];
+  setWaktuProfiles: (profiles: WaktuProfile[]) => void;
+
   absensiSiswaHariIni: Record<string, string>; // nis -> status (Hadir, Izin, Sakit, Alpa)
   setAbsensiSiswaHariIni: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 
@@ -61,12 +65,26 @@ interface AppContextValue {
   tagihanList: TagihanSiswa[];
   transaksiList: TransaksiPembayaran[];
   addTagihan: (tagihan: TagihanSiswa[]) => void;
+  updateTagihanSiswa: (id: string, newNominal: number, keterangan?: string) => void;
+  deleteTagihanSiswa: (id: string) => void;
+  addTagihanSiswaManual: (nis: string, namaTagihan: string, nominal: number, jatuhTempo: string, kategori?: string) => void;
   addTransaksi: (transaksi: TransaksiPembayaran, updatedTagihan: TagihanSiswa[]) => void;
 
   nilaiList: NilaiSiswa[];
   bulkUpdateNilai: (updates: Record<string, Partial<NilaiSiswa>>) => void;
 
   absensiGuruHistory: Record<string, Record<number, { status: string; jam: string }>>;
+
+  absensiGerbangLog: AbsensiGerbangRecord[];
+  setAbsensiGerbangLog: React.Dispatch<React.SetStateAction<AbsensiGerbangRecord[]>>;
+  absensiSettings: AbsensiSettings;
+  setAbsensiSettings: React.Dispatch<React.SetStateAction<AbsensiSettings>>;
+
+  appSettings: AppSettings;
+  setAppSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+  isElectron: boolean;
+
+  activityLogs: ActivityLogEntry[];
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -74,19 +92,42 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [tahunAjaran, setTahunAjaran] = useState("2025/2026");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [tunggakanRows, setTunggakanRows] = useState(initialTunggakan);
   const [siswaList, setSiswaList] = useState<SiswaRow[]>(siswaData);
   const [alumniList, setAlumniList] = useState<AlumniRow[]>(alumniData);
   const [guruList, setGuruList] = useState<GuruRow[]>(guruData);
   const [kelasList, setKelasList] = useState<KelasRow[]>(kelasData);
   const [jadwalList, setJadwalList] = useState<JadwalRow[]>(jadwalData);
   const [jadwalOverridesList, setJadwalOverridesList] = useState<JadwalOverride[]>([]);
+  const [waktuProfiles, setWaktuProfiles] = useState<WaktuProfile[]>([defaultWaktuProfile]);
   const [absensiSiswaHariIni, setAbsensiSiswaHariIni] = useState<Record<string, string>>({});
   const [absensiGuruHariIni, setAbsensiGuruHariIni] = useState<Record<number, { status: string; jam: string }>>({});
   const [absensiGuruHistory, setAbsensiGuruHistory] = useState<Record<string, Record<number, { status: string; jam: string }>>>({});
   const [tagihanList, setTagihanList] = useState<TagihanSiswa[]>(initialTagihanSiswa);
   const [transaksiList, setTransaksiList] = useState<TransaksiPembayaran[]>(initialTransaksiPembayaran);
   const [nilaiList, setNilaiList] = useState<NilaiSiswa[]>(dataNilaiSiswa);
+  const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
+
+  const defaultAbsensiSettings: AbsensiSettings = {
+    batasHadir: "08:00",
+    batasTerlambat: "08:15",
+    jamBuka: "06:30",
+    jamTutupOtomatis: "09:00",
+    enableFingerprint: true,
+    enableQR: true,
+    enableManual: true,
+  };
+  const [absensiSettings, setAbsensiSettings] = useState<AbsensiSettings>(defaultAbsensiSettings);
+  const [absensiGerbangLog, setAbsensiGerbangLog] = useState<AbsensiGerbangRecord[]>([]);
+
+  const defaultAppSettings: AppSettings = {
+    tahunAjaran: "2025/2026",
+    jamMasukGuru: "07:00",
+    kapasitasKelas: 32,
+    formatKuitansi: "KWT-YYYYMMDD-XXX",
+    namaMadrasah: "MTs Al-Ittihad Pedaleman",
+    alamatMadrasah: "Jl. Pendidikan No. 1",
+  };
+  const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
 
   const isElectron = !!(window as any).electronAPI;
 
@@ -119,11 +160,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // s1 handled above
           if (s2) savedAlumni = JSON.parse(s2);
           if (s3) savedAbsensi = JSON.parse(s3);
-          if (s4) setTagihanList(JSON.parse(s4));
+          if (s4) {
+            const parsed = JSON.parse(s4);
+            // Only use stored data if it has entries; otherwise fall back to seed data
+            // Also check seed version: if seed was updated, clear stale localStorage
+            const storedVersion = localStorage.getItem("alittihad_tagihan_seed_v");
+            const CURRENT_SEED_V = "2"; // increment this when initialTagihanSiswa changes
+            if (storedVersion !== CURRENT_SEED_V) {
+              // Seed version changed — discard old localStorage tagihan so seed takes effect
+              localStorage.removeItem("alittihad_tagihan");
+              localStorage.setItem("alittihad_tagihan_seed_v", CURRENT_SEED_V);
+            } else if (parsed.length > 0) {
+              setTagihanList(parsed);
+            }
+          } else {
+            // No stored tagihan at all, set seed version
+            localStorage.setItem("alittihad_tagihan_seed_v", "2");
+          }
           if (s5) setTransaksiList(JSON.parse(s5));
-          if (s6) {
+          // Jadwal format version guard — clears stale data if format changed
+          const jadwalV = localStorage.getItem("alittihad_jadwal_v");
+          if (jadwalV !== "2") {
+            // Format changed from time-strings to slot numbers — discard stale data
+            localStorage.removeItem("alittihad_jadwal");
+            localStorage.removeItem("alittihad_jadwal_overrides");
+            localStorage.setItem("alittihad_jadwal_v", "2");
+          } else if (s6) {
             const parsed = JSON.parse(s6);
-            if (parsed.length >= 576) setJadwalList(parsed);
+            if (parsed.length >= 1) setJadwalList(parsed);
           }
           if (s8) {
             const parsed = JSON.parse(s8);
@@ -135,6 +199,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           if (s10) setJadwalOverridesList(JSON.parse(s10));
           if (s11) setNilaiList(JSON.parse(s11));
+
+          const s15 = localStorage.getItem("alittihad_waktu_profiles");
+          if (s15) {
+            const parsed = JSON.parse(s15);
+            if (Array.isArray(parsed) && parsed.length >= 1) setWaktuProfiles(parsed);
+          }
+          
+          const s12 = localStorage.getItem("alittihad_absensi_settings");
+          if (s12) setAbsensiSettings(JSON.parse(s12));
+          
+          const s13 = localStorage.getItem("alittihad_absensi_gerbang");
+          if (s13) setAbsensiGerbangLog(JSON.parse(s13));
+
+          const s14 = localStorage.getItem("alittihad_app_settings");
+          if (s14) setAppSettings(JSON.parse(s14));
+
+          const s16 = localStorage.getItem("alittihad_activity_log");
+          if (s16) setActivityLogs(JSON.parse(s16));
         }
 
         if (savedSiswa) setSiswaList(savedSiswa);
@@ -251,6 +333,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [jadwalOverridesList, isElectron]);
 
   useEffect(() => {
+    if (!isElectron) {
+      localStorage.setItem("alittihad_waktu_profiles", JSON.stringify(waktuProfiles));
+    }
+  }, [waktuProfiles, isElectron]);
+
+  useEffect(() => {
     if (isElectron) {
       (window as any).electronAPI.setStoreValue("alittihad_kelas", kelasList);
     } else {
@@ -289,6 +377,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [absensiGuruHistory, isElectron]);
 
   useEffect(() => {
+    if (isElectron) {
+      (window as any).electronAPI.setStoreValue("alittihad_absensi_settings", absensiSettings);
+    } else {
+      localStorage.setItem("alittihad_absensi_settings", JSON.stringify(absensiSettings));
+    }
+  }, [absensiSettings, isElectron]);
+
+  useEffect(() => {
+    if (isElectron) {
+      (window as any).electronAPI.setStoreValue("alittihad_absensi_gerbang", absensiGerbangLog);
+    } else {
+      localStorage.setItem("alittihad_absensi_gerbang", JSON.stringify(absensiGerbangLog));
+    }
+  }, [absensiGerbangLog, isElectron]);
+
+  useEffect(() => {
+    if (isElectron) {
+      (window as any).electronAPI.setStoreValue("alittihad_app_settings", appSettings);
+    } else {
+      localStorage.setItem("alittihad_app_settings", JSON.stringify(appSettings));
+    }
+  }, [appSettings, isElectron]);
+
+  useEffect(() => {
     if (!isElectron) {
       localStorage.setItem("alittihad_tagihan", JSON.stringify(tagihanList));
     } else {
@@ -311,6 +423,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       (window as any).electronAPI.setStoreValue("alittihad_nilai", nilaiList);
     }
   }, [nilaiList, isElectron]);
+
+  useEffect(() => {
+    if (!isElectron) {
+      localStorage.setItem("alittihad_activity_log", JSON.stringify(activityLogs));
+    } else {
+      (window as any).electronAPI.setStoreValue("alittihad_activity_log", activityLogs);
+    }
+  }, [activityLogs, isElectron]);
+
+  // ─── Activity log helper ───────────────────────────────────────────────────
+  const logActivity = (entry: Omit<ActivityLogEntry, "id" | "waktu" | "pelaku">) => {
+    setActivityLogs(prev => [{
+      id: crypto.randomUUID(),
+      waktu: new Date().toISOString(),
+      pelaku: authUser?.nama ?? "Sistem",
+      ...entry,
+    }, ...prev]);
+  };
 
   const addKelas = (kelas: KelasRow) => setKelasList(prev => [...prev, kelas]);
   const updateKelas = (id: string, data: Partial<KelasRow>) => {
@@ -383,10 +513,81 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setJadwalOverridesList(prev => prev.filter(o => o.id !== id));
   };
 
-  const addTagihan = (tagihan: TagihanSiswa[]) => setTagihanList(prev => [...tagihan, ...prev]);
+  const addTagihan = (tagihan: TagihanSiswa[]) => {
+    setTagihanList(prev => {
+      const existingIds = new Set(prev.map(t => t.id));
+      const newOnes = tagihan.filter(t => !existingIds.has(t.id));
+      return [...newOnes, ...prev];
+    });
+    if (tagihan.length > 0) {
+      const uniqueNis = new Set(tagihan.map(t => t.nis));
+      const kategori = tagihan[0].kategori;
+      const total = tagihan.reduce((s, t) => s + t.nominal, 0);
+      logActivity({
+        tipe: "Penetapan Tagihan",
+        deskripsi: `${kategori} ditetapkan untuk ${uniqueNis.size} siswa (${fmt(total)})`,
+        ref: "—",
+      });
+    }
+  };
+
+  const updateTagihanSiswa = (id: string, newNominal: number, keterangan?: string) => {
+    const tagihan = tagihanList.find(t => t.id === id);
+    setTagihanList(prev => prev.map(t => {
+      if (t.id === id) {
+        return { ...t, nominal: newNominal, keterangan, isLunas: t.terbayar >= newNominal && newNominal > 0 };
+      }
+      return t;
+    }));
+    if (tagihan) {
+      const siswa = siswaList.find(s => s.nis === tagihan.nis);
+      logActivity({
+        tipe: "Update Tagihan",
+        deskripsi: `${siswa?.nama ?? tagihan.nis} — "${tagihan.namaTagihan}" diubah ke ${fmt(newNominal)}${keterangan ? ` · ${keterangan}` : ""}`,
+        ref: "—",
+      });
+    }
+  };
+
+  const deleteTagihanSiswa = (id: string) => {
+    const tagihan = tagihanList.find(t => t.id === id);
+    setTagihanList(prev => prev.filter(t => t.id !== id));
+    if (tagihan) {
+      const siswa = siswaList.find(s => s.nis === tagihan.nis);
+      logActivity({
+        tipe: "Hapus Tagihan",
+        deskripsi: `${siswa?.nama ?? tagihan.nis} — "${tagihan.namaTagihan}" dihapus`,
+        ref: "—",
+      });
+    }
+  };
+
+  const addTagihanSiswaManual = (nis: string, namaTagihan: string, nominal: number, jatuhTempo: string, kategori = "Penyesuaian Khusus") => {
+    const id = `TGH-${nis}-${Date.now().toString().slice(-6)}`;
+    const newTagihan: TagihanSiswa = {
+      id,
+      nis,
+      namaTagihan,
+      kategori,
+      nominal,
+      terbayar: 0,
+      jatuhTempo,
+      isLunas: false,
+      prioritas: 99
+    };
+    setTagihanList(prev => [newTagihan, ...prev]);
+  };
+
   const addTransaksi = (transaksi: TransaksiPembayaran, updatedTagihan: TagihanSiswa[]) => {
     setTransaksiList(prev => [transaksi, ...prev]);
-    setTagihanList(updatedTagihan);
+    const updatedMap = new Map(updatedTagihan.map(t => [t.id, t]));
+    setTagihanList(prev => prev.map(t => updatedMap.has(t.id) ? updatedMap.get(t.id)! : t));
+    const siswa = siswaList.find(s => s.nis === transaksi.nis);
+    logActivity({
+      tipe: "Pembayaran",
+      deskripsi: `${siswa?.nama ?? transaksi.nis} — ${fmt(transaksi.nominal)} via ${transaksi.metode}`,
+      ref: transaksi.nomorKuitansi,
+    });
   };
 
   const bulkUpdateNilai = (updates: Record<string, Partial<NilaiSiswa>>) => {
@@ -405,15 +606,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Derived counts for sidebar badges
-  const tunggakanCount = useMemo(() => tunggakanRows.filter(r => r.badge === "Kritis" || r.badge === "Waspada").length, [tunggakanRows]);
+  const tunggakanCount = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return siswaList.filter(s => s.status === "Aktif").filter(s => {
+      const unpaid = tagihanList.filter(t => t.nis === s.nis && t.nominal > t.terbayar);
+      if (unpaid.length === 0) return false;
+      const oldest = unpaid.reduce((a, b) =>
+        new Date(a.jatuhTempo) < new Date(b.jatuhTempo) ? a : b
+      );
+      const diffDays = Math.floor(
+        (today.getTime() - new Date(oldest.jatuhTempo).getTime()) / 86_400_000
+      );
+      return diffDays > 30; // Waspada (31–60) atau Kritis (60+)
+    }).length;
+  }, [siswaList, tagihanList]);
   const absensiCount = useMemo(() => {
-    const activeGuru = guruList.filter(g => g.status === "Aktif");
     const safeData = absensiGuruHariIni || {};
-    return activeGuru.filter(g => !safeData[g.id]).length;
+    return guruList.filter(g => !safeData[g.id]).length;
   }, [guruList, absensiGuruHariIni]);
 
-  // TODO: ambil dari session/auth saat login diimplementasikan
-  const role: Role = "Admin";
+  const { user: authUser } = useAuth();
+  const role: Role = authUser?.role ?? "Admin";
+
+  // ─── Catat login / logout ─────────────────────────────────────────────────
+  const prevAuthRef = useRef<typeof authUser | undefined>(undefined);
+  useEffect(() => {
+    if (prevAuthRef.current === undefined) {
+      prevAuthRef.current = authUser;
+      return;
+    }
+    const prev = prevAuthRef.current;
+    prevAuthRef.current = authUser;
+
+    if (!prev?.role && authUser?.role) {
+      setActivityLogs(logs => [{
+        id: crypto.randomUUID(),
+        waktu: new Date().toISOString(),
+        tipe: "Login",
+        deskripsi: `${authUser.nama} masuk ke sistem`,
+        ref: "—",
+        pelaku: authUser.nama,
+      }, ...logs]);
+    } else if (prev?.role && !authUser) {
+      setActivityLogs(logs => [{
+        id: crypto.randomUUID(),
+        waktu: new Date().toISOString(),
+        tipe: "Logout",
+        deskripsi: `${prev.nama} keluar dari sistem`,
+        ref: "—",
+        pelaku: prev.nama,
+      }, ...logs]);
+    }
+  }, [authUser]);
 
   return (
     <AppContext.Provider
@@ -428,11 +673,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kelasList, addKelas, updateKelas, deleteKelas,
         jadwalList, addJadwal, updateJadwal, deleteJadwal,
         jadwalOverridesList, setJadwalOverride, clearJadwalOverride,
+        waktuProfiles, setWaktuProfiles,
         absensiSiswaHariIni, setAbsensiSiswaHariIni,
         absensiGuruHariIni, setAbsensiGuruHariIni,
         absensiGuruHistory,
-        tagihanList, transaksiList, addTagihan, addTransaksi,
-        nilaiList, bulkUpdateNilai
+        tagihanList, transaksiList, addTagihan, updateTagihanSiswa, deleteTagihanSiswa, addTagihanSiswaManual, addTransaksi,
+        nilaiList, bulkUpdateNilai,
+        isElectron,
+        absensiGerbangLog,
+        setAbsensiGerbangLog,
+        absensiSettings,
+        setAbsensiSettings,
+        appSettings,
+        setAppSettings,
+        activityLogs,
       }}
     >
       {children}

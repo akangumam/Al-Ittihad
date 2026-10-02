@@ -10,6 +10,7 @@ import {
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
 import { useAppContext } from "@/context/AppContext";
+import type { Role } from "@/types";
 
 // ─── bottom nav data ──────────────────────────────────────────────────────────
 
@@ -19,21 +20,29 @@ interface BottomNavItem {
   Icon: ElementType;
   label: string;
   badge?: number;
+  roles?: Role[];
 }
 
 const BOTTOM_NAV: BottomNavItem[] = [
   { id: "dashboard",  path: "/",                    Icon: LayoutDashboard, label: "Dashboard" },
-  { id: "pembayaran", path: "/keuangan/pembayaran", Icon: CreditCard,       label: "Pembayaran" },
-  { id: "tunggakan",  path: "/keuangan/tunggakan",  Icon: AlertTriangle,    label: "Tunggakan" },
-  { id: "absensi",    path: "/akademik/absensi",    Icon: ClipboardList,    label: "Absensi Guru" },
-  { id: "menu",                                     Icon: MoreHorizontal,   label: "Menu" },
+  { id: "pembayaran", path: "/keuangan/pembayaran", Icon: CreditCard,      label: "Kasir",        roles: ["Admin", "Bendahara"] },
+  { id: "tunggakan",  path: "/keuangan/tunggakan",  Icon: AlertTriangle,   label: "Tunggakan",    roles: ["Admin", "Bendahara"] },
+  { id: "absensi",    path: "/akademik/absensi",    Icon: ClipboardList,   label: "Absensi Guru", roles: ["Admin", "TU"] },
+  { id: "menu",                                     Icon: MoreHorizontal,  label: "Menu" },
 ];
 
 // ─── menu sheet data ──────────────────────────────────────────────────────────
 
+interface MenuItem {
+  Icon: ElementType;
+  label: string;
+  path: string;
+  roles?: Role[];
+}
+
 const MENU_GROUPS: Array<{
   group: string | null;
-  items: Array<{ Icon: ElementType; label: string; path: string }>;
+  items: MenuItem[];
 }> = [
   {
     group: null,
@@ -44,31 +53,38 @@ const MENU_GROUPS: Array<{
   {
     group: "AKADEMIK",
     items: [
-      { Icon: Users,         label: "Siswa",         path: "/akademik/siswa" },
-      { Icon: UserCheck,     label: "Absensi Siswa", path: "/akademik/absensi-siswa" },
-      { Icon: Award,         label: "Nilai Siswa",   path: "/akademik/nilai-siswa" },
-      { Icon: Archive,       label: "Data Alumni",   path: "/akademik/alumni" },
-      { Icon: GraduationCap, label: "Guru",          path: "/akademik/guru" },
-      { Icon: ClipboardList, label: "Absensi Guru",  path: "/akademik/absensi" },
-      { Icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal" },
-      { Icon: IdCard,        label: "Kartu Digital", path: "/akademik/kartu-digital" },
+      { Icon: Users,         label: "Siswa",          path: "/akademik/siswa",         roles: ["Admin", "Bendahara"] },
+      { Icon: UserCheck,     label: "Absensi Siswa",  path: "/akademik/absensi-siswa", roles: ["Admin", "TU"] },
+      { Icon: Award,         label: "Nilai Siswa",    path: "/akademik/nilai-siswa",   roles: ["Admin", "TU"] },
+      { Icon: Archive,       label: "Data Alumni",    path: "/akademik/alumni",        roles: ["Admin"] },
+      { Icon: GraduationCap, label: "Guru",           path: "/akademik/guru",          roles: ["Admin", "TU"] },
+      { Icon: ClipboardList, label: "Absensi Guru",   path: "/akademik/absensi",       roles: ["Admin", "TU"] },
+      { Icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal",  roles: ["Admin", "TU"] },
+      { Icon: IdCard,        label: "Kartu Digital",  path: "/akademik/kartu-digital", roles: ["Admin", "TU"] },
     ],
   },
   {
-    group: "KEUANGAN",
+    group: "KEUANGAN SISWA",
     items: [
-      { Icon: FileText,   label: "Tagihan",    path: "/keuangan/tagihan" },
-      { Icon: Landmark,   label: "Kas & Bank", path: "/keuangan/kas-bank" },
-      { Icon: BarChart3,  label: "Laporan",    path: "/keuangan/laporan" },
-      { Icon: Calculator, label: "Anggaran",   path: "/keuangan/anggaran" },
+      { Icon: CreditCard,    label: "Kasir (Terima Bayar)", path: "/keuangan/pembayaran", roles: ["Admin", "Bendahara"] },
+      { Icon: AlertTriangle, label: "Pantau Tunggakan",     path: "/keuangan/tunggakan",  roles: ["Admin", "Bendahara"] },
+      { Icon: FileText,      label: "Penetapan Tagihan",    path: "/keuangan/tagihan",    roles: ["Admin", "Bendahara"] },
+    ],
+  },
+  {
+    group: "KEUANGAN YAYASAN",
+    items: [
+      { Icon: Landmark,   label: "Kas & Bank", path: "/keuangan/kas-bank",  roles: ["Admin", "Bendahara"] },
+      { Icon: BarChart3,  label: "Laporan",    path: "/keuangan/laporan",   roles: ["Admin", "Bendahara"] },
+      { Icon: Calculator, label: "Anggaran",   path: "/keuangan/anggaran",  roles: ["Admin", "Bendahara"] },
     ],
   },
   {
     group: "SISTEM",
     items: [
-      { Icon: Shield,   label: "Pengguna & Akses", path: "/sistem/pengguna" },
-      { Icon: Activity, label: "Log Aktivitas",    path: "/sistem/log-aktivitas" },
-      { Icon: Settings, label: "Pengaturan",       path: "/sistem/pengaturan" },
+      { Icon: Shield,   label: "Pengguna & Akses", path: "/sistem/pengguna",      roles: ["Admin"] },
+      { Icon: Activity, label: "Log Aktivitas",    path: "/sistem/log-aktivitas", roles: ["Admin"] },
+      { Icon: Settings, label: "Pengaturan",       path: "/sistem/pengaturan",    roles: ["Admin"] },
     ],
   },
 ];
@@ -77,6 +93,7 @@ const MENU_GROUPS: Array<{
 
 function BottomMenuSheet({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
+  const { role } = useAppContext();
 
   function go(path: string) {
     void navigate(path);
@@ -110,42 +127,46 @@ function BottomMenuSheet({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* Groups */}
-      {MENU_GROUPS.map((group, gi) => (
-        <div key={gi}>
-          {gi === 1 && (
-            <div className="h-px mx-5 bg-[#F0F7EE]" style={{ marginBottom: 4 }} />
-          )}
-          {group.group && (
-            <p
-              className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide px-5"
-              style={{ paddingTop: 12, paddingBottom: 2 }}
-            >
-              {group.group}
-            </p>
-          )}
-          {group.items.map((item) => {
-            const Icon = item.Icon;
-            return (
-              <button
-                key={item.path}
-                onClick={() => go(item.path)}
-                className="w-full flex items-center gap-3.5 px-5 hover:bg-[#F5F9F4] transition-colors"
-                style={{
-                  height: 48,
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                  textAlign: "left",
-                }}
+      {MENU_GROUPS.map((group, gi) => {
+        const visibleItems = group.items.filter(item => !item.roles || item.roles.includes(role));
+        if (visibleItems.length === 0) return null;
+        return (
+          <div key={gi}>
+            {gi === 1 && (
+              <div className="h-px mx-5 bg-[#F0F7EE]" style={{ marginBottom: 4 }} />
+            )}
+            {group.group && (
+              <p
+                className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide px-5"
+                style={{ paddingTop: 12, paddingBottom: 2 }}
               >
-                <Icon size={18} color="#6B7769" />
-                <span className="text-[14px] text-[#374040]">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      ))}
+                {group.group}
+              </p>
+            )}
+            {visibleItems.map((item) => {
+              const Icon = item.Icon;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => go(item.path)}
+                  className="w-full flex items-center gap-3.5 px-5 hover:bg-[#F5F9F4] transition-colors"
+                  style={{
+                    height: 48,
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    textAlign: "left",
+                  }}
+                >
+                  <Icon size={18} color="#6B7769" />
+                  <span className="text-[14px] text-[#374040]">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
 
       <div style={{ height: 24 }} />
     </div>
@@ -155,11 +176,14 @@ function BottomMenuSheet({ onClose }: { onClose: () => void }) {
 // ─── shell ────────────────────────────────────────────────────────────────────
 
 export function MobileShell({ children }: { children: ReactNode }) {
-  const { absensiCount, tunggakanCount } = useAppContext();
+  const { absensiCount, tunggakanCount, appSettings, role } = useAppContext();
+  const shortYear = appSettings.tahunAjaran.split("/").map(y => y.slice(-2)).join("/");
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const visibleBottomNav = BOTTOM_NAV.filter(item => !item.roles || item.roles.includes(role));
 
   function isNavActive(item: BottomNavItem): boolean {
     if (!item.path) return false;
@@ -183,7 +207,7 @@ export function MobileShell({ children }: { children: ReactNode }) {
             className="text-[11px] font-semibold text-[#3E8A2F]"
             style={{ background: "#EDF7EC", padding: "4px 10px", borderRadius: 99 }}
           >
-            25/26
+            {shortYear}
           </span>
           <button
             className="w-9 h-9 rounded-full flex items-center justify-center"
@@ -232,7 +256,7 @@ export function MobileShell({ children }: { children: ReactNode }) {
         className="absolute bottom-0 left-0 right-0 flex z-40"
         style={{ height: 64, background: "#fff", borderTop: "1px solid #E2E8DE" }}
       >
-        {BOTTOM_NAV.map((item) => {
+        {visibleBottomNav.map((item) => {
           const isActive = item.id === "menu" ? menuOpen : isNavActive(item);
           const Icon = item.Icon;
           return (
@@ -266,7 +290,7 @@ export function MobileShell({ children }: { children: ReactNode }) {
                   let badgeVal = item.badge;
                   if (item.id === "tunggakan") badgeVal = tunggakanCount;
                   if (item.id === "absensi") badgeVal = absensiCount;
-                  
+
                   if (badgeVal !== undefined && badgeVal > 0) {
                     return (
                       <span

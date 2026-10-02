@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Check, ChevronDown, X, MessageCircle, Printer } from "lucide-react";
+import { useSearchParams } from "react-router";
 import { fmt, fmtNum } from "@/lib/formatters";
 import {
   Dialog,
@@ -8,12 +9,21 @@ import {
 } from "@/app/components/ui/dialog";
 
 import { useAppContext } from "@/context/AppContext";
+import { KAS_BANK_LIST, METODE_PEMBAYARAN_LIST } from "@/data/pembayaran";
 
 // ─── allocation logic ─────────────────────────────────────────────────────────
 
 function computeAlokasi(nominal: number, tagihanSiswa: any[]) {
   let rem = nominal;
-  return tagihanSiswa.map((t) => {
+  // Sort tagihan by prioritas (kecil = utama), if same then by jatuhTempo (earliest first)
+  const sortedTagihan = [...tagihanSiswa].sort((a, b) => {
+    const prioA = a.prioritas ?? 999;
+    const prioB = b.prioritas ?? 999;
+    if (prioA !== prioB) return prioA - prioB;
+    return new Date(a.jatuhTempo).getTime() - new Date(b.jatuhTempo).getTime();
+  });
+  
+  return sortedTagihan.map((t) => {
     const sisaTagihan = t.nominal - t.terbayar;
     const alloc = Math.min(rem, sisaTagihan);
     rem -= alloc;
@@ -29,19 +39,22 @@ function FloatingInput({
   value,
   onChange,
   required,
+  type = "text",
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   required?: boolean;
+  type?: string;
 }) {
   const [focused, setFocused] = useState(false);
-  const up = focused || value.length > 0;
+  const up = focused || value.length > 0 || type === "date";
 
   return (
     <div className="relative">
       <input
+        type={type}
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -127,22 +140,25 @@ function FloatingSelect({
 interface ReceiptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onNextTransaction?: () => void;
   student: { nama: string; nis: string; kelas: string; waliNama: string; waliHp: string; inits?: string };
   nominal: number;
   tanggal: string;
   metode: string;
   nomorKuitansi: string;
   alokasi: Array<{ kategori: string; alloc: number; lunas: boolean }>;
+  tahunAjaran: string;
+  namaMadrasah: string;
 }
 
 function ReceiptDialog({
-  open, onOpenChange, student, nominal, tanggal, metode, nomorKuitansi, alokasi,
+  open, onOpenChange, onNextTransaction, student, nominal, tanggal, metode, nomorKuitansi, alokasi, tahunAjaran, namaMadrasah
 }: ReceiptDialogProps) {
   const waNumber = student.waliHp.replace(/\D/g, "").replace(/^0/, "62");
   const waLines = [
     `Assalamu'alaikum Bapak/Ibu ${student.waliNama},`,
     ``,
-    `Berikut kuitansi pembayaran TA 2025/2026:`,
+    `Berikut kuitansi pembayaran TA ${tahunAjaran}:`,
     ``,
     `No. Kuitansi : ${nomorKuitansi}`,
     `Siswa        : ${student.nama} (Kelas ${student.kelas})`,
@@ -156,7 +172,7 @@ function ReceiptDialog({
       .map((a) => `• ${a.kategori}: ${fmt(a.alloc)}${a.lunas ? " (LUNAS)" : ""}`),
     ``,
     `Terima kasih atas kepercayaan Bapak/Ibu.`,
-    `MTs Al-Ittihad Pedaleman`,
+    namaMadrasah,
   ];
   const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(waLines.join("\n"))}`;
 
@@ -238,7 +254,10 @@ function ReceiptDialog({
               Cetak Kuitansi
             </button>
             <button
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                onOpenChange(false);
+                if (onNextTransaction) onNextTransaction();
+              }}
               className="w-full py-3 rounded-lg text-sm font-semibold text-[#6B7769] hover:text-[#374040] transition-colors"
             >
               Transaksi Berikutnya
@@ -257,21 +276,32 @@ function ReceiptDialog({
 // ─── page component ───────────────────────────────────────────────────────────
 
 export function Pembayaran() {
-  const { siswaList, tagihanList, addTransaksi } = useAppContext();
+  const { siswaList, tagihanList, addTransaksi, appSettings } = useAppContext();
+  const [searchParams] = useSearchParams();
+  const initialStudentId = searchParams.get("siswaId") ? Number(searchParams.get("siswaId")) : null;
   
   const [query, setQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(initialStudentId);
+
+  useEffect(() => {
+    if (initialStudentId) {
+      setSelectedStudentId(initialStudentId);
+    }
+  }, [initialStudentId]);
   
   const [nominal, setNominal] = useState(0);
-  const [metode, setMetode] = useState("Tunai");
-  const [akun, setAkun] = useState("Kas Tunai");
+  const [metode, setMetode] = useState(METODE_PEMBAYARAN_LIST[0] || "Tunai");
+  const [akun, setAkun] = useState(KAS_BANK_LIST[0]?.nama || "Kas Tunai");
   const today = new Date();
-  const formattedToday = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+  const formattedToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [tanggal, setTanggal] = useState(formattedToday);
   const [catatan, setCatatan] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastTx, setLastTx] = useState<any>(null);
+
+  const [isManual, setIsManual] = useState(false);
+  const [manualAlloc, setManualAlloc] = useState<Record<string, number>>({});
 
   // Derived state for Search Results
   const searchResults = query.trim() === "" ? [] : siswaList.filter(s => 
@@ -294,7 +324,14 @@ export function Pembayaran() {
     sisa: totalSisa,
   } : null;
 
-  const alokasi = studentTagihans ? computeAlokasi(nominal, studentTagihans) : [];
+  const alokasi = isManual
+    ? studentTagihans.map(t => ({
+        ...t,
+        alloc: manualAlloc[t.id] || 0,
+        lunas: (manualAlloc[t.id] || 0) >= (t.nominal - t.terbayar)
+      }))
+    : (studentTagihans ? computeAlokasi(nominal, studentTagihans) : []);
+    
   const sisaSetelah = selectedStudent ? Math.max(0, selectedStudent.sisa - nominal) : 0;
   
   const handleCatatPembayaran = () => {
@@ -330,6 +367,15 @@ export function Pembayaran() {
   const handleNominalChange = (v: string) => {
     const digits = v.replace(/\D/g, "");
     setNominal(parseInt(digits) || 0);
+  };
+
+  const resetForm = () => {
+    setQuery("");
+    setSelectedStudentId(null);
+    setNominal(0);
+    setCatatan("");
+    setIsManual(false);
+    setManualAlloc({});
   };
 
   return (
@@ -409,7 +455,15 @@ export function Pembayaran() {
                           {s.nis} · Kelas {s.kelas}
                         </p>
                       </div>
-                      {/* s.sisa calculation could be injected here if needed, but omitted for search speed */}
+                      {(() => {
+                        const rTagihans = tagihanList.filter(t => t.nis === s.nis);
+                        const rSisa = rTagihans.reduce((sum, t) => sum + (t.nominal - t.terbayar), 0);
+                        return rSisa > 0 ? (
+                          <span className="text-xs font-semibold tabular-nums text-[#DC2626] ml-3 shrink-0">
+                            {fmt(rSisa)}
+                          </span>
+                        ) : null;
+                      })()}
                     </button>
                   ))}
                 </div>
@@ -480,62 +534,86 @@ export function Pembayaran() {
               <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest mb-3">
                 Tagihan Belum Lunas
               </p>
-              <table className="w-full">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
-                    <th className="text-left text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5 pr-3 w-10">
-                      Prio
-                    </th>
-                    <th className="text-left text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5 pr-3">
-                      Kategori
-                    </th>
-                    <th className="text-right text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5 pr-3">
-                      Total
-                    </th>
-                    <th className="text-right text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5 pr-3">
-                      Dibayar
-                    </th>
-                    <th className="text-right text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5">
-                      Sisa
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {studentTagihans.filter(t => t.nominal - t.terbayar > 0).map((row, i) => (
-                    <tr
-                      key={i}
-                      className="hover:bg-[#FAFBF9] transition-colors"
-                      style={{
-                        borderBottom:
-                          i < tagihanList.length - 1
-                            ? "1px solid #F0F7EE"
-                            : undefined,
-                      }}
-                    >
-                      <td className="py-3 pr-3">
-                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#EDF7EC] text-[#3E8A2F] text-[10px] font-bold">
-                          {i + 1}
-                        </span>
-                      </td>
-                      <td className="py-3 pr-3 text-sm font-medium text-[#1C2517]">
-                        {row.namaTagihan}
-                      </td>
-                      <td className="py-3 pr-3 text-sm tabular-nums text-[#1C2517] text-right">
-                        {fmt(row.nominal)}
-                      </td>
-                      <td className="py-3 pr-3 text-sm tabular-nums text-[#6B7769] text-right">
-                        {fmt(row.terbayar)}
-                      </td>
-                      <td className="py-3 text-sm tabular-nums font-semibold text-[#DC2626] text-right">
-                        {fmt(row.nominal - row.terbayar)}
-                      </td>
+              <div style={{ maxHeight: 400, overflowY: "auto", paddingRight: 8 }}>
+                <table className="w-full">
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
+                      <th className="text-left text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5 pr-3 w-10">
+                        Prio
+                      </th>
+                      <th className="text-left text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5 pr-3">
+                        Kategori
+                      </th>
+                      <th className="text-right text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5 pr-3">
+                        Total
+                      </th>
+                      <th className="text-right text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5 pr-3">
+                        Dibayar
+                      </th>
+                      <th className="text-right text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide pb-2.5">
+                        Sisa
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {studentTagihans.filter(t => t.nominal - t.terbayar > 0)
+                      .sort((a, b) => {
+                        const prioA = a.prioritas ?? 999;
+                        const prioB = b.prioritas ?? 999;
+                        if (prioA !== prioB) return prioA - prioB;
+                        return new Date(a.jatuhTempo).getTime() - new Date(b.jatuhTempo).getTime();
+                      })
+                      .map((row, i) => (
+                      <tr
+                        key={i}
+                        className="hover:bg-[#FAFBF9] transition-colors"
+                        style={{
+                          borderBottom:
+                            i < studentTagihans.filter(t => t.nominal - t.terbayar > 0).length - 1
+                              ? "1px solid #F0F7EE"
+                              : undefined,
+                        }}
+                      >
+                        <td className="py-3 pr-3">
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#EDF7EC] text-[#3E8A2F] text-[10px] font-bold">
+                            {i + 1}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-3 text-sm font-medium text-[#1C2517]">
+                          {row.namaTagihan}
+                        </td>
+                        <td className="py-3 pr-3 text-sm tabular-nums text-[#1C2517] text-right">
+                          {fmt(row.nominal)}
+                        </td>
+                        <td className="py-3 pr-3 text-sm tabular-nums text-[#6B7769] text-right">
+                          {fmt(row.terbayar)}
+                        </td>
+                        <td className="py-3 text-sm tabular-nums font-semibold text-[#DC2626] text-right">
+                          {fmt(row.nominal - row.terbayar)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
+            </>
+          ) : (
+            <div className="bg-white rounded-xl p-10 flex flex-col items-center justify-center text-center" style={{ border: "1px solid #E2E8DE", minHeight: "300px" }}>
+              <div className="w-16 h-16 rounded-full bg-[#F5F9F4] flex items-center justify-center mb-4">
+                <Search size={28} className="text-[#9CA3A0]" />
+              </div>
+              <p className="text-[#374040] font-semibold text-lg mb-1">Belum ada siswa terpilih</p>
+              <p className="text-[#6B7769] text-sm">Gunakan kolom pencarian di atas untuk menemukan siswa dan melihat rincian tagihannya.</p>
+            </div>
+          )}
+        </div>
 
+        {/* ── RIGHT COLUMN — sticky ── */}
+        <div className="sticky top-6 self-start space-y-5">
+          {selectedStudent && (
+            <>
           {/* 3 · Payment form */}
           <div className="bg-white rounded-xl p-6" style={{ border: "1px solid #E2E8DE" }}>
             <p className="text-sm font-semibold text-[#1C2517] mb-4">
@@ -545,7 +623,7 @@ export function Pembayaran() {
             {/* Quick chips */}
             <div className="flex flex-wrap gap-2 mb-5">
               <button
-                onClick={() => setNominal(selectedStudent.sisa)}
+                onClick={() => { setIsManual(false); setNominal(selectedStudent.sisa); }}
                 className="flex items-center px-3.5 py-2 rounded-lg text-sm transition-colors hover:border-[#3E8A2F] hover:text-[#3E8A2F]"
                 style={{ border: "1px solid #E2E8DE", color: "#374040" }}
               >
@@ -554,16 +632,31 @@ export function Pembayaran() {
                   — {fmt(selectedStudent.sisa)}
                 </span>
               </button>
-              <button
-                onClick={() => setNominal(350_000)}
-                className="flex items-center px-3.5 py-2 rounded-lg text-sm transition-colors hover:border-[#3E8A2F] hover:text-[#3E8A2F]"
-                style={{ border: "1px solid #E2E8DE", color: "#374040" }}
-              >
-                Lunasi Daftar Ulang
-                <span className="ml-1.5 font-semibold tabular-nums text-[#374040]">
-                  — {fmt(350_000)}
-                </span>
-              </button>
+              {(() => {
+                const unpaid = studentTagihans.filter(t => t.nominal - t.terbayar > 0);
+                
+                // Group unpaid tags by kategori
+                const byKategori = unpaid.reduce((acc, curr) => {
+                  const cat = curr.kategori || curr.namaTagihan;
+                  if (!acc[cat]) acc[cat] = 0;
+                  acc[cat] += (curr.nominal - curr.terbayar);
+                  return acc;
+                }, {} as Record<string, number>);
+
+                return Object.entries(byKategori).slice(0, 3).map(([cat, sisaCat]) => (
+                  <button
+                    key={cat}
+                    onClick={() => { setIsManual(false); setNominal(sisaCat); }}
+                    className="flex items-center px-3.5 py-2 rounded-lg text-sm transition-colors hover:border-[#3E8A2F] hover:text-[#3E8A2F]"
+                    style={{ border: "1px solid #E2E8DE", color: "#374040" }}
+                  >
+                    Lunasi {cat}
+                    <span className="ml-1.5 font-semibold tabular-nums text-[#374040]">
+                      — {fmt(sisaCat)}
+                    </span>
+                  </button>
+                ));
+              })()}
             </div>
 
             <div className="space-y-3">
@@ -579,8 +672,9 @@ export function Pembayaran() {
                 <span className="text-[#6B7769] mr-1.5 text-sm shrink-0">Rp</span>
                 <input
                   type="text"
-                  value={fmtNum(nominal)}
-                  onChange={(e) => handleNominalChange(e.target.value)}
+                  value={isManual ? fmtNum(nominal) : (nominal > 0 ? fmtNum(nominal) : "")}
+                  onChange={(e) => { setIsManual(false); handleNominalChange(e.target.value); }}
+                  placeholder="0"
                   className="flex-1 outline-none bg-transparent text-[#1C2517] tabular-nums"
                   style={{ fontSize: "1.25rem", fontWeight: 700 }}
                 />
@@ -596,7 +690,7 @@ export function Pembayaran() {
                   label="Metode Pembayaran"
                   value={metode}
                   onChange={setMetode}
-                  options={["Tunai", "Transfer", "QRIS"]}
+                  options={METODE_PEMBAYARAN_LIST}
                   required
                 />
                 <FloatingSelect
@@ -604,12 +698,13 @@ export function Pembayaran() {
                   label="Akun Tujuan"
                   value={akun}
                   onChange={setAkun}
-                  options={["Kas Tunai", "Bank BSI", "Bank Mandiri Syariah"]}
+                  options={KAS_BANK_LIST.map((k) => k.nama)}
                   required
                 />
               </div>
 
               <FloatingInput
+                type="date"
                 id="tanggal"
                 label="Tanggal"
                 value={tanggal}
@@ -633,31 +728,29 @@ export function Pembayaran() {
               </button>
 
               <div className="text-center pt-0.5">
-                <button className="text-xs text-[#3E8A2F] hover:underline">
-                  Atur alokasi manual
+                <button
+                  onClick={() => {
+                    setIsManual(!isManual);
+                    if (!isManual) {
+                      setNominal(0);
+                      setManualAlloc({});
+                    }
+                  }}
+                  className="text-xs text-[#3E8A2F] hover:underline"
+                >
+                  {isManual ? "Kembali ke alokasi otomatis" : "Atur alokasi manual"}
                 </button>
               </div>
             </div>
           </div>
-            </>
-          ) : (
-            <div className="bg-white rounded-xl p-10 flex flex-col items-center justify-center text-center" style={{ border: "1px solid #E2E8DE", minHeight: "300px" }}>
-              <div className="w-16 h-16 rounded-full bg-[#F5F9F4] flex items-center justify-center mb-4">
-                <Search size={28} className="text-[#9CA3A0]" />
-              </div>
-              <p className="text-[#374040] font-semibold text-lg mb-1">Belum ada siswa terpilih</p>
-              <p className="text-[#6B7769] text-sm">Gunakan kolom pencarian di atas untuk menemukan siswa dan melihat rincian tagihannya.</p>
-            </div>
-          )}
-        </div>
 
-        {/* ── RIGHT COLUMN — sticky ── */}
-        <div className="sticky top-6 self-start">
-          {selectedStudent && (
+          {/* Preview Alokasi card */}
           <div className="bg-white rounded-xl p-6" style={{ border: "1px solid #E2E8DE" }}>
             {/* Header */}
-            <div className="flex items-center gap-2 mb-5">
-              <p className="text-sm font-semibold text-[#1C2517]">Preview Alokasi</p>
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-sm font-semibold text-[#1C2517]">
+                {isManual ? "Alokasi Manual" : "Preview Alokasi"}
+              </p>
               <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#EDF7EC] text-[#3E8A2F] tabular-nums">
                 {fmt(nominal)}
               </span>
@@ -665,7 +758,7 @@ export function Pembayaran() {
 
             {/* Allocation rows */}
             <div className="space-y-4">
-              {alokasi.map((item, i) => (
+              {alokasi.filter(a => isManual ? a.nominal > a.terbayar : true).map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
                   {/* Icon */}
                   {item.lunas ? (
@@ -690,24 +783,57 @@ export function Pembayaran() {
                     </div>
                   )}
 
-                  {/* Label */}
+                  {/* Label & Input */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#1C2517]">
-                      {item.kategori}
-                    </p>
-                    {item.lunas && (
-                      <p className="text-xs font-semibold text-[#3E8A2F] tabular-nums mt-0.5">
-                        {fmt(item.alloc)} → LUNAS
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm font-medium text-[#1C2517]">
+                        {item.kategori || item.namaTagihan}
                       </p>
+                      {isManual && (
+                        <div className="relative w-28">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-[#9CA3A0]">Rp</span>
+                          <input
+                            type="text"
+                            value={manualAlloc[item.id] ? fmtNum(manualAlloc[item.id]) : ""}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value.replace(/\D/g, "")) || 0;
+                              const maxSisa = item.nominal - item.terbayar;
+                              const clamped = Math.min(val, maxSisa);
+                              setManualAlloc(prev => {
+                                const next = { ...prev, [item.id]: clamped };
+                                setNominal((Object.values(next) as number[]).reduce((a, b) => a + b, 0));
+                                return next;
+                              });
+                            }}
+                            className="w-full pl-7 pr-2 py-1.5 rounded bg-[#FAFBF9] border border-[#E2E8DE] outline-none text-xs tabular-nums text-right font-medium text-[#1C2517] focus:border-[#3E8A2F]"
+                            placeholder="0"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {!isManual && (
+                      <>
+                        {item.lunas && (
+                          <p className="text-xs font-semibold text-[#3E8A2F] tabular-nums mt-0.5">
+                            {fmt(item.alloc)} → LUNAS
+                          </p>
+                        )}
+                        {!item.lunas && item.alloc > 0 && (
+                          <p className="text-xs text-[#92400E] tabular-nums mt-0.5">
+                            {fmt(item.alloc)} dari {fmt(item.nominal - item.terbayar)}
+                          </p>
+                        )}
+                        {item.alloc === 0 && (
+                          <p className="text-xs text-[#9CA3A0] mt-0.5">
+                            Belum dialokasikan
+                          </p>
+                        )}
+                      </>
                     )}
-                    {!item.lunas && item.alloc > 0 && (
-                      <p className="text-xs text-[#92400E] tabular-nums mt-0.5">
-                        {fmt(item.alloc)} dari {fmt(item.sisa)}
-                      </p>
-                    )}
-                    {item.alloc === 0 && (
-                      <p className="text-xs text-[#9CA3A0] mt-0.5">
-                        Belum dialokasikan
+                    {isManual && (
+                      <p className="text-[10px] text-[#9CA3A0] mt-1 tabular-nums">
+                        Sisa: {fmt(item.nominal - item.terbayar - (manualAlloc[item.id] || 0))}
                       </p>
                     )}
                   </div>
@@ -725,6 +851,7 @@ export function Pembayaran() {
               </p>
             </div>
           </div>
+            </>
           )}
         </div>
       </div>
@@ -734,6 +861,7 @@ export function Pembayaran() {
         <ReceiptDialog
           open={showSuccess}
           onOpenChange={setShowSuccess}
+          onNextTransaction={resetForm}
           student={rawSelectedStudent}
           nominal={lastTx.nominal}
           tanggal={tanggal}
@@ -744,6 +872,8 @@ export function Pembayaran() {
             alloc: a.nominalAlokasi,
             lunas: false // compute lunas status if needed
           }))}
+          tahunAjaran={appSettings.tahunAjaran}
+          namaMadrasah={appSettings.namaMadrasah}
         />
       )}
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { Plus, Download, MoreHorizontal, Pencil, Trash2, Copy } from "lucide-react";
 import { fmt } from "@/lib/formatters";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
+import { useAppContext } from "@/context/AppContext";
 
 // ─── formatter ────────────────────────────────────────────────────────────────
 
@@ -152,14 +153,14 @@ function BudgetBarChart() {
 
 // ─── RAB Tab ─────────────────────────────────────────────────────────────────
 
-function RABTab() {
+function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
   return (
     <div className="space-y-5">
       {/* Header row */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="font-semibold text-[#1C2517]">Rencana Anggaran Biaya</p>
-          <p className="text-xs text-[#6B7769] mt-0.5">Tahun Anggaran 2025/2026</p>
+          <p className="text-xs text-[#6B7769] mt-0.5">Tahun Anggaran {tahunAjaran}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -327,7 +328,7 @@ function RABTab() {
 
 // ─── Realisasi Tab ────────────────────────────────────────────────────────────
 
-function RealisasiTab() {
+function RealisasiTab({ tahunAjaran }: { tahunAjaran: string }) {
   return (
     <div className="space-y-5">
       {/* KPI chips */}
@@ -357,7 +358,7 @@ function RealisasiTab() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-sm font-semibold text-[#1C2517]">Anggaran vs Realisasi Bulanan</p>
-              <p className="text-xs text-[#6B7769] mt-0.5">Tahun Anggaran 2025/2026</p>
+              <p className="text-xs text-[#6B7769] mt-0.5">Tahun Anggaran {tahunAjaran}</p>
             </div>
             {/* Legend */}
             <div className="flex items-center gap-4">
@@ -486,13 +487,14 @@ export function Anggaran() {
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
   const currentTab = tab || "rab";
+  const { tahunAjaran } = useAppContext();
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-5">
       {/* Title */}
       <div>
         <h2 className="text-[#1C2517]">Anggaran</h2>
-        <p className="text-sm text-[#6B7769]">Perencanaan dan realisasi anggaran madrasah TA 2025/2026</p>
+        <p className="text-sm text-[#6B7769]">Perencanaan dan realisasi anggaran madrasah TA {tahunAjaran}</p>
       </div>
 
       {/* Shadcn tabs */}
@@ -515,8 +517,8 @@ export function Anggaran() {
         ))}
       </div>
 
-      {currentTab === "rab"       && <RABTab />}
-      {currentTab === "realisasi" && <RealisasiTab />}
+      {currentTab === "rab"       && <RABTab tahunAjaran={tahunAjaran} />}
+      {currentTab === "realisasi" && <RealisasiTab tahunAjaran={tahunAjaran} />}
     </div>
   );
 }

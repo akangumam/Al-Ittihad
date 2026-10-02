@@ -88,3 +88,44 @@ export interface AppSettings {
   namaMadrasah: string;
   alamatMadrasah: string;
 }
+
+export interface AbsensiSettings {
+  batasHadir: string;        // e.g. "08:00"
+  batasTerlambat: string;    // e.g. "08:15"
+  jamBuka: string;           // e.g. "06:30"
+  jamTutupOtomatis: string;  // e.g. "09:00"
+  enableFingerprint: boolean;
+  enableQR: boolean;
+  enableManual: boolean;
+}
+
+
+export type ActivityLogTipe =
+  | "Login"
+  | "Logout"
+  | "Pembayaran"
+  | "Pembatalan"
+  | "Penetapan Tagihan"
+  | "Update Tagihan"
+  | "Hapus Tagihan";
+
+export interface ActivityLogEntry {
+  id: string;
+  waktu: string;        // ISO timestamp
+  tipe: ActivityLogTipe;
+  deskripsi: string;
+  ref: string;          // no. kuitansi atau "—"
+  pelaku: string;
+}
+
+export interface AbsensiGerbangRecord {
+  id: string;
+  tanggal: string;           // "YYYY-MM-DD"
+  personId: string;          // NIS or Guru ID (stringified)
+  personType: "siswa" | "guru";
+  waktuScan: string;         // "HH:mm:ss"
+  status: StatusKehadiran;
+  method: "qr" | "fingerprint" | "manual";
+  adminId?: string;          // optional for manual entry
+  catatan?: string;
+}

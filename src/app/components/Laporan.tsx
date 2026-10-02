@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   BookOpen, Banknote, Scale, ArrowUpDown, AlertTriangle,
@@ -6,9 +6,9 @@ import {
 } from "lucide-react";
 import { fmt } from "@/lib/formatters";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
-
-// ─── static data ──────────────────────────────────────────────────────────────
-import { SALDO_AWAL, BKU_ROWS } from "@/data/laporan";
+import { useAppContext } from "@/context/AppContext";
+import { transaksiData } from "@/data/keuangan";
+import { SALDO_AWAL } from "@/data/laporan";
 
 interface ReportMeta {
   id: string;
@@ -73,14 +73,71 @@ function ReportCard({
 
 // ─── BKU report preview ───────────────────────────────────────────────────────
 
+function fmtTglBKU(isoOrStr: string): string {
+  const d = new Date(isoOrStr);
+  if (isNaN(d.getTime())) return isoOrStr;
+  return `${d.getDate()} ${d.toLocaleString("id-ID", { month: "short" })} ${d.getFullYear()}`;
+}
+
 function BKUPreview() {
+  const { transaksiList, siswaList } = useAppContext();
   const [akun, setAkun] = useState("Semua Akun");
   const todayStr = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
   const currentMonth = new Intl.DateTimeFormat('id-ID', { month: 'short', year: 'numeric' }).format(new Date());
 
-  const totalDebit  = BKU_ROWS.reduce((s, r) => s + (r.debit  ?? 0), 0); // 8 450 000
-  const totalKredit = BKU_ROWS.reduce((s, r) => s + (r.kredit ?? 0), 0); // 3 200 000
-  const saldoAkhir  = SALDO_AWAL + totalDebit - totalKredit;              // 128 450 000
+  type BKURow = {
+    tanggal: string; tanggalRaw: string; uraian: string; ref: string;
+    debit: number | null; kredit: number | null; akun: string;
+    no: number; saldo: number;
+  };
+
+  const bkuRows = useMemo((): BKURow[] => {
+    type PreRow = Omit<BKURow, "no" | "saldo">;
+    const rows: PreRow[] = [];
+
+    // Real payments from AppContext (debit/masuk)
+    transaksiList.forEach(t => {
+      const siswa = siswaList.find(s => s.nis === t.nis);
+      const akunBayar = t.metode === "Tunai" ? "Kas Tunai" : "Bank BSI";
+      rows.push({
+        tanggal: fmtTglBKU(t.tanggal), tanggalRaw: t.tanggal,
+        uraian: `Pembayaran ${siswa?.nama ?? t.nis}`,
+        ref: t.nomorKuitansi, debit: t.nominal, kredit: null, akun: akunBayar,
+      });
+    });
+
+    // Static manual masuk (non-payment income like Dana BOS)
+    transaksiData.filter(r => r.tipe === "masuk" && r.ref === "—").forEach(r => {
+      rows.push({
+        tanggal: r.tanggal, tanggalRaw: r.tanggal,
+        uraian: r.keterangan, ref: "—", debit: r.jumlah, kredit: null, akun: r.akun,
+      });
+    });
+
+    // Static keluar entries (expenses not yet in AppContext)
+    transaksiData.filter(r => r.tipe === "keluar").forEach(r => {
+      rows.push({
+        tanggal: r.tanggal, tanggalRaw: r.tanggal,
+        uraian: r.keterangan, ref: r.ref, debit: null, kredit: r.jumlah, akun: r.akun,
+      });
+    });
+
+    rows.sort((a, b) => a.tanggalRaw.localeCompare(b.tanggalRaw));
+    let saldo = SALDO_AWAL;
+    return rows.map((r, i) => {
+      saldo += (r.debit ?? 0) - (r.kredit ?? 0);
+      return { ...r, no: i + 1, saldo };
+    });
+  }, [transaksiList, siswaList]);
+
+  const filteredBkuRows = useMemo(
+    () => akun === "Semua Akun" ? bkuRows : bkuRows.filter(r => r.akun === akun),
+    [bkuRows, akun],
+  );
+
+  const totalDebit  = bkuRows.reduce((s, r) => s + (r.debit  ?? 0), 0);
+  const totalKeluar = bkuRows.reduce((s, r) => s + (r.kredit ?? 0), 0);
+  const saldoAkhir  = SALDO_AWAL + totalDebit - totalKeluar;
 
   return (
     <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
@@ -175,7 +232,7 @@ function BKUPreview() {
             </tr>
 
             {/* ── Transaction rows ── */}
-            {BKU_ROWS.map((row) => (
+            {filteredBkuRows.map((row) => (
               <tr
                 key={row.no}
                 className="hover:bg-[#FAFBF9] transition-colors"
@@ -235,7 +292,7 @@ function BKUPreview() {
               </td>
               <td className="py-3.5 pr-4 text-right">
                 <span className="text-sm font-bold tabular-nums text-[#DC2626]">
-                  {fmt(totalKredit)}
+                  {fmt(totalKeluar)}
                 </span>
               </td>
               <td className="py-3.5 pr-6 text-right">

@@ -18,6 +18,7 @@ import { tahunAjaranOptions } from "@/data/settings";
 
 import { tagihanTemplates as templates, templateOptions, Template, PPDB_DEFAULTS } from "@/data/pembayaran";
 import { kelasOptions } from "@/data/constants";
+import { ProfilTagihanSheet } from "./ProfilTagihanSheet";
 
 // ─── badge palette ────────────────────────────────────────────────────────────
 
@@ -636,78 +637,179 @@ function TemplateTab() {
   );
 }
 
+// ─── Sheet: pilih template untuk penetapan ───────────────────────────────────
+
+function PilihTemplateSheet({
+  jumlahSiswa, onClose, onTetapkan,
+}: {
+  jumlahSiswa: number; onClose: () => void;
+  onTetapkan: (templateId: number, jatuhTempo: string) => void;
+}) {
+  const [selectedTmpl, setSelectedTmpl] = useState<number | null>(null);
+  const today = new Date();
+  const dd = String(today.getDate() + 14).padStart(2, "0");
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const defaultJT = `${today.getFullYear()}-${mm}-${dd}`;
+  const [jatuhTempo, setJatuhTempo] = useState(defaultJT);
+  const tmpl = templates.find((t) => t.id === selectedTmpl);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.4)" }} onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full bg-white z-50 flex flex-col" style={{ width: 480, boxShadow: "-4px 0 32px rgba(0,0,0,0.14)" }}>
+        <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
+          <div>
+            <p className="font-semibold text-[#1C2517]" style={{ fontSize: "0.9375rem" }}>Tetapkan Tagihan</p>
+            <p className="text-xs text-[#6B7769] mt-0.5">{jumlahSiswa} siswa dipilih</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#6B7769] hover:bg-[#F3F4F6] transition-colors"><X size={18} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <div>
+            <p className="text-sm font-semibold text-[#1C2517] mb-3">1. Pilih Template Biaya</p>
+            <div className="space-y-2">
+              {templates.map((t) => {
+                const active = selectedTmpl === t.id;
+                return (
+                  <button key={t.id} onClick={() => setSelectedTmpl(t.id)} className="w-full text-left rounded-xl p-4 transition-all"
+                    style={{ border: active ? "2px solid #3E8A2F" : "1px solid #E2E8DE", background: active ? "#F5FBF4" : "#FAFBF9" }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm font-semibold text-[#1C2517]">{t.nama}</p>
+                      <span className="text-sm font-bold tabular-nums text-[#3E8A2F]">{fmt(t.total)}</span>
+                    </div>
+                    <p className="text-xs text-[#9CA3A0]">{t.target}</p>
+                    {active && (
+                      <div className="mt-3 pt-3 space-y-1.5" style={{ borderTop: "1px solid #E2E8DE" }}>
+                        {t.komponen.map((k, i) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span className="text-[#6B7769]">{k.nama}</span>
+                            <span className="tabular-nums text-[#374040]">{fmt(k.jumlah)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-[#1C2517] mb-2">2. Jatuh Tempo</p>
+            <FloatInput label="Tanggal Jatuh Tempo" required type="date" value={jatuhTempo} onChange={setJatuhTempo} />
+          </div>
+
+          {tmpl && (
+            <div className="rounded-xl p-4" style={{ background: "#EDF7EC", border: "1px solid #D4EDD0" }}>
+              <p className="text-xs font-semibold text-[#3E8A2F] mb-2">Ringkasan Penetapan</p>
+              <div className="flex justify-between text-sm"><span className="text-[#374040]">Template</span><span className="font-semibold text-[#1C2517]">{tmpl.nama}</span></div>
+              <div className="flex justify-between text-sm mt-1"><span className="text-[#374040]">Per siswa</span><span className="font-bold tabular-nums text-[#1C2517]">{fmt(tmpl.total)}</span></div>
+              <div className="flex justify-between text-sm mt-1"><span className="text-[#374040]">Total keseluruhan</span><span className="font-bold tabular-nums text-[#3E8A2F]">{fmt(tmpl.total * jumlahSiswa)}</span></div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 px-6 py-4 shrink-0" style={{ borderTop: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-[#374040] hover:bg-[#F3F4F6] transition-colors" style={{ border: "1px solid #E2E8DE" }}>Batal</button>
+          <button
+            disabled={!selectedTmpl || !jatuhTempo}
+            onClick={() => { if (selectedTmpl && jatuhTempo) onTetapkan(selectedTmpl, jatuhTempo); }}
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
+            style={{ background: selectedTmpl ? "#3E8A2F" : "#D1D5DB", cursor: selectedTmpl ? "pointer" : "not-allowed" }}
+          >
+            Tetapkan ke {jumlahSiswa} Siswa
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── PenetapanTab ─────────────────────────────────────────────────────────────
+
 function PenetapanTab() {
   const { siswaList, tagihanList, addTagihan } = useAppContext();
   const [kelasFilter, setKelasFilter] = useState("Semua Kelas");
-  const [template, setTemplate] = useState("Semua Template");
+  const [templateFilter, setTemplateFilter] = useState("Semua Template");
   const [search, setSearch] = useState("");
   const [checked, setChecked] = useState<Set<number>>(new Set());
-  const [showInfo, setShowInfo] = useState(true);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [profilStudentId, setProfilStudentId] = useState<number | null>(null);
+  const [successMsg, setSuccessMsg] = useState("");
 
-  const handleTetapkanTagihan = () => {
-    if (checked.size === 0) return;
-    
-    const newTagihanArr = Array.from(checked).map(studentId => {
-      const student = siswaList.find(s => s.id === studentId);
-      if (!student) return null;
-      return {
-        id: "TGH-" + Date.now() + "-" + student.id,
+  const handleTetapkan = (templateId: number, jatuhTempo: string) => {
+    const tmpl = templates.find((t) => t.id === templateId);
+    if (!tmpl) return;
+
+    const now = Date.now();
+    const newTagihans = Array.from(checked).flatMap((studentId) => {
+      const student = siswaList.find((s) => s.id === studentId);
+      if (!student) return [];
+      // Skip jika sudah ada tagihan kategori yang sama
+      const existing = new Set(tagihanList.filter((t) => t.nis === student.nis).map((t) => t.kategori));
+      if (existing.has(tmpl.nama)) return [];
+      return tmpl.komponen.map((k, idx) => ({
+        id: `TGH-${now}-${student.id}-${idx}`,
         nis: student.nis,
-        namaTagihan: "SPP Bulan " + new Date().toLocaleString("id-ID", { month: "long", year: "numeric" }),
-        kategori: "SPP",
-        nominal: 150000,
+        namaTagihan: k.nama,
+        kategori: tmpl.nama,
+        nominal: k.jumlah,
         terbayar: 0,
-        jatuhTempo: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 10).toISOString().split("T")[0],
-        isLunas: false
-      };
-    }).filter(Boolean) as any[];
-    
-    addTagihan(newTagihanArr);
+        jatuhTempo,
+        isLunas: false,
+        prioritas: idx + 1,
+      }));
+    });
+
+    if (newTagihans.length === 0) {
+      setSuccessMsg("Semua siswa yang dipilih sudah memiliki tagihan untuk template ini.");
+    } else {
+      addTagihan(newTagihans as any);
+      setSuccessMsg(`✓ Tagihan "${tmpl.nama}" berhasil ditetapkan untuk ${checked.size} siswa.`);
+    }
     setChecked(new Set());
+    setSheetOpen(false);
+    setTimeout(() => setSuccessMsg(""), 5000);
   };
 
   const penetapanRows = React.useMemo(() => {
-    return siswaList.filter(s => s.status === "Aktif").map(s => {
-      const sTagihans = tagihanList.filter(t => t.nis === s.nis);
+    return siswaList.filter((s) => s.status === "Aktif").map((s) => {
+      const sTagihans = tagihanList.filter((t) => t.nis === s.nis);
       const total = sTagihans.reduce((sum, t) => sum + t.nominal, 0);
-      
-      const templatesMap = new Map();
-      sTagihans.forEach(t => {
-        if (!templatesMap.has(t.kategori)) {
-          templatesMap.set(t.kategori, {
-            key: t.kategori.toLowerCase().replace(/\s+/g, ""),
-            label: t.kategori
-          });
+      const kategoriMap = new Map<string, string>();
+      sTagihans.forEach((t) => {
+        if (!kategoriMap.has(t.kategori)) {
+          const key = t.kategori.includes("PPDB") ? "ppdb"
+            : t.kategori.includes("Daftar") ? "daftar"
+            : t.kategori.includes("Kelas 9") ? "kelas9"
+            : "other";
+          kategoriMap.set(t.kategori, key);
         }
       });
-      const templates = Array.from(templatesMap.values());
-      
       return {
-        id: s.id,
-        nama: s.nama,
-        nis: s.nis,
-        kelas: s.kelas,
-        inits: s.inits,
-        templates,
+        id: s.id, nama: s.nama, nis: s.nis, kelas: s.kelas, inits: s.inits,
+        templates: Array.from(kategoriMap.entries()).map(([label, key]) => ({ label, key })),
         total: sTagihans.length > 0 ? total : null,
-        status: sTagihans.length > 0 ? "Lengkap" : "Belum Ditetapkan"
+        status: sTagihans.length > 0 ? "Lengkap" : "Belum Ditetapkan",
       };
     });
   }, [siswaList, tagihanList]);
 
   const filteredRows = React.useMemo(() => {
-    return penetapanRows.filter(r => 
-      (kelasFilter === "Semua Kelas" || r.kelas === kelasFilter) &&
-      (r.nama.toLowerCase().includes(search.toLowerCase()))
-    );
-  }, [penetapanRows, kelasFilter, search]);
+    return penetapanRows.filter((r) => {
+      const matchKelas = kelasFilter === "Semua Kelas" || r.kelas === kelasFilter;
+      const matchSearch = r.nama.toLowerCase().includes(search.toLowerCase()) || r.nis.includes(search);
+      const matchTemplate = templateFilter === "Semua Template"
+        || r.templates.some((t) => t.label.includes(templateFilter.replace("Administrasi ", "")));
+      return matchKelas && matchSearch && matchTemplate;
+    });
+  }, [penetapanRows, kelasFilter, search, templateFilter]);
 
+  const belumCount = penetapanRows.filter((r) => r.status === "Belum Ditetapkan").length;
   const allChecked = checked.size === filteredRows.length && filteredRows.length > 0;
   const someChecked = checked.size > 0 && !allChecked;
-
-  const toggleAll = () =>
-    setChecked(allChecked ? new Set() : new Set(penetapanRows.map((r) => r.id)));
-
+  const toggleAll = () => setChecked(allChecked ? new Set() : new Set(filteredRows.map((r) => r.id)));
   const toggleRow = (id: number) => {
     const next = new Set(checked);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -716,201 +818,123 @@ function PenetapanTab() {
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2">
-        {/* Search */}
-        <div
-          className="flex items-center gap-2 px-3 py-2 rounded-lg"
-          style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
-        >
-          <Search size={13} className="text-[#9CA3A0] shrink-0" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari siswa..."
-            className="bg-transparent outline-none text-sm text-[#1C2517] w-36"
-          />
-        </div>
+      {sheetOpen && <PilihTemplateSheet jumlahSiswa={checked.size} onClose={() => setSheetOpen(false)} onTetapkan={handleTetapkan} />}
+      {profilStudentId !== null && (
+        <ProfilTagihanSheet
+          siswa={siswaList.find((s) => s.id === profilStudentId)!}
+          onClose={() => setProfilStudentId(null)}
+        />
+      )}
 
-        {/* Class filter */}
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+          <Search size={13} className="text-[#9CA3A0] shrink-0" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari siswa..." className="bg-transparent outline-none text-sm text-[#1C2517] w-36" />
+        </div>
         <div className="relative">
-          <select
-            value={kelasFilter}
-            onChange={(e) => setKelasFilter(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
-            style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
-          >
+          <select value={kelasFilter} onChange={(e) => setKelasFilter(e.target.value)} className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
             {kelasOptions.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
           <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
         </div>
-
-        {/* Template filter */}
         <div className="relative">
-          <select
-            value={template}
-            onChange={(e) => setTemplate(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
-            style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
-          >
+          <select value={templateFilter} onChange={(e) => setTemplateFilter(e.target.value)} className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
             {templateOptions.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
           <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
         </div>
-
-        <button onClick={handleTetapkanTagihan} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
-          Tetapkan SPP Massal (Simulasi)
-        </button>
+        {checked.size > 0 && (
+          <button onClick={() => setSheetOpen(true)} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+            <Plus size={14} />Tetapkan ke {checked.size} Siswa
+          </button>
+        )}
       </div>
 
       {/* Bulk action bar */}
       {checked.size > 0 && (
-        <div
-          className="flex items-center gap-3 px-4 py-3 rounded-xl mb-4"
-          style={{ background: "#EDF7EC", border: "1px solid #D4EDD0" }}
-        >
-          <span className="text-sm font-semibold text-[#3E8A2F]">
-            {checked.size} siswa dipilih
-          </span>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "#EDF7EC", border: "1px solid #D4EDD0" }}>
+          <span className="text-sm font-semibold text-[#3E8A2F]">{checked.size} siswa dipilih</span>
           <span className="text-[#9CA3A0]">—</span>
-          <button
-            onClick={handleTetapkanTagihan}
-            className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors"
-          >
-            Tetapkan SPP Bulan Ini
-          </button>
-          <button
-            onClick={() => setChecked(new Set())}
-            className="ml-auto text-xs text-[#6B7769] hover:text-[#374040]"
-          >
-            Batalkan pilihan
-          </button>
+          <button onClick={() => setSheetOpen(true)} className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors">Pilih Template & Tetapkan</button>
+          <button onClick={() => setChecked(new Set())} className="ml-auto text-xs text-[#6B7769] hover:text-[#374040]">Batalkan pilihan</button>
         </div>
       )}
 
-      {/* Amber info strip */}
-      {showInfo && (
-        <div
-          className="flex items-center gap-3 px-4 py-3 rounded-xl"
-          style={{ background: "#FFFBEB", border: "1px solid #FEF3C7" }}
-        >
+      {successMsg && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "#EDF7EC", border: "1px solid #D4EDD0" }}>
+          <Check size={14} className="text-[#3E8A2F] shrink-0" />
+          <span className="text-sm text-[#3E8A2F]">{successMsg}</span>
+        </div>
+      )}
+
+      {belumCount > 0 && checked.size === 0 && !successMsg && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "#FFFBEB", border: "1px solid #FEF3C7" }}>
           <AlertTriangle size={14} className="text-[#92400E] shrink-0" />
-          <span className="text-sm text-[#92400E]">
-            2 siswa belum memiliki tagihan TA 2025/2026
-          </span>
-          <button
-            onClick={() => {}}
-            className="text-sm font-semibold text-[#92400E] hover:underline"
-          >
-            Tampilkan
-          </button>
-          <button
-            onClick={() => setShowInfo(false)}
-            className="ml-auto text-[#92400E] hover:opacity-70 text-lg leading-none"
-          >
-            ×
-          </button>
+          <span className="text-sm text-[#92400E]"><strong>{belumCount} siswa</strong> belum memiliki tagihan. Centang siswa lalu klik <strong>Tetapkan</strong>.</span>
         </div>
       )}
 
-      {/* Table card */}
+      {/* Table */}
       <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
         <div className="overflow-x-auto">
           <DataTable>
             <thead>
               <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
-                <th className="w-10 pl-6 pr-3 py-3">
-                  <Checkbox checked={allChecked} indeterminate={someChecked} onChange={toggleAll} />
-                </th>
+                <th className="w-10 pl-6 pr-3 py-3"><Checkbox checked={allChecked} indeterminate={someChecked} onChange={toggleAll} /></th>
                 <Th className="pr-4">Siswa</Th>
                 <Th className="pr-4">Template Diterapkan</Th>
                 <Th align="right" className="pr-4">Total Tagihan</Th>
-                <Th className="pr-4">Status Penetapan</Th>
+                <Th className="pr-4">Status</Th>
                 <Th className="pr-6">Aksi</Th>
               </tr>
             </thead>
             <tbody>
-              {penetapanRows.map((row, i) => {
+              {filteredRows.map((row, i) => {
                 const isChecked = checked.has(row.id);
                 const belum = row.status === "Belum Ditetapkan";
                 return (
-                  <tr
-                    key={row.id}
-                    className="transition-colors hover:bg-[#FAFBF9]"
-                    style={{
-                      borderBottom: i < penetapanRows.length - 1 ? "1px solid #F0F7EE" : "none",
-                      background: isChecked ? "#F5FBF4" : undefined,
-                    }}
-                  >
-                    {/* Checkbox */}
-                    <td className="pl-6 pr-3 py-3.5">
-                      <Checkbox checked={isChecked} onChange={() => toggleRow(row.id)} />
-                    </td>
-
-                    {/* Siswa */}
+                  <tr key={row.id} className="transition-colors hover:bg-[#FAFBF9]"
+                    style={{ borderBottom: i < filteredRows.length - 1 ? "1px solid #F0F7EE" : "none", background: isChecked ? "#F5FBF4" : undefined }}>
+                    <td className="pl-6 pr-3 py-3.5"><Checkbox checked={isChecked} onChange={() => toggleRow(row.id)} /></td>
                     <td className="py-3.5 pr-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[#3E8A2F] flex items-center justify-center text-white text-[11px] font-bold shrink-0">
-                          {row.inits}
-                        </div>
+                        <div className="w-8 h-8 rounded-full bg-[#3E8A2F] flex items-center justify-center text-white text-[11px] font-bold shrink-0">{row.inits}</div>
                         <div>
                           <p className="text-sm font-semibold text-[#1C2517] leading-none">{row.nama}</p>
                           <p className="text-[11px] text-[#6B7769] mt-0.5">{row.nis} · Kelas {row.kelas}</p>
                         </div>
                       </div>
                     </td>
-
-                    {/* Template badges */}
                     <td className="py-3.5 pr-4">
                       {row.templates.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
                           {row.templates.map((tb) => (
-                            <span
-                              key={tb.key}
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${TMPL_BADGE[tb.key] ?? "bg-[#F3F4F6] text-[#374040]"}`}
-                            >
-                              {tb.label}
-                            </span>
+                            <span key={tb.key} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${TMPL_BADGE[tb.key] ?? "bg-[#F3F4F6] text-[#374040]"}`}>{tb.label}</span>
                           ))}
                         </div>
-                      ) : (
-                        <span className="text-sm text-[#D1D5DB]">—</span>
-                      )}
+                      ) : <span className="text-sm text-[#D1D5DB]">—</span>}
                     </td>
-
-                    {/* Total */}
                     <td className="py-3.5 pr-4 text-right">
-                      {row.total !== null ? (
-                        <span className="text-sm font-bold tabular-nums text-[#1C2517]">
-                          {fmt(row.total)}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-[#D1D5DB]">—</span>
-                      )}
+                      {row.total !== null ? <span className="text-sm font-bold tabular-nums text-[#1C2517]">{fmt(row.total)}</span> : <span className="text-sm text-[#D1D5DB]">—</span>}
                     </td>
-
-                    {/* Status */}
                     <td className="py-3.5 pr-4">
                       {belum ? (
-                        <span
-                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold text-[#92400E]"
-                          style={{ border: "1.5px solid #F6B31E" }}
-                        >
-                          Belum Ditetapkan
-                        </span>
-                      ) : (
-                        <StatusBadge status="Lengkap" />
-                      )}
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold text-[#92400E]" style={{ border: "1.5px solid #F6B31E" }}>Belum Ditetapkan</span>
+                      ) : <StatusBadge status="Lengkap" />}
                     </td>
-
-                    {/* Aksi */}
                     <td className="py-3.5 pr-6">
-                      <button
+                      <button onClick={() => {
+                        if (belum) {
+                          setChecked(new Set([row.id]));
+                          setSheetOpen(true);
+                        } else {
+                          setProfilStudentId(row.id);
+                        }
+                      }}
                         className="px-2.5 py-1 rounded-lg text-xs font-semibold text-[#374040] hover:border-[#3E8A2F] hover:text-[#3E8A2F] transition-colors"
-                        style={{ border: "1px solid #E2E8DE" }}
-                      >
-                        Atur
+                        style={{ border: "1px solid #E2E8DE" }}>
+                        {belum ? "Tetapkan" : "Lihat Profil"}
                       </button>
                     </td>
                   </tr>
@@ -923,6 +947,7 @@ function PenetapanTab() {
     </div>
   );
 }
+
 
 // ─── page ─────────────────────────────────────────────────────────────────────
 

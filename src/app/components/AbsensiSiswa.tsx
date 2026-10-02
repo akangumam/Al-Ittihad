@@ -346,10 +346,10 @@ function ManualTab() {
           {chips.Belum > 0 && <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FEF3C7] text-[#92400E] tabular-nums">{chips.Belum} belum absen</span>}
         </div>
         <button 
-          onClick={() => toast.success("Data absensi manual berhasil disimpan ke database!")}
+          onClick={() => toast.success("Data absensi siswa berhasil dicatat.")}
           className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
         >
-          Simpan Manual
+          Konfirmasi
         </button>
       </div>
     </div>

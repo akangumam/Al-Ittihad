@@ -1,21 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { toast } from "sonner";
 import {
   MessageCircle, Search, ChevronDown, ChevronLeft,
   ChevronRight, Download, Check, AlertTriangle, Users, TrendingDown,
   SlidersHorizontal, X,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { fmt, fmtJt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 
-import { agingTabs } from "@/data/pembayaran";
 import { useAppContext } from "@/context/AppContext";
 import { kelasOptions } from "@/data/constants";
+import type { TransaksiPembayaran } from "@/data/pembayaran";
 
 const AVATAR_STYLE: Record<string, { avatar: string; avatarText: string }> = {
   Kritis:    { avatar: "#FEE2E2", avatarText: "#991B1B" },
   Waspada:   { avatar: "#FEF3C7", avatarText: "#92400E" },
   Perhatian: { avatar: "#EDF7EC", avatarText: "#3E8A2F" },
+  Pending:   { avatar: "#F3F4F6", avatarText: "#374040" },
 };
 
 // ─── shared sub-components ────────────────────────────────────────────────────
@@ -48,7 +51,7 @@ function Checkbox({
 
 // ─── MOBILE sub-components ────────────────────────────────────────────────────
 
-function StudentCard({ row }: { row: any }) {
+function StudentCard({ row, onCatatBayar, onKirimWA }: { row: any, onCatatBayar: (id: number) => void, onKirimWA: (id: number) => void }) {
   const avatarStyle = AVATAR_STYLE[row.badge] ?? { avatar: "#EDF7EC", avatarText: "#3E8A2F" };
   return (
     <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
@@ -61,7 +64,7 @@ function StudentCard({ row }: { row: any }) {
           <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
           <p className="text-[11px] text-[#6B7769]" style={{ marginTop: 2 }}>{row.nis} · Kelas {row.kelas}</p>
           <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
-            <StatusBadge status={row.badge as "Kritis" | "Waspada" | "Perhatian"} />
+            <StatusBadge status={row.badge as any} />
             <span className="text-[10px] text-[#9CA3A0]">Jatuh tempo {row.jatuhTempo}</span>
           </div>
         </div>
@@ -71,11 +74,11 @@ function StudentCard({ row }: { row: any }) {
         </div>
       </div>
       <div className="flex gap-2" style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #F0F7EE" }}>
-        <button className="flex-1 flex items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold text-white"
+        <button onClick={() => onKirimWA(row.id)} className="flex-1 flex items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold text-white"
           style={{ background: "#3E8A2F", padding: "10px 0", minHeight: 44 }}>
           <MessageCircle size={14} /> Kirim WA
         </button>
-        <button className="flex-1 flex items-center justify-center rounded-lg text-[13px] font-semibold text-[#374040]"
+        <button onClick={() => onCatatBayar(row.id)} className="flex-1 flex items-center justify-center rounded-lg text-[13px] font-semibold text-[#374040]"
           style={{ border: "1px solid #E2E8DE", padding: "10px 0", minHeight: 44 }}>
           Catat Bayar
         </button>
@@ -123,25 +126,70 @@ function ClassFilterSheet({
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Tunggakan() {
-  const { siswaList, tagihanList } = useAppContext();
+  const { siswaList, tagihanList, transaksiList } = useAppContext();
+  const navigate = useNavigate();
   
   const [activeTab, setActiveTab]       = useState(0);
   const [searchQuery, setSearchQuery]   = useState("");
   const [kelasFilter, setKelasFilter]   = useState("Semua Kelas");
   const [checked, setChecked]           = useState<Set<number>>(new Set());
   const [filterOpen, setFilterOpen]     = useState(false);
+  const [currentPage, setCurrentPage]   = useState(1);
+  const pageSize = 8; // Menyesuaikan dengan UI sebelumnya
 
-  // Derive rows from AppContext
-  const rows = React.useMemo(() => {
+  // Derive all rows with debt dynamically
+  const { allRows, tabs } = React.useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Group transactions by student
+    const txBySiswa = new Map<string, TransaksiPembayaran[]>();
+    transaksiList.forEach(tx => {
+      const arr = txBySiswa.get(tx.nis) || [];
+      arr.push(tx);
+      txBySiswa.set(tx.nis, arr);
+    });
+
     const studentsWithDebt = siswaList.filter(s => s.status === "Aktif").map(s => {
       const sTagihans = tagihanList.filter(t => t.nis === s.nis && t.nominal > t.terbayar);
       if (sTagihans.length === 0) return null;
       
       const jumlah = sTagihans.reduce((sum, t) => sum + (t.nominal - t.terbayar), 0);
-      let badge = "Perhatian";
-      if (jumlah >= 2_000_000) badge = "Kritis";
-      else if (jumlah >= 1_000_000) badge = "Waspada";
       
+      // Calculate overdue based on the oldest unpaid bill
+      const oldestBill = sTagihans.reduce((oldest, t) => {
+         return (new Date(t.jatuhTempo) < new Date(oldest.jatuhTempo)) ? t : oldest;
+      });
+
+      const jatuhTempoDate = new Date(oldestBill.jatuhTempo);
+      const diffTime = today.getTime() - jatuhTempoDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      let badge = "Perhatian";
+      let overdueCategory = "Lewat 1-30 hari";
+      if (diffDays <= 0) {
+         badge = "Pending";
+         overdueCategory = "Belum Jatuh Tempo";
+      } else if (diffDays <= 30) {
+         badge = "Perhatian";
+         overdueCategory = "Lewat 1-30 hari";
+      } else if (diffDays <= 60) {
+         badge = "Waspada";
+         overdueCategory = "Lewat 31-60 hari";
+      } else {
+         badge = "Kritis";
+         overdueCategory = "Lewat 60+ hari";
+      }
+      
+      // Get last payment date
+      const sTx = txBySiswa.get(s.nis) || [];
+      let terakhirBayar = "-";
+      if (sTx.length > 0) {
+         sTx.sort((a,b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+         const lastDate = new Date(sTx[0].tanggal);
+         terakhirBayar = lastDate.toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
+      }
+
       return {
         id: s.id,
         nama: s.nama,
@@ -150,25 +198,119 @@ export function Tunggakan() {
         inits: s.inits,
         jumlah,
         badge,
-        jatuhTempo: sTagihans[0]?.jatuhTempo || "-",
-        terakhirBayar: "-" // we don't track last payment date easily here without transaction history, but can mock
+        overdueCategory,
+        jatuhTempo: jatuhTempoDate.toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' }),
+        terakhirBayar,
       };
     }).filter(Boolean) as any[];
+
+    // Calculate dynamic counts for aging tabs
+    const tabCounts: Record<string, number> = {
+      "Semua": studentsWithDebt.length,
+      "Belum Jatuh Tempo": 0,
+      "Lewat 1-30 hari": 0,
+      "Lewat 31-60 hari": 0,
+      "Lewat 60+ hari": 0,
+    };
     
-    return studentsWithDebt.filter(r => 
-      (kelasFilter === "Semua Kelas" || r.kelas === kelasFilter) &&
-      (r.nama.toLowerCase().includes(searchQuery.toLowerCase()) || r.nis.includes(searchQuery))
-    );
-  }, [siswaList, tagihanList, kelasFilter, searchQuery]);
+    studentsWithDebt.forEach(r => {
+      if (tabCounts[r.overdueCategory] !== undefined) {
+        tabCounts[r.overdueCategory]++;
+      }
+    });
 
-  const allChecked = rows.length > 0 && checked.size === rows.length;
-  const someChecked = checked.size > 0 && checked.size < rows.length;
+    const activeTabs = [
+      { label: "Semua", count: tabCounts["Semua"] },
+      { label: "Belum Jatuh Tempo", count: tabCounts["Belum Jatuh Tempo"] },
+      { label: "Lewat 1-30 hari", count: tabCounts["Lewat 1-30 hari"] },
+      { label: "Lewat 31-60 hari", count: tabCounts["Lewat 31-60 hari"] },
+      { label: "Lewat 60+ hari", count: tabCounts["Lewat 60+ hari"] },
+    ].filter(t => t.label === "Semua" || t.count > 0);
 
-  const toggleAll  = () => setChecked(allChecked ? new Set() : new Set(rows.map((r: any) => r.id)));
+    return { allRows: studentsWithDebt, tabs: activeTabs };
+  }, [siswaList, tagihanList, transaksiList]);
+
+  // Apply filters to all rows
+  const filteredRows = React.useMemo(() => {
+    let filtered = allRows;
+    if (kelasFilter !== "Semua Kelas") {
+      filtered = filtered.filter((r: any) => r.kelas === kelasFilter);
+    }
+    if (searchQuery) {
+      filtered = filtered.filter((r: any) => 
+        r.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        r.nis.includes(searchQuery)
+      );
+    }
+    const activeTabLabel = tabs[activeTab]?.label;
+    if (activeTabLabel && activeTabLabel !== "Semua") {
+      filtered = filtered.filter((r: any) => r.overdueCategory === activeTabLabel);
+    }
+    return filtered;
+  }, [allRows, kelasFilter, searchQuery, activeTab, tabs]);
+
+  // Pagination logic
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  
+  useEffect(() => {
+    setCurrentPage(1);
+    setChecked(new Set());
+  }, [kelasFilter, searchQuery, activeTab]);
+
+  const pagedRows = React.useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, currentPage]);
+
+  const allChecked = pagedRows.length > 0 && Array.from(checked).filter(id => pagedRows.some((r: any) => r.id === id)).length === pagedRows.length;
+  const someChecked = checked.size > 0 && !allChecked;
+
+  const toggleAll = () => {
+    if (allChecked) {
+      const next = new Set(checked);
+      pagedRows.forEach((r: any) => next.delete(r.id));
+      setChecked(next);
+    } else {
+      const next = new Set(checked);
+      pagedRows.forEach((r: any) => next.add(r.id));
+      setChecked(next);
+    }
+  };
+  
   const toggleRow  = (id: number) => {
     const next = new Set(checked);
     next.has(id) ? next.delete(id) : next.add(id);
     setChecked(next);
+  };
+
+  const getPageNumbers = () => {
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let end = start + maxVisible - 1;
+    if (end > totalPages) {
+      end = totalPages;
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  };
+
+  const handleCatatBayar = (siswaId: number) => {
+    navigate(`/keuangan/pembayaran?siswaId=${siswaId}`);
+  };
+
+  const handleKirimWA = (studentId: number) => {
+    const student = siswaList.find(s => s.id === studentId);
+    const row = allRows.find(r => r.id === studentId);
+    if (!student || !student.waliHp || !row) return;
+    const nominal = row.jumlah;
+    const waNumber = student.waliHp.replace(/\D/g, "").replace(/^0/, "62");
+    const text = `Assalamu'alaikum Bapak/Ibu ${student.waliNama},\n\nKami menginformasikan bahwa ananda ${student.nama} memiliki tagihan administrasi madrasah yang belum diselesaikan sebesar ${fmt(nominal)}.\n\nMohon kerjasamanya untuk dapat diselesaikan. Abaikan pesan ini jika sudah melakukan pembayaran.\nTerima kasih.`;
+    window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
+  const handleBulkWA = () => {
+    if (checked.size === 0) return;
+    toast.info(`Pengiriman WA ke ${checked.size} orang tua siswa akan dieksekusi via API`);
   };
 
   return (
@@ -179,17 +321,17 @@ export function Tunggakan() {
         <div className="grid grid-cols-3 divide-x bg-white rounded-xl overflow-hidden" style={{ border: "1px solid #E2E8DE", borderColor: "#E2E8DE" }}>
           <div className="flex flex-col items-center justify-center text-center" style={{ padding: "14px 8px" }}>
             <span className="tabular-nums font-bold text-[#DC2626]" style={{ fontSize: 16 }}>
-              {fmtJt(rows.reduce((sum, r) => sum + r.jumlah, 0))}
+              {fmtJt(filteredRows.reduce((sum: number, r: any) => sum + r.jumlah, 0))}
             </span>
             <span className="text-[10px] text-[#6B7769]" style={{ marginTop: 3 }}>Total</span>
           </div>
           <div className="flex flex-col items-center justify-center text-center" style={{ padding: "14px 8px" }}>
-            <span className="tabular-nums font-bold text-[#1C2517]" style={{ fontSize: 16 }}>{rows.length}</span>
+            <span className="tabular-nums font-bold text-[#1C2517]" style={{ fontSize: 16 }}>{filteredRows.length}</span>
             <span className="text-[10px] text-[#6B7769]" style={{ marginTop: 3 }}>Siswa</span>
           </div>
           <div className="flex flex-col items-center justify-center text-center" style={{ padding: "14px 8px" }}>
             <span className="tabular-nums font-bold text-[#1C2517]" style={{ fontSize: 16 }}>
-              {fmtJt(rows.length ? rows.reduce((sum, r) => sum + r.jumlah, 0) / rows.length : 0)}
+              {fmtJt(filteredRows.length ? filteredRows.reduce((sum: number, r: any) => sum + r.jumlah, 0) / filteredRows.length : 0)}
             </span>
             <span className="text-[10px] text-[#6B7769]" style={{ marginTop: 3 }}>Rata-rata</span>
           </div>
@@ -198,7 +340,7 @@ export function Tunggakan() {
         {/* Aging tabs (horizontally scrollable) */}
         <div className="overflow-x-auto" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
           <div className="flex gap-2 pb-1" style={{ minWidth: "max-content" }}>
-            {agingTabs.map((tab, i) => {
+            {tabs.map((tab, i) => {
               const active = activeTab === i;
               return (
                 <button key={i} onClick={() => setActiveTab(i)}
@@ -252,23 +394,37 @@ export function Tunggakan() {
 
         {/* Student cards */}
         <div className="flex flex-col gap-2.5">
-          {rows.map((row) => <StudentCard key={row.id} row={row} />)}
+          {pagedRows.map((row: any) => <StudentCard key={row.id} row={row} onCatatBayar={handleCatatBayar} onKirimWA={handleKirimWA} />)}
+          {pagedRows.length === 0 && (
+            <div className="text-center py-8 text-[#9CA3A0] text-sm">Tidak ada tunggakan ditemukan</div>
+          )}
         </div>
 
-        {/* Pagination (simple) */}
-        <div className="flex items-center justify-between py-2">
-          <span className="text-[12px] text-[#6B7769]">1–8 dari <strong className="text-[#1C2517]">68</strong> siswa</span>
-          <div className="flex items-center gap-1">
-            <button disabled className="w-10 h-10 flex items-center justify-center rounded-xl text-[#D1D5DB]" style={{ border: "1px solid #E2E8DE" }}>
-              <ChevronLeft size={16} />
-            </button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-xl text-[13px] font-bold text-white" style={{ background: "#3E8A2F" }}>1</button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-xl text-[13px] text-[#374040]" style={{ border: "1px solid #E2E8DE" }}>2</button>
-            <button className="w-10 h-10 flex items-center justify-center rounded-xl text-[#374040]" style={{ border: "1px solid #E2E8DE" }}>
-              <ChevronRight size={16} />
-            </button>
+        {/* Pagination */}
+        {filteredRows.length > 0 && (
+          <div className="flex items-center justify-between py-2">
+            <span className="text-[12px] text-[#6B7769]">
+              {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredRows.length)} dari <strong className="text-[#1C2517]">{filteredRows.length}</strong> siswa
+            </span>
+            <div className="flex items-center gap-1">
+              <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} 
+                className="w-10 h-10 flex items-center justify-center rounded-xl text-[#374040] disabled:text-[#D1D5DB]" style={{ border: "1px solid #E2E8DE" }}>
+                <ChevronLeft size={16} />
+              </button>
+              {getPageNumbers().map(p => (
+                <button key={p} onClick={() => setCurrentPage(p)}
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl text-[13px] ${currentPage === p ? "font-bold text-white bg-[#3E8A2F]" : "text-[#374040]"}`} 
+                  style={{ border: currentPage === p ? "none" : "1px solid #E2E8DE" }}>
+                  {p}
+                </button>
+              ))}
+              <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl text-[#374040] disabled:text-[#D1D5DB]" style={{ border: "1px solid #E2E8DE" }}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ═══ DESKTOP LAYOUT (hidden md:block) ══════════════════════════════════ */}
@@ -289,7 +445,7 @@ export function Tunggakan() {
               <span className="text-xs font-semibold text-[#6B7769]">Total Tunggakan</span>
             </div>
             <p className="text-xl font-bold tabular-nums tracking-tight text-[#DC2626]">
-              {fmt(rows.reduce((sum, r) => sum + r.jumlah, 0))}
+              {fmt(filteredRows.reduce((sum: number, r: any) => sum + r.jumlah, 0))}
             </p>
           </div>
           <div className="bg-white rounded-xl px-6 py-5" style={{ border: "1px solid #E2E8DE" }}>
@@ -300,7 +456,7 @@ export function Tunggakan() {
               <span className="text-xs font-semibold text-[#6B7769]">Siswa Menunggak</span>
             </div>
             <p className="text-xl font-bold tabular-nums tracking-tight text-[#1C2517]">
-              {rows.length} <span className="text-sm font-normal text-[#6B7769]">siswa</span>
+              {filteredRows.length} <span className="text-sm font-normal text-[#6B7769]">siswa</span>
             </p>
           </div>
           <div className="bg-white rounded-xl px-6 py-5" style={{ border: "1px solid #E2E8DE" }}>
@@ -311,7 +467,7 @@ export function Tunggakan() {
               <span className="text-xs font-semibold text-[#6B7769]">Rata-rata Tunggakan</span>
             </div>
             <p className="text-xl font-bold tabular-nums tracking-tight text-[#1C2517]">
-              {fmt(rows.length ? rows.reduce((sum, r) => sum + r.jumlah, 0) / rows.length : 0)}<span className="text-sm font-normal text-[#6B7769]"> / siswa</span>
+              {fmt(filteredRows.length ? filteredRows.reduce((sum: number, r: any) => sum + r.jumlah, 0) / filteredRows.length : 0)}<span className="text-sm font-normal text-[#6B7769]"> / siswa</span>
             </p>
           </div>
         </div>
@@ -321,7 +477,7 @@ export function Tunggakan() {
           {/* Card header */}
           <div className="flex items-center justify-between px-6 py-4 gap-4" style={{ borderBottom: "1px solid #E2E8DE" }}>
             <div className="flex items-center gap-1">
-              {agingTabs.map((tab, i) => {
+              {tabs.map((tab, i) => {
                 const active = activeTab === i;
                 return (
                   <button key={i} onClick={() => setActiveTab(i)}
@@ -357,7 +513,7 @@ export function Tunggakan() {
             <div className="flex items-center gap-3 px-6 py-3" style={{ background: "#EDF7EC", borderBottom: "1px solid #D4EDD0" }}>
               <span className="text-sm font-semibold text-[#3E8A2F]">{checked.size} siswa dipilih</span>
               <span className="text-[#9CA3A0]">—</span>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors">
+              <button onClick={handleBulkWA} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors">
                 <MessageCircle size={13} /> Kirim Pengingat WA
               </button>
               <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#3E8A2F] hover:bg-[#DCFCE7] transition-colors" style={{ border: "1px solid #3E8A2F" }}>
@@ -383,12 +539,12 @@ export function Tunggakan() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, i) => {
+                {pagedRows.map((row: any, i) => {
                   const isChecked = checked.has(row.id);
                   const avatarStyle = AVATAR_STYLE[row.badge] ?? { avatar: "#EDF7EC", avatarText: "#3E8A2F" };
                   return (
                     <tr key={row.id} className="transition-colors hover:bg-[#FAFBF9]"
-                      style={{ borderBottom: i < rows.length - 1 ? "1px solid #F0F7EE" : "none", background: isChecked ? "#F5FBF4" : undefined }}>
+                      style={{ borderBottom: i < pagedRows.length - 1 ? "1px solid #F0F7EE" : "none", background: isChecked ? "#F5FBF4" : undefined }}>
                       <td className="pl-6 pr-3 py-3.5">
                         <Checkbox checked={isChecked} onChange={() => toggleRow(row.id)} />
                       </td>
@@ -408,17 +564,17 @@ export function Tunggakan() {
                         <span className="text-sm font-bold tabular-nums text-[#DC2626]">{fmt(row.jumlah)}</span>
                       </td>
                       <td className="py-3.5 pr-4">
-                        <StatusBadge status={row.badge as "Kritis" | "Waspada" | "Perhatian"} />
+                        <StatusBadge status={row.badge as any} />
                         <p className="text-[11px] text-[#9CA3A0] mt-0.5 pl-0.5">Jatuh tempo {row.jatuhTempo}</p>
                       </td>
                       <td className="py-3.5 pr-4"><span className="text-sm text-[#6B7769]">{row.terakhirBayar}</span></td>
                       <td className="py-3.5 pr-6">
                         <div className="flex items-center gap-2">
-                          <button title="Kirim pengingat WhatsApp"
+                          <button onClick={() => handleKirimWA(row.id)} title="Kirim pengingat WhatsApp"
                             className="w-7 h-7 rounded-lg flex items-center justify-center bg-[#EDF7EC] hover:bg-[#DCFCE7] transition-colors">
                             <MessageCircle size={13} className="text-[#3E8A2F]" />
                           </button>
-                          <button className="px-2.5 py-1 rounded-lg text-xs font-semibold text-[#374040] hover:border-[#3E8A2F] hover:text-[#3E8A2F] transition-colors whitespace-nowrap"
+                          <button onClick={() => handleCatatBayar(row.id)} className="px-2.5 py-1 rounded-lg text-xs font-semibold text-[#374040] hover:border-[#3E8A2F] hover:text-[#3E8A2F] transition-colors whitespace-nowrap"
                             style={{ border: "1px solid #E2E8DE" }}>
                             Catat Bayar
                           </button>
@@ -427,33 +583,48 @@ export function Tunggakan() {
                     </tr>
                   );
                 })}
+                {pagedRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-center py-8 text-[#9CA3A0] text-sm">Tidak ada tunggakan ditemukan</td>
+                  </tr>
+                )}
               </tbody>
             </DataTable>
           </div>
 
           {/* Pagination footer */}
-          <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: "1px solid #E2E8DE" }}>
-            <span className="text-xs text-[#6B7769]">1–{Math.min(8, rows.length)} dari <span className="font-semibold text-[#1C2517]">{rows.length}</span> siswa</span>
-            <div className="flex items-center gap-1">
-              <button disabled className="w-8 h-8 rounded-lg flex items-center justify-center text-[#D1D5DB] cursor-not-allowed" style={{ border: "1px solid #E2E8DE" }}>
-                <ChevronLeft size={14} />
-              </button>
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#3E8A2F] text-white text-xs font-bold">1</button>
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] text-xs hover:bg-[#EDF7EC] transition-colors">2</button>
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] text-xs hover:bg-[#EDF7EC] transition-colors">3</button>
-              <span className="px-1 text-[#9CA3A0] text-xs">...</span>
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] text-xs hover:bg-[#EDF7EC] transition-colors">9</button>
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] hover:bg-[#EDF7EC] transition-colors" style={{ border: "1px solid #E2E8DE" }}>
-                <ChevronRight size={14} />
-              </button>
+          {filteredRows.length > 0 && (
+            <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: "1px solid #E2E8DE" }}>
+              <span className="text-xs text-[#6B7769]">
+                {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredRows.length)} dari <span className="font-semibold text-[#1C2517]">{filteredRows.length}</span> siswa
+              </span>
+              <div className="flex items-center gap-1">
+                <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] disabled:text-[#D1D5DB] cursor-pointer disabled:cursor-not-allowed" style={{ border: "1px solid #E2E8DE" }}>
+                  <ChevronLeft size={14} />
+                </button>
+                
+                {getPageNumbers().map(p => (
+                  <button key={p} onClick={() => setCurrentPage(p)}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${currentPage === p ? "bg-[#3E8A2F] text-white font-bold" : "text-[#374040] hover:bg-[#EDF7EC] transition-colors"}`}>
+                    {p}
+                  </button>
+                ))}
+                
+                <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[#374040] disabled:text-[#D1D5DB] cursor-pointer disabled:cursor-not-allowed" style={{ border: "1px solid #E2E8DE" }}>
+                  <ChevronRight size={14} />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Mobile filter sheet (rendered outside both sections so it overlays correctly) */}
+      {/* Mobile filter sheet */}
       <ClassFilterSheet open={filterOpen} onClose={() => setFilterOpen(false)}
         selected={kelasFilter} onSelect={setKelasFilter} />
     </>
   );
 }
+

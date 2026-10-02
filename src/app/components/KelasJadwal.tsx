@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
+import { toast } from "sonner";
 import {
   Plus, Printer, MoreHorizontal, AlertTriangle, Info,
   ChevronLeft, ChevronRight, ChevronDown, Eye, Pencil, Trash2, X
@@ -362,7 +363,7 @@ function JadwalEditorModal({
     const isOverlap = jadwalList.some(j => {
       if (j.kelas !== kelas || j.hari !== hari) return false;
       if (currentJadwal && j.id === currentJadwal.id) return false;
-      return (waktuMulai < j.waktuSelesai) && (waktuSelesai > j.waktuMulai);
+      return (waktuMulai < (j as any).waktuSelesai) && (waktuSelesai > (j as any).waktuMulai);
     });
 
     if (isOverlap) {
@@ -385,6 +386,7 @@ function JadwalEditorModal({
         id: Date.now(),
         kelas,
         hari,
+        jam: 0, // legacy: slot number unknown, stored via waktuMulai/waktuSelesai
         ...data
       });
     }
@@ -535,10 +537,10 @@ function JadwalTab({ uniqueClasses }: { uniqueClasses: string[] }) {
 
   const segments = useMemo(() => {
     const dailyJadwal = jadwalList.filter(j => j.kelas === activeClass && j.hari === activeDay);
-    dailyJadwal.sort((a, b) => a.waktuMulai.localeCompare(b.waktuMulai));
+    dailyJadwal.sort((a, b) => ((a as any).waktuMulai ?? "").localeCompare((b as any).waktuMulai ?? ""));
 
     const segs: any[] = dailyJadwal.map(j => {
-      const conflictJadwal = j.guruId ? jadwalList.find(c => c.guruId === j.guruId && c.hari === activeDay && c.waktuMulai < j.waktuSelesai && c.waktuSelesai > j.waktuMulai && c.kelas !== activeClass) : undefined;
+      const conflictJadwal = j.guruId ? jadwalList.find(c => c.guruId === j.guruId && c.hari === activeDay && (c as any).waktuMulai < (j as any).waktuSelesai && (c as any).waktuSelesai > (j as any).waktuMulai && c.kelas !== activeClass) : undefined;
       const conflict = !!conflictJadwal;
       const conflictNote = conflictJadwal ? `Mengajar juga di Kelas ${conflictJadwal.kelas}` : "";
       const guru = j.guruId ? guruList.find(g => g.id === j.guruId) : undefined;
@@ -736,12 +738,11 @@ function SlotOverrideModal({
       id: overrideSlot?.id || `${tanggal}_${kelas}_${Date.now()}`,
       tanggal,
       kelas,
-      waktuMulai,
-      waktuSelesai,
+      jam: 0, // legacy override: slot unknown; stored by time
       mapel: mapel || null,
       guruId: guruId ? Number(guruId) : null,
       ruang: ruang || null
-    });
+    } as any);
     onClose();
   };
 
@@ -844,13 +845,14 @@ function JadwalHarianTab({ uniqueClasses, handlePrint }: { uniqueClasses: string
     // In Solusi 2, overrides can be completely free. Let's just list them all, but remove master blocks that exactly match override times if we want to replace them.
     // Actually, simple rule: an override with the same waktuMulai replaces the master block at that waktuMulai.
     const overrideMap = new Map();
-    dailyOverride.forEach(o => overrideMap.set(o.waktuMulai, o));
+    dailyOverride.forEach(o => overrideMap.set(o.jam ?? (o as any).waktuMulai, o));
 
     const combined: any[] = [];
     dailyMaster.forEach(m => {
-      if (overrideMap.has(m.waktuMulai)) {
-        combined.push(overrideMap.get(m.waktuMulai));
-        overrideMap.delete(m.waktuMulai);
+      const key = m.jam ?? (m as any).waktuMulai;
+      if (overrideMap.has(key)) {
+        combined.push(overrideMap.get(key));
+        overrideMap.delete(key);
       } else {
         combined.push(m);
       }
@@ -858,13 +860,13 @@ function JadwalHarianTab({ uniqueClasses, handlePrint }: { uniqueClasses: string
     // Add remaining overrides (new blocks)
     overrideMap.forEach(o => combined.push(o));
 
-    combined.sort((a, b) => a.waktuMulai.localeCompare(b.waktuMulai));
+    combined.sort((a, b) => (a.jam ?? 0) - (b.jam ?? 0) || ((a as any).waktuMulai ?? "").localeCompare((b as any).waktuMulai ?? ""));
 
     return combined.map(finalSlot => {
       const isOverridden = !!finalSlot.tanggal; // overrides have tanggal
 
       if (finalSlot.mapel && finalSlot.guruId) {
-        const conflictJadwal = jadwalList.find(j => j.guruId === finalSlot.guruId && j.hari === activeDayName && j.waktuMulai < finalSlot.waktuSelesai && j.waktuSelesai > finalSlot.waktuMulai && j.kelas !== activeClass);
+        const conflictJadwal = jadwalList.find(j => j.guruId === finalSlot.guruId && j.hari === activeDayName && (j as any).waktuMulai < finalSlot.waktuSelesai && (j as any).waktuSelesai > finalSlot.waktuMulai && j.kelas !== activeClass);
         const conflict = !!conflictJadwal && !isOverridden; 
         const conflictNote = conflictJadwal ? `Mengajar di ${conflictJadwal.kelas}` : "";
         const guru = guruList.find(g => g.id === finalSlot.guruId);
@@ -972,6 +974,7 @@ export function KelasJadwal() {
   
   const [editingKelas, setEditingKelas] = useState<any | null>(null);
   const [isAddingKelas, setIsAddingKelas] = useState(false);
+  const [pendingDeleteKelas, setPendingDeleteKelas] = useState<string | null>(null);
 
   // Use kelasList directly
   const uniqueClasses = useMemo(() => {
@@ -1049,17 +1052,49 @@ export function KelasJadwal() {
       {currentTab === "jadwal" && <JadwalTab uniqueClasses={uniqueClasses} />}
       {currentTab === "harian" && <JadwalHarianTab uniqueClasses={uniqueClasses} handlePrint={() => window.print()} />}
       {currentTab === "data"  && (
-        <DataKelasTab 
-          kelasRows={kelasRows} 
+        <DataKelasTab
+          kelasRows={kelasRows}
           onAdd={() => setIsAddingKelas(true)}
           onEdit={(row) => setEditingKelas(row)}
-          onDelete={(id) => {
-            if (window.confirm(`Yakin ingin menghapus kelas ${id}?`)) {
-              deleteKelas(id);
-            }
-          }}
+          onDelete={(id) => setPendingDeleteKelas(id)}
           onViewSiswa={(kelas) => navigate('/akademik/siswa', { state: { kelasFilter: `Kelas ${kelas}` } })}
         />
+      )}
+
+      {/* Confirm delete kelas */}
+      {pendingDeleteKelas && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#FEE2E2] flex items-center justify-center shrink-0">
+                <Trash2 size={18} className="text-[#DC2626]" />
+              </div>
+              <div>
+                <p className="font-bold text-[#1C2517] text-sm">Hapus Kelas {pendingDeleteKelas}?</p>
+                <p className="text-xs text-[#6B7769] mt-0.5">Tindakan ini tidak dapat dibatalkan.</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setPendingDeleteKelas(null)}
+                className="px-4 py-2 text-sm font-semibold text-[#374040] rounded-lg hover:bg-[#F5F9F4] transition-colors"
+                style={{ border: "1px solid #E2E8DE" }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => {
+                  deleteKelas(pendingDeleteKelas);
+                  toast.success(`Kelas ${pendingDeleteKelas} berhasil dihapus`);
+                  setPendingDeleteKelas(null);
+                }}
+                className="px-4 py-2 text-sm font-bold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

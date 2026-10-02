@@ -2,14 +2,18 @@ export interface JadwalRow {
   id: number;
   kelas: string;
   hari: string;
-  waktuMulai: string; // HH:MM
-  waktuSelesai: string; // HH:MM
+  jam: number;           // slot number (1-based)
   mapel: string;
-  guruId: number | null;   // foreign key to GuruRow, null for breaks
+  guruId: number | null;
   ruang: string;
+  /** @deprecated Use `jam` slot number instead. Kept for legacy component compat. */
+  waktuMulai?: string;
+  /** @deprecated Use `jam` slot number instead. Kept for legacy component compat. */
+  waktuSelesai?: string;
 }
 
-export const jadwalData: JadwalRow[] = [
+// Raw legacy data (time strings) — transformed to slot-based format below
+const _jadwalRaw = [
   { id: 1, kelas: "7A", hari: "Senin", waktuMulai: "07:30", waktuSelesai: "08:10", mapel: "SBK", guruId: 6, ruang: "R. 7A" },
   { id: 2, kelas: "7B", hari: "Senin", waktuMulai: "07:30", waktuSelesai: "08:10", mapel: "Bahasa Indonesia", guruId: 4, ruang: "R. 7B" },
   { id: 3, kelas: "7C", hari: "Senin", waktuMulai: "07:30", waktuSelesai: "08:10", mapel: "Tahfidz", guruId: 5, ruang: "R. 7C" },
@@ -588,22 +592,41 @@ export const jadwalData: JadwalRow[] = [
   { id: 576, kelas: "9D", hari: "Sabtu", waktuMulai: "11:50", waktuSelesai: "12:30", mapel: "Penjaskes", guruId: 7, ruang: "R. 9D" }
 ];
 
+// Map from waktuMulai time string → slot number
+const _WAKTU_TO_JAM: Record<string, number> = {
+  "07:30": 1, "08:10": 2, "08:50": 3,
+  "09:50": 4, "10:30": 5, "11:10": 6, "11:50": 7,
+};
+
+// Exported slot-based jadwal (Istirahat rows removed, waktuMulai → jam)
+export const jadwalData: JadwalRow[] = (_jadwalRaw as any[])
+  .filter((r: any) => r.mapel !== "Istirahat")
+  .map((r: any) => ({
+    id: r.id,
+    kelas: r.kelas,
+    hari: r.hari,
+    jam: _WAKTU_TO_JAM[r.waktuMulai as string] ?? 0,
+    mapel: r.mapel,
+    guruId: r.guruId,
+    ruang: r.ruang,
+  }));
+
 export interface JadwalOverride {
-  id: string; // e.g., "2026-08-10_7A_07:30"
-  tanggal: string; // YYYY-MM-DD
+  id: string;           // e.g., "2026-08-10_7A_3"
+  tanggal: string;      // YYYY-MM-DD
   kelas: string;
-  waktuMulai: string;
-  waktuSelesai: string;
-  mapel: string | null; // null if cleared/empty
-  guruId: number | null; // null if cleared/empty
+  jam: number;          // slot number (1-based)
+  mapel: string | null;
+  guruId: number | null;
   ruang: string | null;
 }
 
 export interface KelasRow {
-  id: string; // e.g. "7A"
-  tingkat: string; // "VII", "VIII", "IX"
-  waliId: number | null; // foreign key to GuruRow
+  id: string;              // e.g. "7A"
+  tingkat: string;         // "VII", "VIII", "IX"
+  waliId: number | null;   // foreign key to GuruRow
   kapasitas: number;
+  waktuProfileId?: string; // optional; falls back to "default"
 }
 
 export const kelasData: KelasRow[] = [
@@ -621,16 +644,56 @@ export const kelasData: KelasRow[] = [
   { id: "9D", tingkat: "IX", waliId: null, kapasitas: 32 },
 ];
 
-export type ScheduleSegment = { 
-  id?: string | number;
-  timeRange: string; 
-  subject: string; 
-  teacher: string; 
-  room: string; 
-  conflict?: boolean; 
-  conflictNote?: string; 
-  teacherId?: number;
-  isOverridden?: boolean;
-};
+export type ScheduleSegment =
+  | { type: "period"; jams: number[]; timeRange: string; subject: string; teacher: string; teacherId?: number; room: string; conflict?: boolean; conflictNote?: string; isOverridden?: boolean; }
+  | { type: "empty";  jams: number[]; timeRange: string; }
+  | { type: "break";  time: string; label: string; };
 
-export const DAYS = ["Sabtu", "Minggu", "Senin", "Selasa", "Rabu", "Kamis"];
+export const DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
+// ─── Waktu Profile Types & Data ───────────────────────────────────────────────
+
+export type WaktuJam =
+  | { type: "period"; jam: number; range: string; }
+  | { type: "break";  label: string; range: string; };
+
+export interface WaktuProfile {
+  id: string;
+  nama: string;
+  /** Per-day slot arrays. Use "Default" as fallback key. */
+  waktuPerHari: Record<string, WaktuJam[]>;
+}
+
+/** Returns a formatted time range string (e.g. "07:30–09:30") for the given slot numbers. */
+export function getTimeRange(jams: number[], slots: WaktuJam[]): string {
+  const periods = slots.filter((s): s is Extract<WaktuJam, { type: "period" }> => s.type === "period");
+  const first = periods.find(p => p.jam === jams[0]);
+  const last  = periods.find(p => p.jam === jams[jams.length - 1]);
+  if (!first || !last) return "";
+  return `${first.range.split("\u2013")[0]}\u2013${last.range.split("\u2013")[1]}`;
+}
+
+const _defaultSlots: WaktuJam[] = [
+  { type: "period", jam: 1, range: "07:30\u201308:10" },
+  { type: "period", jam: 2, range: "08:10\u201308:50" },
+  { type: "period", jam: 3, range: "08:50\u201309:30" },
+  { type: "break",  label: "Istirahat", range: "09:30\u201309:50" },
+  { type: "period", jam: 4, range: "09:50\u201310:30" },
+  { type: "period", jam: 5, range: "10:30\u201311:10" },
+  { type: "period", jam: 6, range: "11:10\u201311:50" },
+  { type: "period", jam: 7, range: "11:50\u201312:30" },
+];
+
+export const defaultWaktuProfile: WaktuProfile = {
+  id: "default",
+  nama: "Standar MTs Al-Ittihad",
+  waktuPerHari: {
+    Default: _defaultSlots,
+    Senin:   _defaultSlots,
+    Selasa:  _defaultSlots,
+    Rabu:    _defaultSlots,
+    Kamis:   _defaultSlots,
+    Jumat:   _defaultSlots,
+    Sabtu:   _defaultSlots,
+  },
+};

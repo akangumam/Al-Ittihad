@@ -4,13 +4,12 @@ import { Printer, Search, ChevronDown, X, ZoomIn, Download, MessageCircle } from
 import logoEmblem from "../../imports/aliet_logo.png";
 import { useAppContext } from "@/context/AppContext";
 import { kelasOptions } from "@/data/constants";
-import { defaultSettings } from "@/data/settings";
 import type { GuruRow } from "@/data/guru";
 
 // ─── Utility: Export elemen kartu sebagai PNG (tanpa library) ───────────────
 // Pendekatan: serialize QR sebagai SVG data URL, gambar logo via <img>
 // Lalu gabungkan di canvas untuk disimpan sebagai PNG
-async function exportQrAsPng(qrValue: string, nama: string, nis: string, fileName: string, themeColor: string, role: "siswa" | "guru"): Promise<void> {
+async function exportQrAsPng(qrValue: string, nama: string, nis: string, fileName: string, themeColor: string, role: "siswa" | "guru", namaMadrasah: string): Promise<void> {
   const SIZE = 600;
   const canvas = document.createElement("canvas");
   canvas.width = SIZE;
@@ -30,7 +29,7 @@ async function exportQrAsPng(qrValue: string, nama: string, nis: string, fileNam
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 22px Arial";
   ctx.textAlign = "center";
-  ctx.fillText(defaultSettings.namaMadrasah, SIZE / 2, 38);
+  ctx.fillText(namaMadrasah, SIZE / 2, 38);
   ctx.font = "16px Arial";
   ctx.fillText(`Kartu ${role === "siswa" ? "Identitas Siswa" : "Identitas Pegawai"}`, SIZE / 2, 64);
 
@@ -99,14 +98,14 @@ export function KartuPelajar({
   onZoom?: (s: any) => void;
   onClick?: () => void;
 }) {
-  const { tahunAjaran } = useAppContext();
+  const { tahunAjaran, appSettings } = useAppContext();
 
   return (
     <div
       onClick={onClick}
       className={`bg-white rounded-xl overflow-hidden relative flex flex-col items-center ${
-        isModal 
-          ? 'shadow-2xl w-[90vw] max-w-[300px] h-[480px] mx-auto' 
+        isModal
+          ? 'shadow-2xl w-[90vw] max-w-[300px] h-[480px] mx-auto'
           : 'w-[240px] h-[382px] shadow-sm print:shadow-none print:border-gray-300 cursor-pointer transition-transform hover:scale-[1.02]'
       }`}
       style={{ border: "1px solid #E2E8DE", breakInside: "avoid", WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
@@ -117,7 +116,7 @@ export function KartuPelajar({
           <img src={logoEmblem} alt="Logo" className="w-full h-full object-contain" />
         </div>
         <h3 className={`relative z-10 text-white font-bold tracking-wide text-center leading-tight ${isModal ? 'text-[13px]' : 'text-[11px]'}`}>
-          {defaultSettings.namaMadrasah.toUpperCase()}
+          {appSettings.namaMadrasah.toUpperCase()}
         </h3>
         <p className={`relative z-10 text-white/90 text-center mt-0.5 ${isModal ? 'text-[10px]' : 'text-[8px]'}`}>Kartu Identitas Siswa - TP {tahunAjaran}</p>
       </div>
@@ -176,8 +175,8 @@ export function KartuGuru({
   onZoom?: (g: GuruRow) => void;
   onClick?: () => void;
 }) {
-  const { tahunAjaran } = useAppContext();
-  const themeColor = "#1E3A8A"; // Biru Tua untuk staf/guru
+  const { tahunAjaran, appSettings } = useAppContext();
+  const themeColor = "#1E3A8A";
 
   return (
     <div
@@ -195,7 +194,7 @@ export function KartuGuru({
           <img src={logoEmblem} alt="Logo" className="w-full h-full object-contain" />
         </div>
         <h3 className={`relative z-10 text-white font-bold tracking-wide text-center leading-tight ${isModal ? 'text-[13px]' : 'text-[11px]'}`}>
-          {defaultSettings.namaMadrasah.toUpperCase()}
+          {appSettings.namaMadrasah.toUpperCase()}
         </h3>
         <p className={`relative z-10 text-white/90 text-center mt-0.5 ${isModal ? 'text-[10px]' : 'text-[8px]'}`}>Kartu Identitas Pegawai - TP {tahunAjaran}</p>
       </div>
@@ -246,7 +245,7 @@ export function KartuGuru({
 
 // ─── Halaman Utama ────────────────────────────────────────────────────────────
 export function KartuDigital() {
-  const { siswaList, guruList } = useAppContext();
+  const { siswaList, guruList, appSettings } = useAppContext();
   const [activeTab, setActiveTab] = useState<"siswa" | "guru">("siswa");
   const [filterDropdown, setFilterDropdown] = useState("Semua");
   const [search, setSearch] = useState("");
@@ -429,7 +428,7 @@ export function KartuDigital() {
                   const qrVal = `MADRASAH AL-ITTIHAD|${activeTab === "siswa" ? qrZoomData.nis : qrZoomData.id}|${qrZoomData.nama}`;
                   const idStr = activeTab === "siswa" ? qrZoomData.nis : String(qrZoomData.id);
                   const color = activeTab === "siswa" ? "#3E8A2F" : "#1E3A8A";
-                  exportQrAsPng(qrVal, qrZoomData.nama, idStr, `qr-${qrZoomData.nama.replace(/\s+/g,"-")}`, color, activeTab);
+                  exportQrAsPng(qrVal, qrZoomData.nama, idStr, `qr-${qrZoomData.nama.replace(/\s+/g,"-")}`, color, activeTab, appSettings.namaMadrasah);
                 }}
                 className={`w-full flex items-center justify-center gap-2 py-2.5 text-white font-semibold rounded-xl transition-colors ${
                   activeTab === "siswa" ? "bg-[#3E8A2F] hover:bg-[#2E6B22]" : "bg-[#1E3A8A] hover:bg-[#1E40AF]"
@@ -445,8 +444,8 @@ export function KartuDigital() {
                   onClick={() => {
                     const hp = (activeTab === "siswa" ? qrZoomData.waliHp : qrZoomData.hp)?.replace(/\D/g, "");
                     const pesan = activeTab === "siswa"
-                      ? `Assalamu'alaikum, berikut adalah *Kartu Digital* (QR Absensi) untuk *${qrZoomData.nama}* (NIS: ${qrZoomData.nis}).\n\nSilakan simpan QR ini di HP dan tunjukkan kepada petugas gerbang setiap hari saat masuk madrasah.\n\n_Madrasah ${defaultSettings.namaMadrasah}_`
-                      : `Assalamu'alaikum Ust/Ibu *${qrZoomData.nama}*, berikut adalah QR Code absensi Anda.\n\nSilakan simpan dan tunjukkan kepada petugas gerbang setiap hari.\n\n_${defaultSettings.namaMadrasah}_`;
+                      ? `Assalamu'alaikum, berikut adalah *Kartu Digital* (QR Absensi) untuk *${qrZoomData.nama}* (NIS: ${qrZoomData.nis}).\n\nSilakan simpan QR ini di HP dan tunjukkan kepada petugas gerbang setiap hari saat masuk madrasah.\n\n_Madrasah ${appSettings.namaMadrasah}_`
+                      : `Assalamu'alaikum Ust/Ibu *${qrZoomData.nama}*, berikut adalah QR Code absensi Anda.\n\nSilakan simpan dan tunjukkan kepada petugas gerbang setiap hari.\n\n_${appSettings.namaMadrasah}_`;
                     window.open(`https://wa.me/${hp}?text=${encodeURIComponent(pesan)}`, "_blank");
                   }}
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#25D366] text-white font-semibold rounded-xl hover:bg-[#1EB857] transition-colors"

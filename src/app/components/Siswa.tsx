@@ -5,8 +5,9 @@ import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, Upload, MoreHorizontal, X, Eye, Pencil,
   MessageCircle, Trash2, Check, FileText, IdCard, ZoomIn,
-  GraduationCap, ArrowRightLeft, CheckCircle2, BarChart3, SlidersHorizontal
+  GraduationCap, ArrowRightLeft, BarChart3, SlidersHorizontal
 } from "lucide-react";
+import { toast } from "sonner";
 import QRCode from "react-qr-code";
 import { motion } from "motion/react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
@@ -270,6 +271,10 @@ function FloatingSelect({
 type SheetTab = "profil" | "tagihan" | "riwayat";
 
 function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard }: { siswa?: SiswaRow | null; isAdding?: boolean; isReadOnly?: boolean; onClose: () => void; onSave: (data: any) => void; onShowCard?: () => void }) {
+  const { tahunAjaran } = useAppContext();
+  const [taStart, taEnd] = tahunAjaran.split("/");
+  const prevYear = `${parseInt(taStart) - 1}/${taStart}`;
+  const nextYear = `${taEnd}/${parseInt(taEnd) + 1}`;
   const [tab, setTab] = useState<SheetTab>("profil");
   const [form, setForm] = useState({
     nis: siswa?.nis || "", nisn: siswa?.nisn || "", nama: siswa?.nama || "",
@@ -300,7 +305,7 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
 
   const handleSave = () => {
     if (!form.nis || !form.nisn || !form.nama || !form.namaAyah || !form.waliHp || !form.tempatLahir || !form.tanggalLahir || !form.alamat || !form.asalSekolah || !form.tahunMasuk) {
-      alert("Harap lengkapi semua kolom yang wajib diisi!");
+      toast.error("Harap lengkapi semua kolom yang wajib diisi!");
       return;
     }
     onSave(form);
@@ -571,7 +576,7 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
                     <div className="flex items-center justify-between p-3 rounded-lg border border-[#3E8A2F] bg-[#F4FBF4]">
                       <div>
                         <p className="text-sm font-semibold text-[#3E8A2F]">{siswa.kelas}</p>
-                        <p className="text-xs text-[#6B7769]">Tahun Ajaran 2026/2027</p>
+                        <p className="text-xs text-[#6B7769]">Tahun Ajaran {nextYear}</p>
                       </div>
                       <span className="text-[10px] px-2 py-1 bg-[#3E8A2F] text-white rounded-full font-medium">Kelas Saat Ini</span>
                     </div>
@@ -579,7 +584,7 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
                       <div className="flex items-center justify-between p-3 rounded-lg border border-[#E2E8DE] bg-[#FAFAFA]">
                         <div>
                           <p className="text-sm font-semibold text-[#1C2517]">8{siswa.kelas.charAt(1) || 'A'}</p>
-                          <p className="text-xs text-[#9CA3A0]">Tahun Ajaran 2025/2026</p>
+                          <p className="text-xs text-[#9CA3A0]">Tahun Ajaran {tahunAjaran}</p>
                         </div>
                         <span className="text-[10px] px-2 py-1 bg-[#F3F4F6] text-[#6B7769] rounded-full font-medium border border-[#E5E7EB]">Selesai</span>
                       </div>
@@ -588,7 +593,7 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
                       <div className="flex items-center justify-between p-3 rounded-lg border border-[#E2E8DE] bg-[#FAFAFA]">
                         <div>
                           <p className="text-sm font-semibold text-[#1C2517]">7{siswa.kelas.charAt(1) || 'A'}</p>
-                          <p className="text-xs text-[#9CA3A0]">Tahun Ajaran {siswa.kelas.startsWith("9") ? "2024/2025" : "2025/2026"}</p>
+                          <p className="text-xs text-[#9CA3A0]">Tahun Ajaran {siswa.kelas.startsWith("9") ? prevYear : tahunAjaran}</p>
                         </div>
                         <span className="text-[10px] px-2 py-1 bg-[#F3F4F6] text-[#6B7769] rounded-full font-medium border border-[#E5E7EB]">Selesai</span>
                       </div>
@@ -656,7 +661,6 @@ export function Siswa() {
   const [selectedCardSiswa, setSelectedCardSiswa] = useState<SiswaRow | null>(null);
   const [qrZoomSiswa, setQrZoomSiswa] = useState<SiswaRow | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [toastMsg, setToastMsg] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [sortBy, setSortBy] = useState("default");
   const [showStats, setShowStats] = useState(false);
@@ -668,13 +672,6 @@ export function Siswa() {
     const timer = setTimeout(() => setIsLoading(false), 400);
     return () => clearTimeout(timer);
   }, [search, kelasFilter, statusFilter, sortBy]);
-
-  useEffect(() => {
-    if (toastMsg) {
-      const t = setTimeout(() => setToastMsg(""), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [toastMsg]);
 
   const { siswaList, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa, tahunAjaran } = useAppContext();
 
@@ -1163,7 +1160,7 @@ export function Siswa() {
                         onToggleStatus={() => {
                           const newStatus = nonaktif ? "Aktif" : "Nonaktif";
                           updateSiswa(row.id, { status: newStatus });
-                          setToastMsg(`Status ${row.nama} berhasil diubah menjadi ${newStatus}`);
+                          toast.success(`Status ${row.nama} berhasil diubah menjadi ${newStatus}`);
                         }} 
                       />
                     </td>
@@ -1484,14 +1481,6 @@ export function Siswa() {
         </div>
       )}
 
-      {/* ── Toast Notification ── */}
-      {toastMsg && createPortal(
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] bg-[#1C2517] text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-5">
-          <CheckCircle2 size={18} className="text-[#3E8A2F]" />
-          <span className="text-sm font-medium">{toastMsg}</span>
-        </div>,
-        document.body
-      )}
     </div>
   );
 }

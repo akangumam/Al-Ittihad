@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, MoreHorizontal, X, Eye, Pencil,
@@ -11,7 +12,6 @@ import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { GuruRow, guruData } from "@/data/guru";
 import { mapelOptions } from "@/data/constants";
 import { useAppContext } from "@/context/AppContext";
-import { absensiRekapData } from "@/data/absensi";
 import { DAYS } from "@/data/kelas";
 import { KartuGuru } from "./KartuDigital";
 
@@ -321,7 +321,7 @@ function MapelMultiSelect({ values, onChange, label, options, required = false }
 type SheetTab = "profil" | "jadwal" | "absensi";
 
 function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions, onShowCard }: { guru: GuruRow; onClose: () => void; onSave: (data: Partial<GuruRow>) => void; isNew?: boolean; mapelOptions: string[]; onShowCard?: () => void }) {
-  const { jadwalList } = useAppContext();
+  const { jadwalList, absensiGuruHistory, appSettings } = useAppContext();
   const [tab, setTab] = useState<SheetTab>("profil");
   const [form, setForm] = useState({
     nama: guru.nama,
@@ -538,7 +538,7 @@ function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions, onShowCard }: {
                   );
                 }
                 return DAYS.map(hari => {
-                  const jHari = myJadwal.filter(j => j.hari === hari).sort((a, b) => a.waktuMulai.localeCompare(b.waktuMulai));
+                  const jHari = myJadwal.filter(j => j.hari === hari).sort((a, b) => ((a as any).waktuMulai ?? "").localeCompare((b as any).waktuMulai ?? ""));
                   if (jHari.length === 0) return null;
                   return (
                     <div key={hari} className="border border-[#E2E8DE] rounded-xl overflow-hidden mx-2">
@@ -551,7 +551,7 @@ function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions, onShowCard }: {
                             <div key={j.id} className="p-3 flex items-center justify-between bg-white">
                               <div>
                                 <p className="text-sm font-semibold text-[#1C2517]">{j.mapel} <span className="text-xs font-normal text-[#6B7769]">({j.ruang || j.kelas})</span></p>
-                                <p className="text-xs text-[#9CA3A0]">{j.waktuMulai} - {j.waktuSelesai}</p>
+                                <p className="text-xs text-[#9CA3A0]">{(j as any).waktuMulai} - {(j as any).waktuSelesai}</p>
                               </div>
                               <span className="px-2.5 py-1 rounded-full bg-[#EDF7EC] text-[#3E8A2F] text-[10px] font-bold">Kelas {j.kelas}</span>
                             </div>
@@ -566,7 +566,24 @@ function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions, onShowCard }: {
           ) : (
             <div className="py-6 space-y-4">
               {(() => {
-                const rekap = absensiRekapData.find(r => r.id === guru.id);
+                const jamMasuk = appSettings.jamMasukGuru ?? "07:00";
+                const [limH, limM] = jamMasuk.split(":").map(Number);
+                let hadir = 0, izin = 0, alpa = 0, terlambat = 0;
+                Object.values(absensiGuruHistory).forEach(dayData => {
+                  const entry = dayData[guru.id];
+                  if (!entry) return;
+                  if (entry.status === "Hadir") {
+                    hadir++;
+                    const [eH, eM] = (entry.jam || "00:00").split(":").map(Number);
+                    if (eH > limH || (eH === limH && eM > limM)) terlambat++;
+                  } else if (entry.status === "Izin") {
+                    izin++;
+                  } else if (entry.status === "Alpa") {
+                    alpa++;
+                  }
+                });
+                const totalDays = hadir + izin + alpa;
+                const rekap = totalDays > 0 ? { hadir, izin, alpa, terlambat, pct: Math.round((hadir / totalDays) * 100) } : null;
                 if (!rekap) {
                   return (
                     <div className="flex flex-col items-center justify-center py-14 text-center">
@@ -608,7 +625,7 @@ function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions, onShowCard }: {
                     </div>
                     <div className="p-4 rounded-xl bg-[#FAFAFA] border border-[#E2E8DE]">
                       <p className="text-xs text-[#9CA3A0] leading-relaxed">
-                        Data ini direkap berdasarkan pengisian kehadiran harian di menu Absensi Guru. Rekapitulasi di atas adalah untuk data bulan ini (Juli 2026).
+                        Data ini direkap dari seluruh riwayat absensi harian guru di menu Absensi Guru.
                       </p>
                     </div>
                   </div>
@@ -630,7 +647,7 @@ function GuruSheet({ guru, onClose, onSave, isNew, mapelOptions, onShowCard }: {
           <button 
             onClick={() => {
               if (!form.nama || !form.statusKepeg || !form.hp || !form.tanggalLahir || !form.alamat || !form.pendidikan || form.mapel.length === 0) {
-                alert("Mohon lengkapi semua kolom yang wajib diisi (bertanda *).");
+                toast.error("Mohon lengkapi semua kolom yang wajib diisi (bertanda *).");
                 return;
               }
               onSave(form as unknown as Partial<GuruRow>);

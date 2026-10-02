@@ -5,8 +5,8 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Eye, Pencil, Trash2, X
 } from "lucide-react";
 
-import { ScheduleSegment, DAYS, getTimeRange, JadwalRow, WaktuJam } from "@/data/kelas";
-import { useAppContext } from "@/context/AppContext";
+import { ScheduleSegment, DAYS, getTimeRange, JadwalRow, WaktuJam } from "./src/data/kelas";
+import { useAppContext } from "./src/context/AppContext";
 
 // ─── subject color palette ────────────────────────────────────────────────────
 const SUBJECT_STYLE: Record<string, { bg: string; accent: string; text: string }> = {
@@ -72,7 +72,7 @@ function KelasRowMenu({ onViewSiswa, onEdit, onDelete }: { onViewSiswa: () => vo
             left: rect.right - 176,
             top: spaceBelow < menuHeight ? rect.top - menuHeight - 8 : rect.bottom + 8
           });
-          setOpen((o) => !o); 
+          setOpen((o: any) => !o); 
         }}
         className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3A0] hover:bg-[#F5F9F4] hover:text-[#374040] transition-colors relative"
       >
@@ -177,7 +177,7 @@ function KelasEditorModal({
               style={{ border: "1px solid #E2E8DE" }}
             >
               <option value="">-- Tidak ada wali kelas --</option>
-              {guruList.map(g => (
+              {guruList.map((g: any) => (
                 <option key={g.id} value={g.id}>{g.nama}</option>
               ))}
             </select>
@@ -366,7 +366,7 @@ function SlotEditorModal({
 }) {
   const { guruList, jadwalList, addJadwal, updateJadwal, deleteJadwal } = useAppContext();
   
-  const currentJadwal = jadwalList.find(j => j.kelas === kelas && j.hari === hari && j.jam === jam);
+  const currentJadwal = jadwalList.find((j: any) => j.kelas === kelas && j.hari === hari && j.jam === jam);
   
   const [mapel, setMapel] = useState(currentJadwal?.mapel || "");
   const [guruId, setGuruId] = useState<number | "">(currentJadwal?.guruId || "");
@@ -375,13 +375,13 @@ function SlotEditorModal({
   // Auto-recommend gurus based on mapel
   const recommendedGurus = useMemo(() => {
     if (!mapel) return guruList;
-    return guruList.filter(g => g.mapel.includes(mapel));
+    return guruList.filter((g: any) => g.mapel.includes(mapel));
   }, [guruList, mapel]);
 
   // Mapel options derived from Guru list
   const mapelOptions = useMemo(() => {
     const set = new Set<string>();
-    guruList.forEach(g => g.mapel.forEach(m => set.add(m)));
+    guruList.forEach((g: any) => g.mapel.forEach((m: any) => set.add(m)));
     return Array.from(set).sort();
   }, [guruList]);
 
@@ -436,7 +436,7 @@ function SlotEditorModal({
                 style={{ border: "1px solid #E2E8DE" }}
               >
                 <option value="">-- Pilih Mata Pelajaran --</option>
-                {mapelOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                {mapelOptions.map((m: any) => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
             
@@ -450,7 +450,7 @@ function SlotEditorModal({
                 disabled={!mapel}
               >
                 <option value="">-- Pilih Guru --</option>
-                {recommendedGurus.map(g => (
+                {recommendedGurus.map((g: any) => (
                   <option key={g.id} value={g.id}>{g.nama}</option>
                 ))}
               </select>
@@ -515,33 +515,33 @@ function JadwalTab({ uniqueClasses, handlePrint }: { uniqueClasses: string[]; ha
   const { jadwalList, guruList, waktuProfiles, kelasList } = useAppContext();
 
   const waktuJamList = useMemo(() => {
-    const kelas = kelasList.find(k => k.id === activeClass);
+    const kelas = kelasList.find((k: any) => k.id === activeClass);
     const profileId = kelas?.waktuProfileId || waktuProfiles[0]?.id;
-    const profile = waktuProfiles.find(p => p.id === profileId) || waktuProfiles[0];
+    const profile = waktuProfiles.find((p: any) => p.id === profileId) || waktuProfiles[0];
     return profile?.waktuPerHari[activeDay] || profile?.waktuPerHari["Default"] || [];
   }, [activeClass, activeDay, kelasList, waktuProfiles]);
 
   // Dynamically calculate segments for activeClass and activeDay
   const segments = useMemo(() => {
-    const dailyJadwal = jadwalList.filter(j => j.kelas === activeClass && j.hari === activeDay);
+    const dailyJadwal = jadwalList.filter((j: any) => j.kelas === activeClass && j.hari === activeDay);
     const segs: ScheduleSegment[] = [];
     let currentPeriod: any = null;
 
-    waktuJamList.forEach((w) => {
+    waktuJamList.forEach((w: any) => {
       if (w.type === "break") {
         if (currentPeriod) { segs.push(currentPeriod); currentPeriod = null; }
         segs.push({ type: "break", label: w.label, time: w.range });
         return;
       }
 
-      const jadwal = dailyJadwal.find(j => j.jam === w.jam);
+      const jadwal = dailyJadwal.find((j: any) => j.jam === w.jam);
 
       if (jadwal) {
         // Conflict detection: Does this teacher teach another class exactly right now?
-        const conflictJadwal = jadwalList.find(j => j.guruId === jadwal.guruId && j.hari === activeDay && j.jam === w.jam && j.kelas !== activeClass);
+        const conflictJadwal = jadwalList.find((j: any) => j.guruId === jadwal.guruId && j.hari === activeDay && j.jam === w.jam && j.kelas !== activeClass);
         const conflict = !!conflictJadwal;
         const conflictNote = conflictJadwal ? `Mengajar juga di Kelas ${conflictJadwal.kelas}` : "";
-        const guru = guruList.find(g => g.id === jadwal.guruId);
+        const guru = guruList.find((g: any) => g.id === jadwal.guruId);
 
         if (currentPeriod && currentPeriod.subject === jadwal.mapel && currentPeriod.teacherId === jadwal.guruId) {
           // extend period
@@ -572,7 +572,7 @@ function JadwalTab({ uniqueClasses, handlePrint }: { uniqueClasses: string[]; ha
     if (currentPeriod) segs.push(currentPeriod);
 
     // Apply timeRange for periods
-    segs.forEach(s => {
+    segs.forEach((s: any) => {
       if (s.type === "period") {
         s.timeRange = getTimeRange(s.jams, waktuJamList);
       }
@@ -584,14 +584,14 @@ function JadwalTab({ uniqueClasses, handlePrint }: { uniqueClasses: string[]; ha
   // Dynamically calculate ringkasan guru
   const ringkasan = useMemo(() => {
     const counts: Record<number, number> = {};
-    jadwalList.filter(j => j.hari === activeDay).forEach(j => {
+    jadwalList.filter((j: any) => j.hari === activeDay).forEach((j: any) => {
       counts[j.guruId] = (counts[j.guruId] || 0) + 1;
     });
     return Object.entries(counts).map(([guruId, jam]) => {
-      const guru = guruList.find(g => g.id === Number(guruId));
+      const guru = guruList.find((g: any) => g.id === Number(guruId));
       const nama = guru?.nama || "Unknown Guru";
       // Basic initials
-      const parts = nama.split(" ").filter(p => !p.includes("."));
+      const parts = nama.split(" ").filter((p: any) => !p.includes("."));
       const inits = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].substring(0,2).toUpperCase();
       
       return {
@@ -638,7 +638,7 @@ function JadwalTab({ uniqueClasses, handlePrint }: { uniqueClasses: string[]; ha
 
         {/* Day tabs (shadcn muted container) */}
         <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
-          {DAYS.map((d) => (
+          {DAYS.map((d: any) => (
             <button
               key={d}
               onClick={() => setActiveDay(d)}
@@ -771,8 +771,8 @@ function SlotOverrideModal({
   const { guruList, jadwalList, jadwalOverridesList, setJadwalOverride, clearJadwalOverride } = useAppContext();
   
   // Base schedule for this slot
-  const baseSlot = jadwalList.find(j => j.kelas === kelas && j.hari === hari && j.jam === jam);
-  const overrideSlot = jadwalOverridesList.find(o => o.tanggal === tanggal && o.kelas === kelas && o.jam === jam);
+  const baseSlot = jadwalList.find((j: any) => j.kelas === kelas && j.hari === hari && j.jam === jam);
+  const overrideSlot = jadwalOverridesList.find((o: any) => o.tanggal === tanggal && o.kelas === kelas && o.jam === jam);
   
   const [mapel, setMapel] = useState(overrideSlot?.mapel !== undefined ? (overrideSlot.mapel || "") : (baseSlot?.mapel || ""));
   const [guruId, setGuruId] = useState<string | number>(overrideSlot?.guruId !== undefined ? (overrideSlot.guruId || "") : (baseSlot?.guruId || ""));
@@ -780,7 +780,7 @@ function SlotOverrideModal({
   
   const mapelOptions = useMemo(() => {
     const set = new Set<string>();
-    guruList.forEach(g => g.mapel.forEach(m => set.add(m)));
+    guruList.forEach((g: any) => g.mapel.forEach((m: any) => set.add(m)));
     return Array.from(set).sort();
   }, [guruList]);
 
@@ -835,7 +835,7 @@ function SlotOverrideModal({
             <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Mata Pelajaran</label>
             <select value={mapel} onChange={(e) => { setMapel(e.target.value); setGuruId(""); }} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none" style={{ border: "1px solid #E2E8DE" }}>
               <option value="">-- Kosong --</option>
-              {mapelOptions.map(m => <option key={m} value={m}>{m}</option>)}
+              {mapelOptions.map((m: any) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
           
@@ -843,7 +843,7 @@ function SlotOverrideModal({
             <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Guru Pengajar</label>
             <select value={guruId} onChange={(e) => setGuruId(Number(e.target.value))} className="w-full px-3 py-2 rounded-lg text-sm text-[#1C2517] outline-none" style={{ border: "1px solid #E2E8DE" }} disabled={!mapel}>
               <option value="">-- Pilih Guru --</option>
-              {guruList.map(g => <option key={g.id} value={g.id}>{g.nama}</option>)}
+              {guruList.map((g: any) => <option key={g.id} value={g.id}>{g.nama}</option>)}
             </select>
           </div>
           
@@ -889,27 +889,27 @@ function JadwalHarianTab({ uniqueClasses, handlePrint }: { uniqueClasses: string
   }, [activeDate]);
 
   const waktuJamList = useMemo(() => {
-    const kelas = kelasList.find(k => k.id === activeClass);
+    const kelas = kelasList.find((k: any) => k.id === activeClass);
     const profileId = kelas?.waktuProfileId || waktuProfiles[0]?.id;
-    const profile = waktuProfiles.find(p => p.id === profileId) || waktuProfiles[0];
+    const profile = waktuProfiles.find((p: any) => p.id === profileId) || waktuProfiles[0];
     return profile?.waktuPerHari[activeDayName] || profile?.waktuPerHari["Default"] || [];
   }, [activeClass, activeDayName, kelasList, waktuProfiles]);
 
   const segments = useMemo(() => {
-    const dailyMaster = jadwalList.filter(j => j.kelas === activeClass && j.hari === activeDayName);
-    const dailyOverride = jadwalOverridesList.filter(o => o.tanggal === activeDate && o.kelas === activeClass);
+    const dailyMaster = jadwalList.filter((j: any) => j.kelas === activeClass && j.hari === activeDayName);
+    const dailyOverride = jadwalOverridesList.filter((o: any) => o.tanggal === activeDate && o.kelas === activeClass);
     
     const segs: ScheduleSegment[] = [];
     let currentPeriod: any = null;
 
-    waktuJamList.forEach((w) => {
+    waktuJamList.forEach((w: any) => {
       if (w.type === "break") {
         if (currentPeriod) { segs.push(currentPeriod); currentPeriod = null; }
         segs.push({ type: "break", label: w.label, time: w.range });
         return;
       }
 
-      const override = dailyOverride.find(o => o.jam === w.jam);
+      const override = dailyOverride.find((o: any) => o.jam === w.jam);
       let finalSlot = null;
       let isOverridden = false;
       
@@ -919,15 +919,15 @@ function JadwalHarianTab({ uniqueClasses, handlePrint }: { uniqueClasses: string
           finalSlot = { mapel: override.mapel, guruId: override.guruId, ruang: override.ruang };
         }
       } else {
-        const master = dailyMaster.find(j => j.jam === w.jam);
+        const master = dailyMaster.find((j: any) => j.jam === w.jam);
         if (master) finalSlot = master;
       }
 
       if (finalSlot) {
-        const conflictJadwal = jadwalList.find(j => j.guruId === finalSlot.guruId && j.hari === activeDayName && j.jam === w.jam && j.kelas !== activeClass);
+        const conflictJadwal = jadwalList.find((j: any) => j.guruId === finalSlot.guruId && j.hari === activeDayName && j.jam === w.jam && j.kelas !== activeClass);
         const conflict = !!conflictJadwal && !isOverridden; 
         const conflictNote = conflictJadwal ? `Mengajar di ${conflictJadwal.kelas}` : "";
-        const guru = guruList.find(g => g.id === finalSlot.guruId);
+        const guru = guruList.find((g: any) => g.id === finalSlot.guruId);
 
         if (currentPeriod && currentPeriod.subject === finalSlot.mapel && currentPeriod.teacherId === finalSlot.guruId && currentPeriod.isOverridden === isOverridden) {
           currentPeriod.jams.push(w.jam);
@@ -952,7 +952,7 @@ function JadwalHarianTab({ uniqueClasses, handlePrint }: { uniqueClasses: string
 
     if (currentPeriod) segs.push(currentPeriod);
 
-    segs.forEach(s => {
+    segs.forEach((s: any) => {
       if (s.type === "period") s.timeRange = getTimeRange(s.jams, waktuJamList);
     });
     return segs;
@@ -1035,14 +1035,14 @@ export function KelasJadwal() {
 
   // Use kelasList directly
   const uniqueClasses = useMemo(() => {
-    return kelasList.map(k => k.id).sort();
+    return kelasList.map((k: any) => k.id).sort();
   }, [kelasList]);
 
   // Compute kelas Rows for the table based on kelasList
   const kelasRows = useMemo(() => {
     return kelasList.map(kelas => {
-      const siswaCount = siswaList.filter(s => s.kelas === kelas.id && s.status === "Aktif").length;
-      const waliInfo = guruList.find(g => g.id === kelas.waliId);
+      const siswaCount = siswaList.filter((s: any) => s.kelas === kelas.id && s.status === "Aktif").length;
+      const waliInfo = guruList.find((g: any) => g.id === kelas.waliId);
       const waliName = waliInfo?.nama || "Belum ada wali kelas";
       
       return {
@@ -1118,7 +1118,7 @@ export function KelasJadwal() {
               deleteKelas(id);
             }
           }}
-          onViewSiswa={(kelas) => navigate('/akademik/siswa', { state: { kelasFilter: `Kelas ${kelas}` } })}
+          onViewSiswa={(kelas: any) => navigate('/akademik/siswa', { state: { kelasFilter: `Kelas ${kelas}` } })}
         />
       )}
     </div>

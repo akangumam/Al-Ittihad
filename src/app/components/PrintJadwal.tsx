@@ -26,7 +26,7 @@ export function PrintJadwalKelas({ kelas, jadwalList, guruList }: PrintJadwalKel
       <div className="grid grid-cols-2 gap-x-12 gap-y-8">
         {DAYS.map((day) => {
           const dayJadwal = classJadwal.filter((j) => j.hari === day);
-          dayJadwal.sort((a, b) => a.waktuMulai.localeCompare(b.waktuMulai));
+          dayJadwal.sort((a, b) => ((a as any).waktuMulai ?? "").localeCompare((b as any).waktuMulai ?? ""));
 
           if (dayJadwal.length === 0) return null;
 
@@ -48,7 +48,7 @@ export function PrintJadwalKelas({ kelas, jadwalList, guruList }: PrintJadwalKel
                     return (
                       <tr key={j.id} className={isBreak ? "bg-gray-50 italic" : ""}>
                         <td className="border border-black px-2 py-1.5 whitespace-nowrap">
-                          {j.waktuMulai} - {j.waktuSelesai}
+                          {(j as any).waktuMulai} - {(j as any).waktuSelesai}
                         </td>
                         <td className="border border-black px-2 py-1.5 font-bold">
                           {isBreak ? "Istirahat" : j.mapel}
@@ -140,7 +140,7 @@ export function PrintMasterJadwal({ jadwalList, guruList, uniqueClasses }: Print
                 if (dayJadwal.length === 0) return null;
 
                 const intervals = Array.from(
-                  new Set(dayJadwal.map((j) => `${j.waktuMulai}-${j.waktuSelesai}`))
+                  new Set(dayJadwal.map((j) => `${(j as any).waktuMulai ?? j.jam}-${(j as any).waktuSelesai ?? j.jam}`))
                 )
                   .sort()
                   .map((t) => {
@@ -152,7 +152,7 @@ export function PrintMasterJadwal({ jadwalList, guruList, uniqueClasses }: Print
                   const isFirstRowOfDay = i === 0;
                   const isBreakRow = uniqueClasses.every((cls) => {
                     const cell = dayJadwal.find(
-                      (j) => j.kelas === cls && j.waktuMulai === interval.start
+                      (j) => j.kelas === cls && (j as any).waktuMulai === interval.start
                     );
                     return cell ? cell.mapel === "Istirahat" : true;
                   });
@@ -205,7 +205,7 @@ export function PrintMasterJadwal({ jadwalList, guruList, uniqueClasses }: Print
                       </td>
                       {uniqueClasses.map((cls) => {
                         const cell = dayJadwal.find(
-                          (j) => j.kelas === cls && j.waktuMulai === interval.start
+                          (j) => j.kelas === cls && (j as any).waktuMulai === interval.start
                         );
                         if (!cell) return <td key={cls} className="border border-black p-0.5"></td>;
                         if (cell.mapel === "Istirahat") {

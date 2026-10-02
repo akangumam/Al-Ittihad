@@ -78,7 +78,8 @@ function RowMenu({ waNumber, onView }: { waNumber?: string; onView: () => void; 
                 e.stopPropagation();
                 setOpen(false);
                 if (waNumber) {
-                  const formatted = waNumber.startsWith('0') ? '62' + waNumber.slice(1) : waNumber;
+                  const digits = waNumber.replace(/\D/g, "");
+                  const formatted = digits.startsWith('0') ? '62' + digits.slice(1) : digits;
                   window.open(`https://wa.me/${formatted}`, '_blank');
                 }
               }}
