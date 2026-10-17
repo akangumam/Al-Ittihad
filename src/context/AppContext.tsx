@@ -105,7 +105,7 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [tahunAjaran, setTahunAjaran] = useState("2025/2026");
+  // tahunAjaran is derived from appSettings — see below
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [siswaList, setSiswaList] = useState<SiswaRow[]>(siswaData);
   const [alumniList, setAlumniList] = useState<AlumniRow[]>(alumniData);
@@ -192,11 +192,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     tahunAjaran: "2025/2026",
     jamMasukGuru: "07:00",
     kapasitasKelas: 32,
-    formatKuitansi: "KWT-YYYYMMDD-XXX",
+    formatKuitansi: "KW/{TAHUN}/{BULAN}/{URUT}",
     namaMadrasah: "MTs Al-Ittihad Pedaleman",
-    alamatMadrasah: "Jl. Pendidikan No. 1",
+    alamatMadrasah: "Jl. Pedaleman No. 1, Babakan, Kota Cirebon, Jawa Barat 45121",
+    kirimWA: true,
   };
-  const [appSettings, setAppSettings] = useState<AppSettings>(defaultAppSettings);
+  // Lazy init: read from localStorage immediately so the save effect never overwrites with stale defaults.
+  // Merge with defaultAppSettings so fields added later (kirimWA, alamatMadrasah, etc.) are always populated.
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => {
+    try {
+      const s = localStorage.getItem("alittihad_app_settings");
+      if (s) return { ...defaultAppSettings, ...JSON.parse(s) };
+    } catch {}
+    return defaultAppSettings;
+  });
+  // tahunAjaran is the canonical source from appSettings, not a separate state.
+  const tahunAjaran = appSettings.tahunAjaran;
+  const setTahunAjaran = (ta: string) => setAppSettings(s => ({ ...s, tahunAjaran: ta }));
 
   const isElectron = !!(window as any).electronAPI;
 
@@ -277,12 +289,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           
           const s12 = localStorage.getItem("alittihad_absensi_settings");
           if (s12) setAbsensiSettings(JSON.parse(s12));
-          
+
           const s13 = localStorage.getItem("alittihad_absensi_gerbang");
           if (s13) setAbsensiGerbangLog(JSON.parse(s13));
 
-          const s14 = localStorage.getItem("alittihad_app_settings");
-          if (s14) setAppSettings(JSON.parse(s14));
+          // appSettings is lazily initialized from localStorage in useState — no loadData needed.
 
           const s16 = localStorage.getItem("alittihad_activity_log");
           if (s16) setActivityLogs(JSON.parse(s16));

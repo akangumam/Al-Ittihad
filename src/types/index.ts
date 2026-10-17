@@ -87,6 +87,8 @@ export interface AppSettings {
   formatKuitansi: string;
   namaMadrasah: string;
   alamatMadrasah: string;
+  kirimWA: boolean;
+  tahunAjaranRows?: { year: string; status: "Aktif" | "Arsip" | "Draft" }[];
 }
 
 export interface AbsensiSettings {

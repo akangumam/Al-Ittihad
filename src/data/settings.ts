@@ -7,6 +7,7 @@ export const defaultSettings: AppSettings = {
   formatKuitansi: "KW/{TAHUN}/{BULAN}/{URUT}",
   namaMadrasah: "MTs Al-Ittihad Pedaleman",
   alamatMadrasah: "Jl. Pedaleman, Babakan, Cirebon",
+  kirimWA: true,
 };
 
 export const tahunAjaranOptions = [
