@@ -917,7 +917,10 @@ export function Guru() {
                         const waNumber = no.startsWith("0") ? "62" + no.slice(1) : no;
                         window.open(`https://wa.me/${waNumber}`, "_blank");
                       }}
-                      onNonaktif={() => updateGuru(row.id, { status: "Nonaktif" })}
+                      onNonaktif={() => {
+                        updateGuru(row.id, { status: "Nonaktif" });
+                        toast.success(`${row.nama} berhasil dinonaktifkan`);
+                      }}
                       onShowCard={() => setSelectedCardGuru(row)}
                     />
                   </td>
@@ -975,6 +978,7 @@ export function Guru() {
           onClose={() => setSelectedGuru(null)}
           onSave={(data) => {
             updateGuru(selectedGuru.id, data);
+            toast.success(`Data ${selectedGuru.nama} berhasil diperbarui`);
             setSelectedGuru(null);
           }}
           onShowCard={() => setSelectedCardGuru(selectedGuru)}
@@ -1012,6 +1016,7 @@ export function Guru() {
               alamat: data.alamat || "",
               inits: (data.nama || "N").substring(0, 2).toUpperCase()
             });
+            toast.success(`${data.nama || "Guru"} berhasil ditambahkan`);
             setIsAddingGuru(false);
           }}
         />

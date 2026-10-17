@@ -11,6 +11,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { fmt } from "@/lib/formatters";
+import { toast } from "sonner";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
@@ -736,7 +737,6 @@ function PenetapanTab() {
   const [checked, setChecked] = useState<Set<number>>(new Set());
   const [sheetOpen, setSheetOpen] = useState(false);
   const [profilStudentId, setProfilStudentId] = useState<number | null>(null);
-  const [successMsg, setSuccessMsg] = useState("");
 
   const handleTetapkan = (templateId: number, jatuhTempo: string) => {
     const tmpl = templates.find((t) => t.id === templateId);
@@ -763,14 +763,13 @@ function PenetapanTab() {
     });
 
     if (newTagihans.length === 0) {
-      setSuccessMsg("Semua siswa yang dipilih sudah memiliki tagihan untuk template ini.");
+      toast.info("Semua siswa yang dipilih sudah memiliki tagihan untuk template ini.");
     } else {
       addTagihan(newTagihans as any);
-      setSuccessMsg(`✓ Tagihan "${tmpl.nama}" berhasil ditetapkan untuk ${checked.size} siswa.`);
+      toast.success(`Tagihan "${tmpl.nama}" berhasil ditetapkan untuk ${checked.size} siswa`);
     }
     setChecked(new Set());
     setSheetOpen(false);
-    setTimeout(() => setSuccessMsg(""), 5000);
   };
 
   const penetapanRows = React.useMemo(() => {
@@ -861,14 +860,7 @@ function PenetapanTab() {
         </div>
       )}
 
-      {successMsg && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "#EDF7EC", border: "1px solid #D4EDD0" }}>
-          <Check size={14} className="text-[#3E8A2F] shrink-0" />
-          <span className="text-sm text-[#3E8A2F]">{successMsg}</span>
-        </div>
-      )}
-
-      {belumCount > 0 && checked.size === 0 && !successMsg && (
+      {belumCount > 0 && checked.size === 0 && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "#FFFBEB", border: "1px solid #FEF3C7" }}>
           <AlertTriangle size={14} className="text-[#92400E] shrink-0" />
           <span className="text-sm text-[#92400E]"><strong>{belumCount} siswa</strong> belum memiliki tagihan. Centang siswa lalu klik <strong>Tetapkan</strong>.</span>

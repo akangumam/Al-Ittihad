@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Search, ChevronDown, ChevronLeft, ChevronRight, Download, Activity } from "lucide-react";
+import { toast } from "sonner";
 import { useAppContext } from "@/context/AppContext";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import type { ActivityLogTipe } from "@/types";
@@ -61,6 +62,7 @@ function exportCSV(rows: ReturnType<typeof useFilteredRows>) {
   a.download = `log-aktivitas-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+  toast.success(`${rows.length} entri log berhasil diekspor ke CSV`);
 }
 
 // ─── hook ─────────────────────────────────────────────────────────────────────

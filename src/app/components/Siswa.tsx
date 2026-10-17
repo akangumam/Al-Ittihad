@@ -1449,10 +1449,13 @@ export function Siswa() {
     const ids = Array.from(checked);
     if (bulkAction === "kelas") {
       bulkUpdateSiswa(ids, { kelas: bulkKelasTarget });
+      toast.success(`${ids.length} siswa berhasil dipindahkan ke ${bulkKelasTarget}`);
     } else if (bulkAction === "lulus") {
       graduateSiswa(ids, bulkTahunLulus);
+      toast.success(`${ids.length} siswa berhasil dinyatakan lulus tahun ${bulkTahunLulus}`);
     } else if (bulkAction === "hapus") {
       bulkDeleteSiswa(ids);
+      toast.success(`${ids.length} siswa berhasil dihapus`);
     }
     setChecked(new Set());
     setBulkAction(null);
@@ -1958,11 +1961,13 @@ export function Siswa() {
                 inits: form.nama.substring(0, 2).toUpperCase(),
               };
               addSiswa(newSiswa);
+              toast.success(`Siswa ${form.nama} berhasil ditambahkan`);
             } else if (selectedSiswa) {
               updateSiswa(selectedSiswa.id, {
                 ...form,
                 inits: form.nama.substring(0, 2).toUpperCase(),
               });
+              toast.success(`Data ${form.nama} berhasil diperbarui`);
             }
             setSelectedSiswa(null);
             setIsAddingSiswa(false);

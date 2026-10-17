@@ -180,8 +180,10 @@ function RABSheet({ row, onClose }: { row: RABRow | null; onClose: () => void })
     if (ter < 0)                      { setErr("Terpakai tidak boleh negatif"); return; }
     if (row) {
       updateRab(row.id, { group: form.group, nama: form.nama.trim(), anggaran: ang, terpakai: ter });
+      toast.success(`Mata anggaran "${form.nama.trim()}" berhasil diperbarui`);
     } else {
       addRab({ group: form.group, nama: form.nama.trim(), anggaran: ang, terpakai: ter });
+      toast.success(`Mata anggaran "${form.nama.trim()}" berhasil ditambahkan`);
     }
     onClose();
   }
@@ -407,7 +409,7 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
                         <td className="py-3.5 pr-6">
                           <RowMenu
                             onEdit={() => setSheetRow(row)}
-                            onDelete={() => deleteRab(row.id)}
+                            onDelete={() => { deleteRab(row.id); toast.success(`"${row.nama}" berhasil dihapus`); }}
                           />
                         </td>
                       </tr>

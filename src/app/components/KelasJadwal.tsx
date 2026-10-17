@@ -381,20 +381,25 @@ function JadwalEditorModal({
 
     if (currentJadwal) {
       updateJadwal(currentJadwal.id, data);
+      toast.success("Jadwal berhasil diperbarui");
     } else {
       addJadwal({
         id: Date.now(),
         kelas,
         hari,
-        jam: 0, // legacy: slot number unknown, stored via waktuMulai/waktuSelesai
+        jam: 0,
         ...data
       });
+      toast.success("Jadwal berhasil ditambahkan");
     }
     onClose();
   };
 
   const handleDelete = () => {
-    if (currentJadwal) deleteJadwal(currentJadwal.id);
+    if (currentJadwal) {
+      deleteJadwal(currentJadwal.id);
+      toast.success("Jadwal berhasil dihapus");
+    }
     onClose();
   };
 
@@ -1013,8 +1018,10 @@ export function KelasJadwal() {
           onSave={(data) => {
             if (isAddingKelas) {
               addKelas(data);
+              toast.success(`Kelas ${data.id} berhasil ditambahkan`);
             } else {
               updateKelas(data.id, data);
+              toast.success(`Kelas ${data.id} berhasil diperbarui`);
             }
             setEditingKelas(null);
             setIsAddingKelas(false);
