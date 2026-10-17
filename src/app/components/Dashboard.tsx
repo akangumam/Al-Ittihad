@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell } from "recharts";
 import { fmt, fmtCompact, fmtJt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { useAppContext } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { akunData, transaksiData } from "@/data/keuangan";
 import type { AgingBadge } from "@/types";
 
@@ -128,12 +129,15 @@ function SaldoAkunCard() {
 function IncomeExpenseChart({ chartData, ayStart }: { chartData: ChartEntry[]; ayStart: number }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const W = 520, H = 208, ML = 48, MR = 8, MT = 8, MB = 36;
-  const cW = W - ML - MR, cH = H - MT - MB, MAX = 30_000_000;
+  const cW = W - ML - MR, cH = H - MT - MB;
+  const maxVal = Math.max(...chartData.map(d => Math.max(d.pemasukan, d.pengeluaran)), 1);
+  const step = Math.ceil(maxVal / 3 / 5_000_000) * 5_000_000 || 10_000_000;
+  const MAX = step * 3;
   const xOf = (i: number) => ML + (i / (chartData.length - 1)) * cW;
   const yOf = (v: number) => MT + cH * (1 - v / MAX);
   const mkPath = (key: "pemasukan" | "pengeluaran") =>
     chartData.map((d, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yOf(d[key]).toFixed(1)}`).join(" ");
-  const yTicks = [0, 10_000_000, 20_000_000, 30_000_000];
+  const yTicks = [0, step, step * 2, MAX];
   return (
     <div className="bg-white rounded-xl p-6" style={{ border: "1px solid #E2E8DE" }}>
       <p className="text-sm font-semibold text-[#1C2517] mb-0.5">Pemasukan vs Pengeluaran</p>
@@ -422,18 +426,22 @@ function TransaksiTerbaru() {
 
 function MobileChart({ chartData6 }: { chartData6: ChartEntry[] }) {
   const W = 320, H = 132, ML = 34, MR = 6, MT = 6, MB = 22;
-  const cW = W - ML - MR, cH = H - MT - MB, MAX = 30_000_000;
+  const maxVal6 = Math.max(...chartData6.map(d => Math.max(d.pemasukan, d.pengeluaran)), 1);
+  const step6 = Math.ceil(maxVal6 / 2 / 5_000_000) * 5_000_000 || 15_000_000;
+  const MAX = step6 * 2;
+  const cW = W - ML - MR, cH = H - MT - MB;
   const xOf = (i: number) => ML + (i / (chartData6.length - 1)) * cW;
   const yOf = (v: number) => MT + cH * (1 - v / MAX);
   const mkPath = (key: "pemasukan" | "pengeluaran") =>
     chartData6.map((d, i) => `${i === 0 ? "M" : "L"}${xOf(i).toFixed(1)},${yOf(d[key]).toFixed(1)}`).join(" ");
+  const yTicksMobile = [0, step6, MAX];
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}>
-      {[0, 15_000_000, 30_000_000].map((t, ti) => (
+      {yTicksMobile.map((t, ti) => (
         <g key={ti}>
           <line x1={ML} x2={W - MR} y1={yOf(t)} y2={yOf(t)} stroke="#E2E8DE" strokeDasharray={t === 0 ? "0" : "4 3"} />
           <text x={ML - 5} y={yOf(t)} textAnchor="end" dominantBaseline="middle" fill="#9CA3A0" fontSize={8} fontFamily="Space Grotesk">
-            {t === 0 ? "0" : `${t / 1_000_000}jt`}
+            {t === 0 ? "0" : `${Math.round(t / 1_000_000)}jt`}
           </text>
         </g>
       ))}
@@ -456,7 +464,11 @@ function MobileChart({ chartData6 }: { chartData6: ChartEntry[] }) {
 
 export function Dashboard() {
   const { transaksiList, tagihanList, siswaList } = useAppContext();
+  const { user } = useAuth();
   const todayStr = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+  const displayName = user?.nama ?? "Admin";
+  const hour = new Date().getHours();
+  const greeting = hour < 11 ? "Selamat pagi" : hour < 15 ? "Selamat siang" : hour < 18 ? "Selamat sore" : "Selamat malam";
   const currentYear = new Date().getFullYear();
 
   const currentMonth = new Date().getMonth();
@@ -572,7 +584,7 @@ export function Dashboard() {
       {/* ═══ MOBILE LAYOUT (md:hidden) ═════════════════════════════════════════ */}
       <div className="md:hidden px-4 py-3 flex flex-col gap-3">
         <p className="text-sm text-[#6B7769]">
-          Selamat pagi, <span className="font-semibold text-[#1C2517]">Admin</span> — {todayStr}
+          {greeting}, <span className="font-semibold text-[#1C2517]">{displayName}</span> — {todayStr}
         </p>
 
         {/* KPI 2×2 */}
@@ -670,8 +682,8 @@ export function Dashboard() {
       {/* ═══ DESKTOP LAYOUT (hidden md:block) ══════════════════════════════════ */}
       <div className="hidden md:block max-w-[1280px] mx-auto space-y-5">
         <p className="text-sm text-[#6B7769]">
-          Selamat datang,{" "}
-          <span className="font-semibold text-[#1C2517]">Admin Keuangan</span>
+          {greeting},{" "}
+          <span className="font-semibold text-[#1C2517]">{displayName}</span>
           {" — "}
           <span>{todayStr}</span>
         </p>

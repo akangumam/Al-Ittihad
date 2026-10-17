@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useParams, useNavigate, useLocation } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, Upload, MoreHorizontal, X, Eye, Pencil,
-  MessageCircle, Trash2, Check, FileText, IdCard, ZoomIn,
-  GraduationCap, ArrowRightLeft, BarChart3, SlidersHorizontal
+  MessageCircle, Trash2, Check, IdCard,
+  GraduationCap, ArrowRightLeft, BarChart3, SlidersHorizontal,
+  ArrowUpDown, LogOut, LogIn, UserX, AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
@@ -16,6 +17,8 @@ import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { KartuPelajar } from "./KartuDigital";
 
 import { SiswaRow } from "@/data/siswa";
+import type { AlumniRow } from "@/data/alumni";
+import type { MutasiRecord, JenisMutasi } from "@/types";
 import { kelasOptions } from "@/data/constants";
 import { useAppContext } from "@/context/AppContext";
 
@@ -78,7 +81,7 @@ function StatusDot({ status }: { status: string }) {
   );
 }
 
-function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatus }: { isActive: boolean; waNumber: string; onView: () => void; onEdit: () => void; onShowCard: () => void; onToggleStatus: () => void }) {
+function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatus, onMutasiKeluar }: { isActive: boolean; waNumber: string; onView: () => void; onEdit: () => void; onShowCard: () => void; onToggleStatus: () => void; onMutasiKeluar?: () => void }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
 
@@ -150,13 +153,23 @@ function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatu
               Kirim WA
             </button>
             <div className="h-px mx-2 my-1 bg-[#E2E8DE]" />
-            <button 
-              onClick={(e) => { e.stopPropagation(); onToggleStatus(); setOpen(false); }} 
-              className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isActive ? "text-[#DC2626] hover:bg-[#FEF2F2]" : "text-[#3E8A2F] hover:bg-[#F5F9F4]"}`}
-            >
-              <Trash2 size={13} />
-              {isActive ? "Nonaktifkan" : "Aktifkan"}
-            </button>
+            {isActive ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onMutasiKeluar?.(); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
+              >
+                <LogOut size={13} />
+                Mutasi Keluar
+              </button>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleStatus(); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#3E8A2F] hover:bg-[#F5F9F4] transition-colors"
+              >
+                <LogIn size={13} />
+                Aktifkan Kembali
+              </button>
+            )}
           </div>
         </>,
         document.body
@@ -647,10 +660,684 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
   );
 }
 
+// ─── mutasi ───────────────────────────────────────────────────────────────────
+
+const JENIS_MUTASI_CONFIG: Record<JenisMutasi, { label: string; icon: typeof LogOut; color: string; bg: string }> = {
+  masuk:       { label: "Mutasi Masuk",   icon: LogIn,   color: "#166534", bg: "#DCFCE7" },
+  pindah:      { label: "Pindah Sekolah", icon: LogOut,  color: "#1E40AF", bg: "#DBEAFE" },
+  dikeluarkan: { label: "Dikeluarkan",    icon: UserX,   color: "#9A3412", bg: "#FFEDD5" },
+  meninggal:   { label: "Meninggal Dunia",icon: AlertCircle, color: "#7F1D1D", bg: "#FEE2E2" },
+};
+
+function MutasiKeluarSheet({
+  siswa,
+  onClose,
+  onSave,
+}: {
+  siswa: { id: number; nama: string; nis: string; kelas: string; jk: "L" | "P" };
+  onClose: () => void;
+  onSave: (jenis: JenisMutasi, tanggal: string, sekolahTujuan: string, alasan: string) => void;
+}) {
+  const today = new Date().toISOString().split("T")[0];
+  const [jenis, setJenis] = useState<JenisMutasi>("pindah");
+  const [tanggal, setTanggal] = useState(today);
+  const [sekolahTujuan, setSekolahTujuan] = useState("");
+  const [alasan, setAlasan] = useState("");
+  const valid = tanggal && alasan.trim() && (jenis !== "pindah" || sekolahTujuan.trim());
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose} />
+      <div
+        className="fixed inset-0 md:inset-y-0 md:left-auto md:right-0 md:w-[480px] z-50 flex flex-col bg-white"
+        style={{ borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}
+      >
+        <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
+          <div>
+            <h3 className="font-bold text-[#1C2517]">Catat Mutasi Keluar</h3>
+            <p className="text-xs text-[#6B7769] mt-0.5">{siswa.nama} · Kelas {siswa.kelas}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          {/* Jenis mutasi */}
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-2">Jenis Mutasi <span className="text-[#DC2626]">*</span></label>
+            <div className="grid grid-cols-1 gap-2">
+              {(["pindah", "dikeluarkan", "meninggal"] as JenisMutasi[]).map(j => {
+                const cfg = JENIS_MUTASI_CONFIG[j];
+                const Icon = cfg.icon;
+                const active = jenis === j;
+                return (
+                  <button
+                    key={j}
+                    type="button"
+                    onClick={() => setJenis(j)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
+                    style={{
+                      background: active ? cfg.bg : "#FAFBF9",
+                      border: active ? `1.5px solid ${cfg.color}40` : "1px solid #E2E8DE",
+                    }}
+                  >
+                    <Icon size={16} style={{ color: cfg.color, flexShrink: 0 }} />
+                    <span className="text-sm font-semibold" style={{ color: active ? cfg.color : "#374040" }}>{cfg.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Tanggal */}
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Tanggal Keluar <span className="text-[#DC2626]">*</span></label>
+            <input
+              type="date"
+              value={tanggal}
+              onChange={e => setTanggal(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors"
+            />
+          </div>
+
+          {/* Sekolah tujuan — hanya untuk pindah */}
+          {jenis === "pindah" && (
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Sekolah Tujuan <span className="text-[#DC2626]">*</span></label>
+              <input
+                type="text"
+                value={sekolahTujuan}
+                onChange={e => setSekolahTujuan(e.target.value)}
+                placeholder="Contoh: SMP Negeri 1 Cirebon"
+                className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors"
+              />
+            </div>
+          )}
+
+          {/* Alasan / keterangan */}
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">
+              {jenis === "pindah" ? "Alasan Pindah" : jenis === "dikeluarkan" ? "Alasan Dikeluarkan" : "Keterangan"}
+              <span className="text-[#DC2626] ml-0.5">*</span>
+            </label>
+            <textarea
+              value={alasan}
+              onChange={e => setAlasan(e.target.value)}
+              rows={3}
+              placeholder={
+                jenis === "pindah" ? "Contoh: Ikut orang tua pindah domisili" :
+                jenis === "dikeluarkan" ? "Contoh: Pelanggaran tata tertib berat" :
+                "Keterangan singkat"
+              }
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors resize-none"
+            />
+          </div>
+
+          {/* Warning */}
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#FEF9C3] border border-[#CA8A04]/30">
+            <AlertCircle size={14} className="text-[#CA8A04] mt-0.5 shrink-0" />
+            <p className="text-xs text-[#713F12]">
+              Status siswa akan diubah menjadi <strong>Nonaktif</strong> dan mutasi ini dicatat di riwayat.
+              Data akademik dan keuangan tetap tersimpan.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-6 py-4 shrink-0" style={{ borderTop: "1px solid #E2E8DE" }}>
+          <button onClick={onClose} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-[#374040] hover:bg-[#F5F9F4] transition-colors border border-[#E2E8DE]">
+            Batal
+          </button>
+          <button
+            onClick={() => valid && onSave(jenis, tanggal, sekolahTujuan, alasan)}
+            disabled={!valid}
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-[#DC2626] text-white hover:bg-[#B91C1C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Proses Mutasi
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function MutasiMasukSheet({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (data: { nama: string; nis: string; kelas: string; jk: "L" | "P"; sekolahAsal: string; tanggal: string; alasan: string }) => void;
+}) {
+  const today = new Date().toISOString().split("T")[0];
+  const [form, setForm] = useState({ nama: "", nis: "", kelas: "7A", jk: "L" as "L" | "P", sekolahAsal: "", tanggal: today, alasan: "" });
+  const set = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
+  const valid = form.nama && form.nis && form.sekolahAsal && form.tanggal && form.alasan;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose} />
+      <div
+        className="fixed inset-0 md:inset-y-0 md:left-auto md:right-0 md:w-[480px] z-50 flex flex-col bg-white"
+        style={{ borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}
+      >
+        <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
+          <div>
+            <h3 className="font-bold text-[#1C2517]">Catat Mutasi Masuk</h3>
+            <p className="text-xs text-[#6B7769] mt-0.5">Siswa pindahan dari sekolah lain</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Nama Lengkap <span className="text-[#DC2626]">*</span></label>
+            <input type="text" value={form.nama} onChange={e => set("nama")(e.target.value.replace(/[^a-zA-Z\s.,'-]/g, ""))}
+              className="w-full px-3 py-2.5 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">NIS <span className="text-[#DC2626]">*</span></label>
+              <input type="text" value={form.nis} onChange={e => set("nis")(e.target.value.replace(/\D/g, ""))}
+                className="w-full px-3 py-2.5 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Kelas Masuk <span className="text-[#DC2626]">*</span></label>
+              <div className="relative">
+                <select value={form.kelas} onChange={e => set("kelas")(e.target.value)}
+                  className="w-full appearance-none px-3 py-2.5 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors">
+                  {kelasOptions.filter(o => o !== "Semua Kelas").map(o => (
+                    <option key={o} value={o.replace("Kelas ", "")}>{o.replace("Kelas ", "")}</option>
+                  ))}
+                </select>
+                <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Jenis Kelamin <span className="text-[#DC2626]">*</span></label>
+            <div className="flex gap-4">
+              {(["L", "P"] as const).map(v => (
+                <label key={v} className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={form.jk === v} onChange={() => set("jk")(v)} className="accent-[#3E8A2F]" />
+                  <span className="text-sm text-[#374040]">{v === "L" ? "Laki-laki" : "Perempuan"}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Sekolah Asal <span className="text-[#DC2626]">*</span></label>
+            <input type="text" value={form.sekolahAsal} onChange={e => set("sekolahAsal")(e.target.value)}
+              placeholder="Contoh: SMP Negeri 2 Babakan"
+              className="w-full px-3 py-2.5 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Tanggal Masuk <span className="text-[#DC2626]">*</span></label>
+            <input type="date" value={form.tanggal} onChange={e => set("tanggal")(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Alasan Pindah <span className="text-[#DC2626]">*</span></label>
+            <textarea value={form.alasan} onChange={e => set("alasan")(e.target.value)} rows={3}
+              placeholder="Contoh: Ikut orang tua pindah domisili ke Cirebon"
+              className="w-full px-3 py-2.5 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors resize-none" />
+          </div>
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-[#DCFCE7] border border-[#166534]/20">
+            <LogIn size={14} className="text-[#166534] mt-0.5 shrink-0" />
+            <p className="text-xs text-[#166534]">Siswa akan didaftarkan sebagai peserta didik <strong>Aktif</strong> dan mutasi masuk dicatat di riwayat.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-6 py-4 shrink-0" style={{ borderTop: "1px solid #E2E8DE" }}>
+          <button onClick={onClose} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-[#374040] hover:bg-[#F5F9F4] transition-colors border border-[#E2E8DE]">Batal</button>
+          <button onClick={() => valid && onSave(form)} disabled={!valid}
+            className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            Daftarkan Siswa
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function MutasiPanel() {
+  const { mutasiList } = useAppContext();
+  const [search, setSearch] = useState("");
+  const [jenisFilter, setJenisFilter] = useState<JenisMutasi | "semua">("semua");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return mutasiList.filter(m =>
+      (jenisFilter === "semua" || m.jenisMutasi === jenisFilter) &&
+      (!q || m.nama.toLowerCase().includes(q) || m.nis.includes(q) || m.kelas.toLowerCase().includes(q))
+    );
+  }, [mutasiList, search, jenisFilter]);
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const rows = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const fmtTanggal = (iso: string) => {
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 max-w-xs" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+          <Search size={13} className="text-[#9CA3A0] shrink-0" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nama/NIS/kelas..."
+            className="bg-transparent outline-none text-sm text-[#1C2517] w-full" />
+        </div>
+        <div className="relative">
+          <select value={jenisFilter} onChange={e => setJenisFilter(e.target.value as JenisMutasi | "semua")}
+            className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
+            style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+            <option value="semua">Semua Jenis</option>
+            {(Object.keys(JENIS_MUTASI_CONFIG) as JenisMutasi[]).map(j => (
+              <option key={j} value={j}>{JENIS_MUTASI_CONFIG[j].label}</option>
+            ))}
+          </select>
+          <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Stats chips */}
+      <div className="flex flex-wrap gap-2">
+        {(Object.keys(JENIS_MUTASI_CONFIG) as JenisMutasi[]).map(j => {
+          const cfg = JENIS_MUTASI_CONFIG[j];
+          const count = mutasiList.filter(m => m.jenisMutasi === j).length;
+          if (count === 0) return null;
+          return (
+            <div key={j} className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+              style={{ background: cfg.bg, color: cfg.color }}>
+              <span className="tabular-nums font-bold">{count}</span>
+              <span>{cfg.label}</span>
+            </div>
+          );
+        })}
+        {mutasiList.length === 0 && (
+          <p className="text-sm text-[#9CA3A0]">Belum ada riwayat mutasi.</p>
+        )}
+      </div>
+
+      {/* Table */}
+      {filtered.length > 0 && (
+        <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
+                  {["Siswa", "Kelas", "Jenis Mutasi", "Tanggal", "Keterangan", "Dicatat Oleh"].map(h => (
+                    <th key={h} className="py-3 pr-4 first:pl-6 text-[11px] font-semibold text-[#9CA3A0] uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((m, i) => {
+                  const cfg = JENIS_MUTASI_CONFIG[m.jenisMutasi];
+                  const Icon = cfg.icon;
+                  return (
+                    <tr key={m.id} style={{ borderBottom: i < rows.length - 1 ? "1px solid #F0F7EE" : "none" }}>
+                      <td className="py-3.5 pl-6 pr-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0" style={{ background: "#F3F4F6" }}>
+                            <img src={m.jk === "L" ? "/foto_L.png" : "/foto_P.png"} alt={m.nama} className="w-full h-full object-cover" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-[#1C2517] leading-none">{m.nama}</p>
+                            <p className="text-[11px] text-[#9CA3A0] mt-0.5">{m.nis}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 pr-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          m.kelas.startsWith("7") ? "bg-[#DBEAFE] text-[#1E40AF]" :
+                          m.kelas.startsWith("8") ? "bg-[#EDE9FE] text-[#5B21B6]" :
+                          "bg-[#DCFCE7] text-[#166534]"
+                        }`}>{m.kelas}</span>
+                      </td>
+                      <td className="py-3.5 pr-4">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit" style={{ background: cfg.bg }}>
+                          <Icon size={11} style={{ color: cfg.color, flexShrink: 0 }} />
+                          <span className="text-[11px] font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 pr-4 text-sm text-[#374040] tabular-nums whitespace-nowrap">{fmtTanggal(m.tanggal)}</td>
+                      <td className="py-3.5 pr-4 text-sm text-[#6B7769] max-w-[200px]">
+                        {m.jenisMutasi === "pindah" && m.sekolahTujuan && (
+                          <span className="block text-[11px] font-medium text-[#374040]">{m.sekolahTujuan}</span>
+                        )}
+                        {m.jenisMutasi === "masuk" && m.sekolahAsal && (
+                          <span className="block text-[11px] font-medium text-[#374040]">Dari: {m.sekolahAsal}</span>
+                        )}
+                        <span className="line-clamp-1">{m.alasan}</span>
+                      </td>
+                      <td className="py-3.5 pr-6 text-sm text-[#9CA3A0]">{m.dicatatOleh}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: "1px solid #E2E8DE" }}>
+              <span className="text-xs text-[#6B7769]">
+                {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} dari <span className="font-semibold text-[#1C2517]">{filtered.length}</span> mutasi
+              </span>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${currentPage === 1 ? "text-[#D1D5DB] cursor-not-allowed" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
+                  style={{ border: "1px solid #E2E8DE" }}><ChevronLeft size={14} /></button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                  <button key={p} onClick={() => setCurrentPage(p)}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${currentPage === p ? "bg-[#3E8A2F] text-white" : "text-[#374040] hover:bg-[#EDF7EC]"}`}>{p}</button>
+                ))}
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${currentPage === totalPages ? "text-[#D1D5DB] cursor-not-allowed" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
+                  style={{ border: "1px solid #E2E8DE" }}><ChevronRight size={14} /></button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── alumni panel ─────────────────────────────────────────────────────────────
+
+function AlumniSheet({ alumni, onClose }: { alumni: AlumniRow; onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose} />
+      <div className="fixed inset-0 md:inset-y-0 md:left-auto md:right-0 md:w-[500px] z-50 flex flex-col bg-white"
+        style={{ borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}>
+        <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden shrink-0" style={{ background: "#F3F4F6" }}>
+              <img src={alumni.jk === "L" ? "/foto_L.png" : "/foto_P.png"} alt={alumni.nama} className="w-full h-full object-cover" />
+            </div>
+            <div>
+              <p className="font-semibold text-[#1C2517]">{alumni.nama}</p>
+              <p className="text-xs text-[#6B7769] mt-0.5">Alumni Angkatan {alumni.angkatan} · Lulus {alumni.tahunLulus}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] transition-colors"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+          <div className="p-4 rounded-xl text-center" style={{ background: "#EFF6FF", border: "1px solid #BFDBFE" }}>
+            <p className="text-sm font-medium text-[#1E40AF]">Telah lulus pada Tahun Ajaran {alumni.tahunLulus}</p>
+          </div>
+          <section className="space-y-3">
+            <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest">Data Akademik</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div><p className="text-[11px] text-[#6B7769] mb-1">NIS</p><p className="text-sm font-medium text-[#1C2517]">{alumni.nis}</p></div>
+              <div><p className="text-[11px] text-[#6B7769] mb-1">NISN</p><p className="text-sm font-medium text-[#1C2517]">{alumni.nisn || "—"}</p></div>
+              <div><p className="text-[11px] text-[#6B7769] mb-1">Jenis Kelamin</p><p className="text-sm font-medium text-[#1C2517]">{alumni.jk === "L" ? "Laki-laki" : "Perempuan"}</p></div>
+              <div><p className="text-[11px] text-[#6B7769] mb-1">Angkatan</p><p className="text-sm font-medium text-[#1C2517]">Ke-{alumni.angkatan}</p></div>
+            </div>
+            {alumni.keterangan && (
+              <div><p className="text-[11px] text-[#6B7769] mb-1">Keterangan / Lanjut Studi</p><p className="text-sm font-medium text-[#1C2517]">{alumni.keterangan}</p></div>
+            )}
+          </section>
+        </div>
+        <div className="flex items-center justify-end px-6 py-4 shrink-0" style={{ borderTop: "1px solid #E2E8DE" }}>
+          <button onClick={onClose} className="px-4 py-2.5 rounded-lg text-sm font-semibold text-[#374040] hover:border-[#3E8A2F] hover:text-[#3E8A2F] transition-colors" style={{ border: "1px solid #E2E8DE" }}>Tutup</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AlumniFormSheet({ onClose, onSave }: { onClose: () => void; onSave: (form: Omit<AlumniRow, "id" | "inits">) => void }) {
+  const { tahunAjaran } = useAppContext();
+  const [form, setForm] = useState({ nis: "", nisn: "", nama: "", jk: "L" as "L" | "P", tahunLulus: tahunAjaran, angkatan: "", keterangan: "" });
+  const valid = form.nis && form.nama && form.tahunLulus;
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose} />
+      <div className="fixed inset-0 md:inset-y-0 md:left-auto md:right-0 md:w-[500px] z-50 flex flex-col bg-white"
+        style={{ borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}>
+        <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
+          <div><h3 className="font-bold text-[#1C2517]">Tambah Alumni Manual</h3><p className="text-xs text-[#6B7769] mt-0.5">Data alumni angkatan lama.</p></div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] transition-colors"><X size={16} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {[
+            { label: "NIS *", key: "nis" as const },
+            { label: "Nama Lengkap *", key: "nama" as const },
+          ].map(({ label, key }) => (
+            <div key={key}>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1">{label}</label>
+              <input type="text" value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors" />
+            </div>
+          ))}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1">Tahun Lulus *</label>
+              <input type="text" value={form.tahunLulus} onChange={e => setForm(f => ({ ...f, tahunLulus: e.target.value }))}
+                placeholder="2023/2024" className="w-full px-3 py-2 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F]" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1">Angkatan Ke-</label>
+              <input type="text" value={form.angkatan} onChange={e => setForm(f => ({ ...f, angkatan: e.target.value }))}
+                placeholder="15" className="w-full px-3 py-2 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F]" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1">Jenis Kelamin</label>
+            <div className="flex gap-4 mt-2">
+              {(["L", "P"] as const).map(v => (
+                <label key={v} className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={form.jk === v} onChange={() => setForm(f => ({ ...f, jk: v }))} className="accent-[#3E8A2F]" />
+                  <span className="text-sm text-[#1C2517]">{v === "L" ? "Laki-laki" : "Perempuan"}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1">Keterangan / Lanjut Studi</label>
+            <input type="text" value={form.keterangan} onChange={e => setForm(f => ({ ...f, keterangan: e.target.value }))}
+              placeholder="Contoh: Lanjut ke SMA Negeri 1" className="w-full px-3 py-2 rounded-lg text-sm outline-none border border-[#E2E8DE] focus:border-[#3E8A2F]" />
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 px-6 py-4 shrink-0" style={{ borderTop: "1px solid #E2E8DE" }}>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:bg-[#F5F9F4] transition-colors">Batal</button>
+          <button onClick={() => valid && onSave({ ...form, angkatan: Number(form.angkatan) || 0 })} disabled={!valid}
+            className="px-5 py-2 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            Simpan Alumni
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AlumniPanel() {
+  const { alumniList, addAlumni, tahunAjaran } = useAppContext();
+  const [search, setSearch] = useState("");
+  const [tahunFilter, setTahunFilter] = useState("Semua Tahun");
+  const [selectedAlumni, setSelectedAlumni] = useState<AlumniRow | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
+  const tahunOptions = useMemo(() => {
+    const years = Array.from(new Set(alumniList.map(a => a.tahunLulus))).sort().reverse();
+    return ["Semua Tahun", ...years];
+  }, [alumniList]);
+
+  const filteredRows = useMemo(() => {
+    const q = search.toLowerCase();
+    return alumniList.filter(r => {
+      const matchSearch = !q || r.nama.toLowerCase().includes(q) || r.nis.includes(q) || (r.nisn || "").includes(q);
+      const matchTahun = tahunFilter === "Semua Tahun" || r.tahunLulus === tahunFilter;
+      return matchSearch && matchTahun;
+    });
+  }, [search, tahunFilter, alumniList]);
+
+  const totalPages = Math.ceil(filteredRows.length / ITEMS_PER_PAGE);
+  const rows = filteredRows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const startIndex = filteredRows.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endIndex = Math.min(currentPage * ITEMS_PER_PAGE, filteredRows.length);
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="hidden md:flex items-center justify-between gap-2">
+        <div className="flex gap-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+            <Search size={13} className="text-[#9CA3A0] shrink-0" />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Cari nama/NIS..." className="bg-transparent outline-none text-sm text-[#1C2517] w-48" />
+          </div>
+          <div className="relative">
+            <select value={tahunFilter} onChange={e => setTahunFilter(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
+              style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+              {tahunOptions.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+          </div>
+        </div>
+        <button onClick={() => setIsAdding(true)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+          <Plus size={13} /> Tambah Alumni
+        </button>
+      </div>
+
+      {/* Mobile toolbar */}
+      <div className="md:hidden flex gap-2">
+        <div className="flex-1 flex items-center gap-2 rounded-xl" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9", padding: "0 12px", minHeight: 44 }}>
+          <Search size={14} className="text-[#9CA3A0] shrink-0" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nama..."
+            className="flex-1 bg-transparent outline-none text-[13px] text-[#1C2517]" />
+        </div>
+        <button onClick={() => setIsAdding(true)}
+          className="w-11 h-11 flex items-center justify-center rounded-xl bg-[#3E8A2F] shrink-0 text-white">
+          <Plus size={16} />
+        </button>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="md:hidden flex flex-col gap-2.5">
+        {rows.length === 0 ? (
+          <p className="text-sm text-[#9CA3A0] text-center py-8">Belum ada data alumni</p>
+        ) : rows.map(row => (
+          <button key={row.id} onClick={() => setSelectedAlumni(row)}
+            className="w-full text-left bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full overflow-hidden shrink-0" style={{ background: "#F3F4F6" }}>
+                <img src={row.jk === "L" ? "/foto_L.png" : "/foto_P.png"} alt={row.nama} className="w-full h-full object-cover" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
+                <p className="text-[11px] text-[#6B7769] mt-0.5">{row.nis}</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#F0FDF4] text-[#166534]">Angkatan {row.angkatan}</span>
+                  <span className="text-[11px] text-[#6B7769]">Lulus {row.tahunLulus}</span>
+                </div>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
+                {["Nama Alumni", "Tahun Lulus", "Angkatan", "L/P", "Keterangan"].map(h => (
+                  <th key={h} className="py-3 pr-4 first:pl-6 text-[11px] font-semibold text-[#9CA3A0] uppercase tracking-wider">{h}</th>
+                ))}
+                <th className="py-3 pr-6 w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-8 text-sm text-[#9CA3A0]">Tidak ada data alumni ditemukan</td></tr>
+              ) : rows.map((row, i) => (
+                <tr key={row.id} className="hover:bg-[#FAFBF9] transition-colors cursor-pointer"
+                  style={{ borderBottom: i < rows.length - 1 ? "1px solid #F0F7EE" : "none" }}
+                  onClick={() => setSelectedAlumni(row)}>
+                  <td className="py-3.5 pl-6 pr-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full overflow-hidden shrink-0" style={{ background: "#F3F4F6" }}>
+                        <img src={row.jk === "L" ? "/foto_L.png" : "/foto_P.png"} alt={row.nama} className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-[#1C2517] leading-none">{row.nama}</p>
+                        <p className="text-[11px] text-[#9CA3A0] mt-0.5">{row.nis}{row.nisn ? ` · ${row.nisn}` : ""}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3.5 pr-4 text-sm font-medium text-[#1C2517]">{row.tahunLulus}</td>
+                  <td className="py-3.5 pr-4">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#F0FDF4] text-[#166534]">Ke-{row.angkatan}</span>
+                  </td>
+                  <td className="py-3.5 pr-4 text-sm text-[#374040]">{row.jk === "L" ? "Laki-laki" : "Perempuan"}</td>
+                  <td className="py-3.5 pr-4 text-sm text-[#6B7769]">{row.keterangan || "—"}</td>
+                  <td className="py-3.5 pr-6" onClick={e => e.stopPropagation()}>
+                    {row.wa && (
+                      <button onClick={() => {
+                        const n = row.wa!.replace(/\D/g, "");
+                        window.open(`https://wa.me/${n.startsWith("0") ? "62" + n.slice(1) : n}`, "_blank");
+                      }} className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3A0] hover:bg-[#F5F9F4] hover:text-[#374040] transition-colors">
+                        <MessageCircle size={14} />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3.5" style={{ borderTop: "1px solid #E2E8DE" }}>
+            <span className="text-xs text-[#6B7769]">{startIndex}–{endIndex} dari <span className="font-semibold text-[#1C2517]">{filteredRows.length}</span> alumni</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${currentPage === 1 ? "text-[#D1D5DB] cursor-not-allowed" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
+                style={{ border: "1px solid #E2E8DE" }}><ChevronLeft size={14} /></button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                <button key={p} onClick={() => setCurrentPage(p)}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${currentPage === p ? "bg-[#3E8A2F] text-white" : "text-[#374040] hover:bg-[#EDF7EC]"}`}>{p}</button>
+              ))}
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${currentPage === totalPages ? "text-[#D1D5DB] cursor-not-allowed" : "text-[#374040] hover:bg-[#EDF7EC]"}`}
+                style={{ border: "1px solid #E2E8DE" }}><ChevronRight size={14} /></button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {selectedAlumni && <AlumniSheet alumni={selectedAlumni} onClose={() => setSelectedAlumni(null)} />}
+      {isAdding && (
+        <AlumniFormSheet onClose={() => setIsAdding(false)} onSave={form => {
+          addAlumni({ id: Date.now(), inits: form.nama.substring(0, 2).toUpperCase(), ...form } as AlumniRow);
+          setIsAdding(false);
+        }} />
+      )}
+    </div>
+  );
+}
+
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Siswa() {
   const { state } = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get("tab");
+  const pageTab: "siswa" | "alumni" | "mutasi" =
+    rawTab === "alumni" ? "alumni" : rawTab === "mutasi" ? "mutasi" : "siswa";
   const [search, setSearch] = useState("");
   const [kelasFilter, setKelasFilter] = useState(state?.kelasFilter || "Semua Kelas");
   const [statusFilter, setStatusFilter] = useState("Semua Status");
@@ -673,7 +1360,9 @@ export function Siswa() {
     return () => clearTimeout(timer);
   }, [search, kelasFilter, statusFilter, sortBy]);
 
-  const { siswaList, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa, tahunAjaran } = useAppContext();
+  const { siswaList, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa, tahunAjaran, addMutasi, role } = useAppContext();
+  const [mutasiKeluarSiswa, setMutasiKeluarSiswa] = useState<{ id: number; nama: string; nis: string; kelas: string; jk: "L" | "P" } | null>(null);
+  const [showMutasiMasuk, setShowMutasiMasuk] = useState(false);
 
   // Bulk actions state
   const [bulkAction, setBulkAction] = useState<"kelas" | "lulus" | "hapus" | null>(null);
@@ -771,43 +1460,69 @@ export function Siswa() {
 
   return (
     <div className="w-full max-w-[1600px] mx-auto space-y-5 px-4 md:px-0">
-      {/* ── Title + KPI chips ── */}
+      {/* ── Title + tab switcher ── */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-4">
         <div>
-          <h2 className="text-[#1C2517]">Siswa</h2>
-          <p className="text-sm text-[#6B7769]">Data dan rekam jejak seluruh peserta didik</p>
-          
-          {/* Mobile Compact Stats */}
-          <div className="md:hidden flex items-center gap-2 mt-3">
-            <div className="flex items-center px-2.5 py-1 bg-[#F5FBF4] text-[#3E8A2F] rounded-md border border-[#3E8A2F]/20">
-              <span className="text-[11px] font-semibold">Total: {kpiData[0].value}</span>
-            </div>
-            <div className="flex items-center px-2.5 py-1 bg-[#EFF6FF] text-[#2563EB] rounded-md border border-[#3B82F6]/20">
-              <span className="text-[11px] font-semibold">Laki-laki: {kpiData[1].value}</span>
-            </div>
-            <div className="flex items-center px-2.5 py-1 bg-[#FDF2F8] text-[#DB2777] rounded-md border border-[#EC4899]/20">
-              <span className="text-[11px] font-semibold">Perempuan: {kpiData[2].value}</span>
-            </div>
+          <h2 className="text-[#1C2517]">
+            {pageTab === "alumni" ? "Data Alumni" : pageTab === "mutasi" ? "Riwayat Mutasi" : "Siswa"}
+          </h2>
+          <p className="text-sm text-[#6B7769]">
+            {pageTab === "alumni" ? "Buku induk rekam jejak lulusan madrasah"
+              : pageTab === "mutasi" ? "Siswa pindahan masuk dan keluar madrasah"
+              : "Data dan rekam jejak seluruh peserta didik"}
+          </p>
+          {/* Tab toggle */}
+          <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC] mt-3">
+            {([["siswa", "Peserta Didik"], ["alumni", "Alumni"], ["mutasi", "Mutasi"]] as const).map(([val, label]) => (
+              <button key={val} onClick={() => setSearchParams(val === "siswa" ? {} : { tab: val })}
+                className={["px-4 py-1.5 rounded-md text-sm font-semibold transition-all whitespace-nowrap",
+                  pageTab === val ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]"].join(" ")}
+                style={pageTab === val ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}>
+                {label}
+              </button>
+            ))}
           </div>
-        </div>
-        {/* KPI chips */}
-        <div className="hidden md:flex flex-1 gap-3 overflow-x-auto pb-4 md:pb-0 hide-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
-          {kpiData.map((kpi, i) => (
-            <div key={i} className="flex-1 min-w-[140px] md:min-w-0 bg-white rounded-xl shadow-sm p-4 flex flex-col justify-center" style={{ border: "1px solid #E2E8DE" }}>
-              <p className="text-xs font-medium text-[#6B7769] mb-1">{kpi.label}</p>
-              <p className="text-2xl font-bold text-[#1C2517] leading-none">{kpi.value}</p>
-            </div>
-          ))}
           
-          <button 
-            onClick={() => setShowStats(true)}
-            className="min-w-[140px] md:min-w-0 bg-[#F5FBF4] hover:bg-[#EDF7EC] transition-colors rounded-xl p-4 flex flex-col justify-center items-center gap-2 cursor-pointer border border-[#3E8A2F]/20"
-          >
-            <BarChart3 size={24} className="text-[#3E8A2F]" />
-            <span className="text-xs font-semibold text-[#3E8A2F]">Lihat Statistik</span>
-          </button>
+          {pageTab === "siswa" && (
+            <div className="md:hidden flex items-center gap-2 mt-3">
+              <div className="flex items-center px-2.5 py-1 bg-[#F5FBF4] text-[#3E8A2F] rounded-md border border-[#3E8A2F]/20">
+                <span className="text-[11px] font-semibold">Total: {kpiData[0].value}</span>
+              </div>
+              <div className="flex items-center px-2.5 py-1 bg-[#EFF6FF] text-[#2563EB] rounded-md border border-[#3B82F6]/20">
+                <span className="text-[11px] font-semibold">Laki-laki: {kpiData[1].value}</span>
+              </div>
+              <div className="flex items-center px-2.5 py-1 bg-[#FDF2F8] text-[#DB2777] rounded-md border border-[#EC4899]/20">
+                <span className="text-[11px] font-semibold">Perempuan: {kpiData[2].value}</span>
+              </div>
+            </div>
+          )}
         </div>
+        {/* KPI chips — siswa tab only */}
+        {pageTab === "siswa" && (
+          <div className="hidden md:flex flex-1 gap-3 overflow-x-auto pb-4 md:pb-0 hide-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
+            {kpiData.map((kpi, i) => (
+              <div key={i} className="flex-1 min-w-[140px] md:min-w-0 bg-white rounded-xl shadow-sm p-4 flex flex-col justify-center" style={{ border: "1px solid #E2E8DE" }}>
+                <p className="text-xs font-medium text-[#6B7769] mb-1">{kpi.label}</p>
+                <p className="text-2xl font-bold text-[#1C2517] leading-none">{kpi.value}</p>
+              </div>
+            ))}
+            <button onClick={() => setShowStats(true)}
+              className="min-w-[140px] md:min-w-0 bg-[#F5FBF4] hover:bg-[#EDF7EC] transition-colors rounded-xl p-4 flex flex-col justify-center items-center gap-2 cursor-pointer border border-[#3E8A2F]/20">
+              <BarChart3 size={24} className="text-[#3E8A2F]" />
+              <span className="text-xs font-semibold text-[#3E8A2F]">Lihat Statistik</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* ── Alumni panel ── */}
+      {pageTab === "alumni" && <AlumniPanel />}
+
+      {/* ── Mutasi panel ── */}
+      {pageTab === "mutasi" && <MutasiPanel />}
+
+      {/* ── Siswa content ── */}
+      {pageTab === "siswa" && <>
 
       {/* ── Toolbar ── */}
       <div className="hidden md:flex items-center gap-2">
@@ -875,6 +1590,15 @@ export function Siswa() {
           >
             <Upload size={13} />
             Import Excel
+          </button>
+          {/* Mutasi Masuk */}
+          <button
+            onClick={() => setShowMutasiMasuk(true)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] transition-colors"
+            style={{ border: "1px solid #E2E8DE" }}
+          >
+            <ArrowUpDown size={13} />
+            Mutasi Masuk
           </button>
           {/* Tambah Siswa */}
           <button onClick={() => setIsAddingSiswa(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
@@ -1161,7 +1885,8 @@ export function Siswa() {
                           const newStatus = nonaktif ? "Aktif" : "Nonaktif";
                           updateSiswa(row.id, { status: newStatus });
                           toast.success(`Status ${row.nama} berhasil diubah menjadi ${newStatus}`);
-                        }} 
+                        }}
+                        onMutasiKeluar={() => setMutasiKeluarSiswa({ id: row.id, nama: row.nama, nis: row.nis, kelas: row.kelas, jk: row.jk })}
                       />
                     </td>
                   </tr>
@@ -1481,6 +2206,78 @@ export function Siswa() {
         </div>
       )}
 
+      {/* ── Mutasi Keluar Sheet ── */}
+      {mutasiKeluarSiswa && (
+        <MutasiKeluarSheet
+          siswa={mutasiKeluarSiswa}
+          onClose={() => setMutasiKeluarSiswa(null)}
+          onSave={(jenis, tanggal, sekolahTujuan, alasan) => {
+            addMutasi({
+              id: `mut-${Date.now()}`,
+              nis: mutasiKeluarSiswa.nis,
+              nama: mutasiKeluarSiswa.nama,
+              kelas: mutasiKeluarSiswa.kelas,
+              jk: mutasiKeluarSiswa.jk,
+              jenisMutasi: jenis,
+              tanggal,
+              sekolahTujuan,
+              alasan,
+              dicatatOleh: role ?? "Admin",
+              waktuCatat: new Date().toISOString(),
+            });
+            updateSiswa(mutasiKeluarSiswa.id, { status: "Nonaktif" });
+            setMutasiKeluarSiswa(null);
+            toast.success(`Mutasi keluar ${mutasiKeluarSiswa.nama} berhasil dicatat`);
+          }}
+        />
+      )}
+
+      {/* ── Mutasi Masuk Sheet ── */}
+      {showMutasiMasuk && (
+        <MutasiMasukSheet
+          onClose={() => setShowMutasiMasuk(false)}
+          onSave={(data) => {
+            const id = Date.now();
+            addSiswa({
+              id,
+              nama: data.nama,
+              nis: data.nis,
+              nisn: "",
+              kelas: data.kelas,
+              jk: data.jk,
+              waliNama: "",
+              waliHp: "",
+              statusSPP: "Menunggak",
+              status: "Aktif",
+              inits: data.nama.substring(0, 2).toUpperCase(),
+              tempatLahir: "",
+              tanggalLahir: "",
+              namaAyah: "",
+              namaIbu: "",
+              alamat: "",
+              kelurahan: "",
+              kecamatan: "",
+            });
+            addMutasi({
+              id: `mut-${id}`,
+              nis: data.nis,
+              nama: data.nama,
+              kelas: data.kelas,
+              jk: data.jk,
+              jenisMutasi: "masuk",
+              tanggal: data.tanggal,
+              sekolahAsal: data.sekolahAsal,
+              alasan: data.alasan,
+              dicatatOleh: role ?? "Admin",
+              waktuCatat: new Date().toISOString(),
+            });
+            setShowMutasiMasuk(false);
+            toast.success(`Mutasi masuk ${data.nama} berhasil dicatat`);
+          }}
+        />
+      )}
+
+      </>}
     </div>
   );
 }

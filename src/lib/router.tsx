@@ -5,15 +5,12 @@ import { LoginPage } from "@/app/components/LoginPage";
 import { ResetPasswordPage } from "@/app/components/ResetPasswordPage";
 import { useAuth } from "@/context/AuthContext";
 import { Dashboard } from "@/app/components/Dashboard";
+import { Kalender } from "@/app/components/Kalender";
 import { Siswa } from "@/app/components/Siswa";
-import { Alumni } from "@/app/components/Alumni";
-import { KartuDigital } from "@/app/components/KartuDigital";
 import { Guru } from "@/app/components/Guru";
 import { KelasJadwal } from "@/app/components/KelasJadwal";
 import { Absensi } from "@/app/components/Absensi";
 import { AbsensiSiswa } from "@/app/components/AbsensiSiswa";
-import { GerbangAbsensi } from "@/app/components/GerbangAbsensi";
-import { NilaiSiswaComponent } from "@/app/components/NilaiSiswa";
 import { MobileAbsensi } from "@/app/components/MobileAbsensi";
 import { Pembayaran } from "@/app/components/Pembayaran";
 import { MobilePembayaran } from "@/app/components/MobilePembayaran";
@@ -88,25 +85,17 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       { index: true, element: <Dashboard /> },
-      { path: "kalender", element: <Placeholder label="Kalender" /> },
+      { path: "kalender", element: <Kalender /> },
 
       // Akademik
-      {
-        path: "akademik/gerbang",
-        element: <RequireRole roles={["Admin", "TU"]}><GerbangAbsensi /></RequireRole>,
-      },
       {
         path: "akademik/siswa",
         element: <RequireRole roles={["Admin", "Bendahara"]}><Siswa /></RequireRole>,
       },
-      {
-        path: "akademik/alumni",
-        element: <RequireRole roles={["Admin"]}><Alumni /></RequireRole>,
-      },
-      {
-        path: "akademik/kartu-digital",
-        element: <RequireRole roles={["Admin", "TU"]}><KartuDigital /></RequireRole>,
-      },
+      { path: "akademik/alumni",       element: <Navigate to="/akademik/siswa?tab=alumni" replace /> },
+      { path: "akademik/kartu-digital",element: <Navigate to="/akademik/siswa" replace /> },
+      { path: "akademik/gerbang",      element: <Navigate to="/" replace /> },
+      { path: "akademik/nilai-siswa",  element: <Navigate to="/" replace /> },
       {
         path: "akademik/guru",
         element: <RequireRole roles={["Admin", "TU"]}><Guru /></RequireRole>,
@@ -125,10 +114,6 @@ export const router = createBrowserRouter([
       {
         path: "akademik/absensi-siswa/:tab",
         element: <RequireRole roles={["Admin", "TU"]}><AbsensiSiswa /></RequireRole>,
-      },
-      {
-        path: "akademik/nilai-siswa",
-        element: <RequireRole roles={["Admin", "TU"]}><NilaiSiswaComponent /></RequireRole>,
       },
 
       // Keuangan

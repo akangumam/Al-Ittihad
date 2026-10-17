@@ -100,6 +100,51 @@ export interface AbsensiSettings {
 }
 
 
+export type JenisMutasi = "masuk" | "pindah" | "dikeluarkan" | "meninggal";
+
+export interface MutasiRecord {
+  id: string;
+  nis: string;
+  nama: string;
+  kelas: string;
+  jk: JenisKelamin;
+  jenisMutasi: JenisMutasi;
+  tanggal: string;           // "YYYY-MM-DD"
+  sekolahAsal?: string;      // diisi saat masuk
+  sekolahTujuan?: string;    // diisi saat pindah
+  alasan: string;
+  dicatatOleh: string;
+  waktuCatat: string;        // ISO timestamp
+}
+
+export type AkunNama = "Bank BSI" | "Bank Mandiri Syariah" | "Kas Tunai";
+
+export interface ManualTransaksiRow {
+  id: string;
+  tipe: "masuk" | "keluar";
+  tanggal: string;        // "YYYY-MM-DD"
+  keterangan: string;
+  kategori: string;
+  akun: AkunNama;
+  jumlah: number;
+  ref: string;            // "BV/YYYY/MM/NNN" atau "—"
+  catatan?: string;
+  dicatatOleh: string;
+  waktuCatat: string;     // ISO timestamp
+}
+
+export interface BankTransferRow {
+  id: string;
+  tanggal: string;   // "YYYY-MM-DD"
+  dari: string;      // akun asal
+  ke: string;        // akun tujuan
+  nominal: number;
+  catatan: string;
+  status: "Selesai" | "Pending";
+  dicatatOleh: string;
+  waktuCatat: string;
+}
+
 export type ActivityLogTipe =
   | "Login"
   | "Logout"
@@ -107,7 +152,8 @@ export type ActivityLogTipe =
   | "Pembatalan"
   | "Penetapan Tagihan"
   | "Update Tagihan"
-  | "Hapus Tagihan";
+  | "Hapus Tagihan"
+  | "Mutasi Siswa";
 
 export interface ActivityLogEntry {
   id: string;

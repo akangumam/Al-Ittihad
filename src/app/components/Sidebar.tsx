@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Calendar, Users, GraduationCap, BookOpen,
   ClipboardList, CreditCard, AlertTriangle, FileText, Landmark,
   BarChart3, Calculator, Shield, Activity, Settings,
-  ChevronLeft, ChevronRight, IdCard, Archive, UserCheck, Award, Scan,
+  ChevronLeft, ChevronRight, UserCheck,
   ChevronDown, Folder
 } from "lucide-react";
 import type { ElementType } from "react";
@@ -44,15 +44,18 @@ const getNavGroups = (absensiCount: number, tunggakanCount: number): NavGroup[] 
   {
     group: "AKADEMIK",
     items: [
-      { icon: Scan,          label: "Gerbang Absensi",path: "/akademik/gerbang",       roles: ["Admin", "TU"] },
-      { icon: Users,         label: "Siswa",         path: "/akademik/siswa",         roles: ["Admin", "Bendahara"] },
-      { icon: UserCheck,     label: "Absensi Siswa", path: "/akademik/absensi-siswa", roles: ["Admin", "TU"] },
-      { icon: Award,         label: "Nilai Siswa",   path: "/akademik/nilai-siswa",   roles: ["Admin", "TU"] },
-      { icon: Archive,       label: "Data Alumni",   path: "/akademik/alumni",        roles: ["Admin"] },
-      { icon: GraduationCap, label: "Guru",          path: "/akademik/guru",          roles: ["Admin", "TU"] },
-      { icon: ClipboardList, label: "Absensi Guru",  path: "/akademik/absensi",       roles: ["Admin", "TU"], badge: absensiCount },
-      { icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal",  roles: ["Admin", "TU"] },
-      { icon: IdCard,        label: "Kartu Digital", path: "/akademik/kartu-digital", roles: ["Admin", "TU"] },
+      { icon: Users,         label: "Siswa",          path: "/akademik/siswa",        roles: ["Admin", "Bendahara"] },
+      { icon: GraduationCap, label: "Guru",            path: "/akademik/guru",         roles: ["Admin", "TU"] },
+      { icon: BookOpen,      label: "Kelas & Jadwal",  path: "/akademik/kelas-jadwal", roles: ["Admin", "TU"] },
+      {
+        icon: UserCheck,
+        label: "Absensi",
+        roles: ["Admin", "TU"],
+        subItems: [
+          { icon: UserCheck,     label: "Absensi Siswa", path: "/akademik/absensi-siswa" },
+          { icon: ClipboardList, label: "Absensi Guru",  path: "/akademik/absensi", badge: absensiCount },
+        ],
+      },
     ],
   },
   {

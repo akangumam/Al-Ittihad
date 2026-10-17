@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Plus, Download, MoreHorizontal, Pencil, Trash2, Copy } from "lucide-react";
+import { Plus, Download, MoreHorizontal, Pencil, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
 import { fmt } from "@/lib/formatters";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
+import { type RABRow, MONTHS, ANGGARAN_M, REALISASI_M, TOP5 } from "@/data/keuangan";
 
 // ─── formatter ────────────────────────────────────────────────────────────────
 
@@ -14,11 +16,11 @@ const IDR = (v: number): string => v < 0 ? `−${fmt(Math.abs(v))}` : fmt(v);
 const sColor = (pct: number) => pct >= 100 ? "#DC2626" : pct >= 80 ? "#D97706" : "#3E8A2F";
 const sBg    = (pct: number) => pct >= 100 ? "#FEE2E2" : pct >= 80 ? "#FEF3C7" : "#DCFCE7";
 
-import { RABRow, RAB_DATA, GROUPS, TOTAL_A, TOTAL_T, TOTAL_S, TOTAL_P, MONTHS, ANGGARAN_M, REALISASI_M, TOP5 } from "@/data/keuangan";
+const AVAILABLE_GROUPS = ["OPERASIONAL", "KEGIATAN SISWA", "SARANA PRASARANA", "GAJI & HONOR"];
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 
-function RowMenu() {
+function RowMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -35,14 +37,17 @@ function RowMenu() {
             className="absolute right-0 top-8 z-50 w-44 bg-white rounded-xl py-1"
             style={{ border:"1px solid #E2E8DE", boxShadow:"0 4px 16px rgba(0,0,0,0.08)" }}
           >
-            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors">
+            <button
+              onClick={() => { setOpen(false); onEdit(); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
+            >
               <Pencil size={13} className="text-[#6B7769]" /> Edit
             </button>
-            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors">
-              <Copy size={13} className="text-[#6B7769]" /> Duplikasi
-            </button>
             <div className="h-px mx-2 my-1 bg-[#E2E8DE]" />
-            <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors">
+            <button
+              onClick={() => { setOpen(false); onDelete(); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
+            >
               <Trash2 size={13} /> Hapus
             </button>
           </div>
@@ -75,12 +80,14 @@ function BudgetBarChart() {
   const PL = 50, PR = 15, PT = 10, PB = 38;
   const plotW = VW - PL - PR;
   const plotH = VH - PT - PB;
-  const maxV  = 120; // millions
+  const rawMax = Math.max(...ANGGARAN_M, ...REALISASI_M, 1);
+  const maxV  = Math.ceil(rawMax / 30) * 30; // round up to nearest 30M
+  const tickStep = maxV / 4;
   const n     = MONTHS.length;
   const groupW = plotW / n;
   const barW  = Math.floor(groupW * 0.26);
   const gap   = 3;
-  const yTicks = [0, 30, 60, 90, 120];
+  const yTicks = [0, tickStep, tickStep * 2, tickStep * 3, maxV];
 
   const xBar = (i: number, which: 0 | 1) => {
     const groupX = PL + i * groupW;
@@ -151,11 +158,138 @@ function BudgetBarChart() {
   );
 }
 
+// ─── RAB Sheet (add / edit) ───────────────────────────────────────────────────
+
+type RABForm = { group: string; nama: string; anggaran: string; terpakai: string };
+
+function RABSheet({ row, onClose }: { row: RABRow | null; onClose: () => void }) {
+  const { addRab, updateRab } = useAppContext();
+  const [form, setForm] = useState<RABForm>({
+    group:    row?.group    ?? AVAILABLE_GROUPS[0],
+    nama:     row?.nama     ?? "",
+    anggaran: row?.anggaran != null ? String(row.anggaran) : "",
+    terpakai: row?.terpakai != null ? String(row.terpakai) : "0",
+  });
+  const [err, setErr] = useState<string | null>(null);
+
+  function submit() {
+    if (!form.nama.trim())            { setErr("Nama mata anggaran wajib diisi"); return; }
+    const ang = Number(form.anggaran.replace(/\D/g, ""));
+    const ter = Number(form.terpakai.replace(/\D/g, ""));
+    if (!ang || ang <= 0)             { setErr("Anggaran harus lebih dari 0"); return; }
+    if (ter < 0)                      { setErr("Terpakai tidak boleh negatif"); return; }
+    if (row) {
+      updateRab(row.id, { group: form.group, nama: form.nama.trim(), anggaran: ang, terpakai: ter });
+    } else {
+      addRab({ group: form.group, nama: form.nama.trim(), anggaran: ang, terpakai: ter });
+    }
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="w-full max-w-md bg-white h-full overflow-y-auto flex flex-col" style={{ borderLeft:"1px solid #E2E8DE", borderRadius:"16px 0 0 16px" }}>
+        <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom:"1px solid #E2E8DE" }}>
+          <p className="font-semibold text-[#1C2517]">{row ? "Edit Mata Anggaran" : "Tambah Mata Anggaran"}</p>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3A0] hover:bg-[#F5F9F4] transition-colors">
+            <X size={14} />
+          </button>
+        </div>
+        <div className="flex-1 px-6 py-5 space-y-5">
+          {/* Group */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[#374040] uppercase tracking-wide">Kelompok Anggaran <span className="text-[#DC2626]">*</span></label>
+            <select
+              value={form.group}
+              onChange={e => setForm(f => ({ ...f, group: e.target.value }))}
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none focus:ring-2 focus:ring-[#3E8A2F]/30"
+              style={{ border:"1px solid #E2E8DE" }}
+            >
+              {AVAILABLE_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          {/* Nama */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[#374040] uppercase tracking-wide">Mata Anggaran <span className="text-[#DC2626]">*</span></label>
+            <input
+              type="text"
+              value={form.nama}
+              onChange={e => { setForm(f => ({ ...f, nama: e.target.value })); setErr(null); }}
+              placeholder="Contoh: Pengadaan Alat Tulis"
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] placeholder:text-[#9CA3A0] outline-none focus:ring-2 focus:ring-[#3E8A2F]/30"
+              style={{ border:"1px solid #E2E8DE" }}
+            />
+          </div>
+          {/* Anggaran */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[#374040] uppercase tracking-wide">Anggaran (Rp) <span className="text-[#DC2626]">*</span></label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.anggaran}
+              onChange={e => { setForm(f => ({ ...f, anggaran: e.target.value.replace(/\D/g, "") })); setErr(null); }}
+              placeholder="0"
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] tabular-nums placeholder:text-[#9CA3A0] outline-none focus:ring-2 focus:ring-[#3E8A2F]/30"
+              style={{ border:"1px solid #E2E8DE" }}
+            />
+            {form.anggaran && <p className="text-xs text-[#6B7769]">{fmt(Number(form.anggaran))}</p>}
+          </div>
+          {/* Terpakai */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-[#374040] uppercase tracking-wide">Terpakai (Rp)</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={form.terpakai}
+              onChange={e => { setForm(f => ({ ...f, terpakai: e.target.value.replace(/\D/g, "") })); setErr(null); }}
+              placeholder="0"
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] tabular-nums placeholder:text-[#9CA3A0] outline-none focus:ring-2 focus:ring-[#3E8A2F]/30"
+              style={{ border:"1px solid #E2E8DE" }}
+            />
+            {form.terpakai && <p className="text-xs text-[#6B7769]">{fmt(Number(form.terpakai))}</p>}
+          </div>
+          {err && <p className="text-xs text-[#DC2626]">{err}</p>}
+        </div>
+        <div className="px-6 pb-6 pt-3 flex gap-3" style={{ borderTop:"1px solid #E2E8DE" }}>
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#374040] hover:bg-[#F5F9F4] transition-colors" style={{ border:"1px solid #E2E8DE" }}>
+            Batal
+          </button>
+          <button onClick={submit} className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors">
+            {row ? "Simpan" : "Tambah"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── RAB Tab ─────────────────────────────────────────────────────────────────
 
 function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
+  const { rabList, deleteRab } = useAppContext();
+  const [sheetRow, setSheetRow] = useState<RABRow | null | "new">(undefined as any);
+  const isOpen = sheetRow !== undefined && sheetRow !== (undefined as any);
+
+  const { groups, TOTAL_A, TOTAL_T } = useMemo(() => {
+    const g = [...new Set(rabList.map(r => r.group))];
+    const a = rabList.reduce((s, r) => s + r.anggaran, 0);
+    const t = rabList.reduce((s, r) => s + r.terpakai, 0);
+    return { groups: g, TOTAL_A: a, TOTAL_T: t };
+  }, [rabList]);
+
+  const TOTAL_S = TOTAL_A - TOTAL_T;
+  const TOTAL_P = TOTAL_A > 0 ? Math.round((TOTAL_T / TOTAL_A) * 100) : 0;
+
   return (
     <div className="space-y-5">
+      {isOpen && (
+        <RABSheet
+          row={sheetRow === "new" ? null : sheetRow as RABRow}
+          onClose={() => setSheetRow(undefined as any)}
+        />
+      )}
+
       {/* Header row */}
       <div className="flex items-center justify-between gap-4">
         <div>
@@ -164,12 +298,16 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
+            onClick={() => toast.info("Fitur ekspor akan segera tersedia")}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors"
             style={{ border:"1px solid #E2E8DE" }}
           >
             <Download size={13} /> Export
           </button>
-          <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+          <button
+            onClick={() => setSheetRow("new")}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
+          >
             <Plus size={13} /> Tambah Mata Anggaran
           </button>
         </div>
@@ -228,8 +366,8 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
               <th className="py-3 pr-6 w-10" />
             </tr>
           </thead>
-          {GROUPS.map((group) => {
-              const rows = RAB_DATA.filter((r) => r.group === group);
+          {groups.map((group) => {
+              const rows = rabList.filter((r) => r.group === group);
               return (
                 <tbody key={group}>
                   {/* Group header */}
@@ -247,7 +385,7 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
                   {/* Data rows */}
                   {rows.map((row, ri) => {
                     const sisa   = row.anggaran - row.terpakai;
-                    const pct    = Math.round((row.terpakai / row.anggaran) * 100);
+                    const pct    = row.anggaran > 0 ? Math.round((row.terpakai / row.anggaran) * 100) : 0;
                     const overBudget = sisa < 0;
                     const isLast = ri === rows.length - 1;
 
@@ -257,37 +395,20 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
                         className="hover:bg-[#FAFBF9] transition-colors"
                         style={{ borderBottom: isLast ? "2px solid #E2E8DE" : "1px solid #F0F7EE" }}
                       >
-                        {/* Mata Anggaran */}
-                        <td className="px-6 py-3.5 text-sm font-medium text-[#1C2517]">
-                          {row.nama}
-                        </td>
-
-                        {/* Anggaran */}
+                        <td className="px-6 py-3.5 text-sm font-medium text-[#1C2517]">{row.nama}</td>
+                        <td className="px-4 py-3.5 text-sm tabular-nums text-right text-[#374040]">{IDR(row.anggaran)}</td>
                         <td className="px-4 py-3.5 text-sm tabular-nums text-right text-[#374040]">
-                          {IDR(row.anggaran)}
+                          {row.terpakai === 0 ? <span className="text-[#D1D5DB]">—</span> : IDR(row.terpakai)}
                         </td>
-
-                        {/* Terpakai */}
-                        <td className="px-4 py-3.5 text-sm tabular-nums text-right text-[#374040]">
-                          {row.terpakai === 0
-                            ? <span className="text-[#D1D5DB]">—</span>
-                            : IDR(row.terpakai)
-                          }
-                        </td>
-
-                        {/* Sisa */}
                         <td className={`px-4 py-3.5 text-sm tabular-nums text-right font-semibold ${overBudget ? "text-[#DC2626]" : "text-[#374040]"}`}>
                           {IDR(sisa)}
                         </td>
-
-                        {/* Serapan */}
-                        <td className="px-4 py-3.5">
-                          <SerapanBar pct={pct} />
-                        </td>
-
-                        {/* Aksi */}
+                        <td className="px-4 py-3.5"><SerapanBar pct={pct} /></td>
                         <td className="py-3.5 pr-6">
-                          <RowMenu />
+                          <RowMenu
+                            onEdit={() => setSheetRow(row)}
+                            onDelete={() => deleteRab(row.id)}
+                          />
                         </td>
                       </tr>
                     );
@@ -300,18 +421,10 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
           <tfoot>
             <tr style={{ borderTop:"2px solid #E2E8DE", background:"#F5F9F4" }}>
               <td className="px-6 py-3.5 text-sm font-bold text-[#1C2517]">Total</td>
-              <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#1C2517]">
-                {IDR(TOTAL_A)}
-              </td>
-              <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#D97706]">
-                {IDR(TOTAL_T)}
-              </td>
-              <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#3E8A2F]">
-                {IDR(TOTAL_S)}
-              </td>
-              <td className="px-4 py-3.5">
-                <SerapanBar pct={TOTAL_P} />
-              </td>
+              <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#1C2517]">{IDR(TOTAL_A)}</td>
+              <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#D97706]">{IDR(TOTAL_T)}</td>
+              <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#3E8A2F]">{IDR(TOTAL_S)}</td>
+              <td className="px-4 py-3.5"><SerapanBar pct={TOTAL_P} /></td>
               <td className="pr-6" />
             </tr>
           </tfoot>
@@ -329,6 +442,12 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
 // ─── Realisasi Tab ────────────────────────────────────────────────────────────
 
 function RealisasiTab({ tahunAjaran }: { tahunAjaran: string }) {
+  const { rabList } = useAppContext();
+  const TOTAL_A = useMemo(() => rabList.reduce((s, r) => s + r.anggaran, 0), [rabList]);
+  const TOTAL_T = useMemo(() => rabList.reduce((s, r) => s + r.terpakai, 0), [rabList]);
+  const TOTAL_S = TOTAL_A - TOTAL_T;
+  const TOTAL_P = TOTAL_A > 0 ? Math.round((TOTAL_T / TOTAL_A) * 100) : 0;
+
   return (
     <div className="space-y-5">
       {/* KPI chips */}

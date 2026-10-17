@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, type ReactNode } from "react";
-import type { Role, AbsensiGerbangRecord, AbsensiSettings, AppSettings, ActivityLogEntry } from "@/types";
+import type { Role, AbsensiGerbangRecord, AbsensiSettings, AppSettings, ActivityLogEntry, MutasiRecord, ManualTransaksiRow, BankTransferRow } from "@/types";
+import { RABRow, RAB_DATA, mutasiData } from "@/data/keuangan";
 import { useAuth } from "@/context/AuthContext";
 import { fmt } from "@/lib/formatters";
 import {
@@ -85,6 +86,20 @@ interface AppContextValue {
   isElectron: boolean;
 
   activityLogs: ActivityLogEntry[];
+  mutasiList: MutasiRecord[];
+  addMutasi: (mutasi: MutasiRecord) => void;
+
+  manualTransaksiList: ManualTransaksiRow[];
+  addManualTransaksi: (t: ManualTransaksiRow) => void;
+  nextBVRef: (tipe: "masuk" | "keluar") => string;
+
+  rabList: RABRow[];
+  addRab: (row: Omit<RABRow, "id">) => void;
+  updateRab: (id: number, data: Partial<RABRow>) => void;
+  deleteRab: (id: number) => void;
+
+  bankTransferList: BankTransferRow[];
+  addBankTransfer: (row: Omit<BankTransferRow, "id" | "dicatatOleh" | "waktuCatat">) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -106,6 +121,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transaksiList, setTransaksiList] = useState<TransaksiPembayaran[]>(initialTransaksiPembayaran);
   const [nilaiList, setNilaiList] = useState<NilaiSiswa[]>(dataNilaiSiswa);
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
+  const MANUAL_TRANSAKSI_SEED: ManualTransaksiRow[] = [
+    { id:"MT-SEED-001", tipe:"masuk",  tanggal:"2026-07-13", keterangan:"Pembayaran Daftar Ulang",           kategori:"Daftar Ulang",  akun:"Bank BSI",             jumlah:   350_000, ref:"KW/2026/07/0142", dicatatOleh:"Admin", waktuCatat:"2026-07-13T08:00:00.000Z" },
+    { id:"MT-SEED-002", tipe:"masuk",  tanggal:"2026-07-13", keterangan:"Pembayaran Adm. PPDB",              kategori:"PPDB",          akun:"Kas Tunai",            jumlah:   250_000, ref:"KW/2026/07/0141", dicatatOleh:"Admin", waktuCatat:"2026-07-13T08:05:00.000Z" },
+    { id:"MT-SEED-003", tipe:"masuk",  tanggal:"2026-07-12", keterangan:"Penerimaan Dana BOS Triwulan III",  kategori:"Dana BOS",      akun:"Bank BSI",             jumlah: 7_500_000, ref:"—",               dicatatOleh:"Admin", waktuCatat:"2026-07-12T09:00:00.000Z" },
+    { id:"MT-SEED-004", tipe:"masuk",  tanggal:"2026-07-12", keterangan:"Cicilan Administrasi PPDB",         kategori:"PPDB",          akun:"Bank BSI",             jumlah:   175_000, ref:"KW/2026/07/0139", dicatatOleh:"Admin", waktuCatat:"2026-07-12T09:10:00.000Z" },
+    { id:"MT-SEED-005", tipe:"keluar", tanggal:"2026-07-11", keterangan:"Pembelian ATK dan Perlengkapan",    kategori:"Operasional",   akun:"Kas Tunai",            jumlah:   500_000, ref:"BV/2026/07/001",  dicatatOleh:"Admin", waktuCatat:"2026-07-11T10:00:00.000Z" },
+    { id:"MT-SEED-006", tipe:"keluar", tanggal:"2026-07-10", keterangan:"Honor Pengajar Ekstrakurikuler",    kategori:"Honor",         akun:"Bank BSI",             jumlah: 1_500_000, ref:"BV/2026/07/002",  dicatatOleh:"Admin", waktuCatat:"2026-07-10T10:00:00.000Z" },
+    { id:"MT-SEED-007", tipe:"keluar", tanggal:"2026-07-10", keterangan:"Pembayaran Tagihan Listrik & Air",  kategori:"Utilitas",      akun:"Bank Mandiri Syariah", jumlah: 1_200_000, ref:"BV/2026/07/003",  dicatatOleh:"Admin", waktuCatat:"2026-07-10T10:05:00.000Z" },
+    { id:"MT-SEED-008", tipe:"masuk",  tanggal:"2026-07-09", keterangan:"Pembayaran Kegiatan Siswa",         kategori:"Kegiatan",      akun:"Kas Tunai",            jumlah:   175_000, ref:"KW/2026/07/0131", dicatatOleh:"Admin", waktuCatat:"2026-07-09T08:00:00.000Z" },
+  ];
+
+  const [manualTransaksiList, setManualTransaksiList] = useState<ManualTransaksiRow[]>(() => {
+    try {
+      const s = localStorage.getItem("alittihad_manual_transaksi");
+      const existing: ManualTransaksiRow[] = s ? JSON.parse(s) : [];
+      const existingIds = new Set(existing.map(t => t.id));
+      const missing = MANUAL_TRANSAKSI_SEED.filter(t => !existingIds.has(t.id));
+      return [...existing, ...missing];
+    } catch { return MANUAL_TRANSAKSI_SEED; }
+  });
+
+  const [mutasiList, setMutasiList] = useState<MutasiRecord[]>(() => {
+    try {
+      const s = localStorage.getItem("alittihad_mutasi");
+      return s ? JSON.parse(s) : [];
+    } catch { return []; }
+  });
+
+  const [rabList, setRabList] = useState<RABRow[]>(() => {
+    try {
+      const s = localStorage.getItem("alittihad_rab");
+      return s ? JSON.parse(s) : RAB_DATA;
+    } catch { return RAB_DATA; }
+  });
+
+  const MON_MAP: Record<string, string> = { Jan:"01",Feb:"02",Mar:"03",Apr:"04",Mei:"05",Jun:"06",Jul:"07",Agt:"08",Sep:"09",Okt:"10",Nov:"11",Des:"12" };
+  const parseDMY = (d: string) => { const [day, mon, yr] = d.split(" "); return `${yr}-${MON_MAP[mon] ?? "01"}-${day.padStart(2, "0")}`; };
+  const BANK_TRANSFER_SEED: BankTransferRow[] = mutasiData.map(m => ({
+    id: `BT-SEED-${String(m.id).padStart(3, "0")}`,
+    tanggal: parseDMY(m.tanggal),
+    dari: m.dari, ke: m.ke, nominal: m.nominal, catatan: m.catatan,
+    status: m.status as "Selesai", dicatatOleh: "Admin",
+    waktuCatat: new Date(parseDMY(m.tanggal) + "T08:00:00.000Z").toISOString(),
+  }));
+
+  const [bankTransferList, setBankTransferList] = useState<BankTransferRow[]>(() => {
+    try {
+      const s = localStorage.getItem("alittihad_bank_transfer");
+      const existing: BankTransferRow[] = s ? JSON.parse(s) : [];
+      const existingIds = new Set(existing.map(t => t.id));
+      const missing = BANK_TRANSFER_SEED.filter(t => !existingIds.has(t.id));
+      return [...existing, ...missing];
+    } catch { return BANK_TRANSFER_SEED; }
+  });
 
   const defaultAbsensiSettings: AbsensiSettings = {
     batasHadir: "08:00",
@@ -165,7 +234,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // Only use stored data if it has entries; otherwise fall back to seed data
             // Also check seed version: if seed was updated, clear stale localStorage
             const storedVersion = localStorage.getItem("alittihad_tagihan_seed_v");
-            const CURRENT_SEED_V = "2"; // increment this when initialTagihanSiswa changes
+            const CURRENT_SEED_V = "3"; // increment this when initialTagihanSiswa changes
             if (storedVersion !== CURRENT_SEED_V) {
               // Seed version changed — discard old localStorage tagihan so seed takes effect
               localStorage.removeItem("alittihad_tagihan");
@@ -175,7 +244,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           } else {
             // No stored tagihan at all, set seed version
-            localStorage.setItem("alittihad_tagihan_seed_v", "2");
+            localStorage.setItem("alittihad_tagihan_seed_v", "3");
           }
           if (s5) setTransaksiList(JSON.parse(s5));
           // Jadwal format version guard — clears stale data if format changed
@@ -241,48 +310,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         if (savedGuruHistory && Object.keys(savedGuruHistory).length > 0) {
           setAbsensiGuruHistory(savedGuruHistory);
-        } else {
-          // Generate mock data for Juli and Agustus 2026 if empty
-          const mockHistory: Record<string, Record<number, { status: string; jam: string }>> = {};
-          
-          const generateMockMonth = (year: number, month: number, daysInMonth: number) => {
-            for (let d = 1; d <= daysInMonth; d++) {
-              const date = new Date(year, month, d);
-              // Skip weekends (0 = Sunday, 6 = Saturday)
-              if (date.getDay() === 0 || date.getDay() === 6) continue;
-              
-              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-              mockHistory[dateStr] = {};
-              
-              // Fill with pseudo-random attendance based on guruData
-              guruData.forEach(guru => {
-                const rand = Math.random();
-                let status = "Hadir";
-                let jam = "06:45";
-                
-                if (rand > 0.95) {
-                  status = "Alpa"; jam = "";
-                } else if (rand > 0.9) {
-                  status = "Izin"; jam = "";
-                } else if (rand > 0.85) {
-                  status = "Sakit"; jam = "";
-                } else if (rand > 0.7) {
-                  status = "Terlambat"; 
-                  const m = Math.floor(Math.random() * 30);
-                  jam = `07:${String(m).padStart(2, '0')}`;
-                } else {
-                  const m = 30 + Math.floor(Math.random() * 29); // 06:30 - 06:59
-                  jam = `06:${String(m).padStart(2, '0')}`;
-                }
-                
-                mockHistory[dateStr][guru.id] = { status, jam };
-              });
-            }
-          };
-
-          generateMockMonth(2026, 6, 31); // Juli
-          generateMockMonth(2026, 7, 31); // Agustus
-          setAbsensiGuruHistory(mockHistory);
         }
 
       } catch (e) {
@@ -440,6 +467,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
       pelaku: authUser?.nama ?? "Sistem",
       ...entry,
     }, ...prev]);
+  };
+
+  useEffect(() => {
+    localStorage.setItem("alittihad_mutasi", JSON.stringify(mutasiList));
+  }, [mutasiList]);
+
+  const addMutasi = (mutasi: MutasiRecord) => {
+    setMutasiList(prev => [mutasi, ...prev]);
+    logActivity({
+      tipe: "Mutasi Siswa",
+      deskripsi: `${mutasi.nama} (${mutasi.kelas}) — ${
+        mutasi.jenisMutasi === "masuk" ? "Mutasi Masuk" :
+        mutasi.jenisMutasi === "pindah" ? `Pindah ke ${mutasi.sekolahTujuan || "sekolah lain"}` :
+        mutasi.jenisMutasi === "dikeluarkan" ? "Dikeluarkan" : "Meninggal Dunia"
+      }`,
+      ref: "—",
+    });
+  };
+
+  useEffect(() => {
+    localStorage.setItem("alittihad_manual_transaksi", JSON.stringify(manualTransaksiList));
+  }, [manualTransaksiList]);
+
+  useEffect(() => {
+    localStorage.setItem("alittihad_rab", JSON.stringify(rabList));
+  }, [rabList]);
+
+  useEffect(() => {
+    localStorage.setItem("alittihad_bank_transfer", JSON.stringify(bankTransferList));
+  }, [bankTransferList]);
+
+  const nextBVRef = (tipe: "masuk" | "keluar"): string => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const prefix = `BV/${yyyy}/${mm}/`;
+    const existing = manualTransaksiList.filter(t => t.ref.startsWith(prefix));
+    const next = String(existing.length + 1).padStart(3, "0");
+    return `${prefix}${next}`;
+  };
+
+  const addBankTransfer = (row: Omit<BankTransferRow, "id" | "dicatatOleh" | "waktuCatat">) => {
+    const id = `BT-${Date.now()}`;
+    setBankTransferList(prev => [{ ...row, id, dicatatOleh: authUser?.nama ?? "Admin", waktuCatat: new Date().toISOString() }, ...prev]);
+  };
+
+  const addRab = (row: Omit<RABRow, "id">) => {
+    const id = rabList.length > 0 ? Math.max(...rabList.map(r => r.id)) + 1 : 1;
+    setRabList(prev => [...prev, { ...row, id }]);
+  };
+  const updateRab = (id: number, data: Partial<RABRow>) =>
+    setRabList(prev => prev.map(r => r.id === id ? { ...r, ...data } : r));
+  const deleteRab = (id: number) =>
+    setRabList(prev => prev.filter(r => r.id !== id));
+
+  const addManualTransaksi = (t: ManualTransaksiRow) => {
+    setManualTransaksiList(prev => [t, ...prev]);
+    logActivity({
+      tipe: t.tipe === "masuk" ? "Pembayaran" : "Pembatalan",
+      deskripsi: `[${t.tipe === "masuk" ? "Pemasukan" : "Pengeluaran"} Manual] ${t.keterangan} — ${fmt(t.jumlah)}`,
+      ref: t.ref,
+    });
   };
 
   const addKelas = (kelas: KelasRow) => setKelasList(prev => [...prev, kelas]);
@@ -687,6 +776,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         appSettings,
         setAppSettings,
         activityLogs,
+        mutasiList, addMutasi,
+        manualTransaksiList, addManualTransaksi, nextBVRef,
+        rabList, addRab, updateRab, deleteRab,
+        bankTransferList, addBankTransfer,
       }}
     >
       {children}
