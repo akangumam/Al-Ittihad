@@ -102,6 +102,30 @@ interface AppContextValue {
   addBankTransfer: (row: Omit<BankTransferRow, "id" | "dicatatOleh" | "waktuCatat">) => void;
 }
 
+const MANUAL_TRANSAKSI_SEED: ManualTransaksiRow[] = [
+  { id:"MT-SEED-001", tipe:"masuk",  tanggal:"2026-07-13", keterangan:"Pembayaran Daftar Ulang",           kategori:"Daftar Ulang",  akun:"Bank BSI",             jumlah:   350_000, ref:"KW/2026/07/0142", dicatatOleh:"Admin", waktuCatat:"2026-07-13T08:00:00.000Z" },
+  { id:"MT-SEED-002", tipe:"masuk",  tanggal:"2026-07-13", keterangan:"Pembayaran Adm. PPDB",              kategori:"PPDB",          akun:"Kas Tunai",            jumlah:   250_000, ref:"KW/2026/07/0141", dicatatOleh:"Admin", waktuCatat:"2026-07-13T08:05:00.000Z" },
+  { id:"MT-SEED-003", tipe:"masuk",  tanggal:"2026-07-12", keterangan:"Penerimaan Dana BOS Triwulan III",  kategori:"Dana BOS",      akun:"Bank BSI",             jumlah: 7_500_000, ref:"—",               dicatatOleh:"Admin", waktuCatat:"2026-07-12T09:00:00.000Z" },
+  { id:"MT-SEED-004", tipe:"masuk",  tanggal:"2026-07-12", keterangan:"Cicilan Administrasi PPDB",         kategori:"PPDB",          akun:"Bank BSI",             jumlah:   175_000, ref:"KW/2026/07/0139", dicatatOleh:"Admin", waktuCatat:"2026-07-12T09:10:00.000Z" },
+  { id:"MT-SEED-005", tipe:"keluar", tanggal:"2026-07-11", keterangan:"Pembelian ATK dan Perlengkapan",    kategori:"Operasional",   akun:"Kas Tunai",            jumlah:   500_000, ref:"BV/2026/07/001",  dicatatOleh:"Admin", waktuCatat:"2026-07-11T10:00:00.000Z" },
+  { id:"MT-SEED-006", tipe:"keluar", tanggal:"2026-07-10", keterangan:"Honor Pengajar Ekstrakurikuler",    kategori:"Honor",         akun:"Bank BSI",             jumlah: 1_500_000, ref:"BV/2026/07/002",  dicatatOleh:"Admin", waktuCatat:"2026-07-10T10:00:00.000Z" },
+  { id:"MT-SEED-007", tipe:"keluar", tanggal:"2026-07-10", keterangan:"Pembayaran Tagihan Listrik & Air",  kategori:"Utilitas",      akun:"Bank Mandiri Syariah", jumlah: 1_200_000, ref:"BV/2026/07/003",  dicatatOleh:"Admin", waktuCatat:"2026-07-10T10:05:00.000Z" },
+  { id:"MT-SEED-008", tipe:"masuk",  tanggal:"2026-07-09", keterangan:"Pembayaran Kegiatan Siswa",         kategori:"Kegiatan",      akun:"Kas Tunai",            jumlah:   175_000, ref:"KW/2026/07/0131", dicatatOleh:"Admin", waktuCatat:"2026-07-09T08:00:00.000Z" },
+];
+
+const MON_MAP: Record<string, string> = { Jan:"01",Feb:"02",Mar:"03",Apr:"04",Mei:"05",Jun:"06",Jul:"07",Agt:"08",Sep:"09",Okt:"10",Nov:"11",Des:"12" };
+function parseDMY(d: string): string {
+  const [day, mon, yr] = d.split(" ");
+  return `${yr}-${MON_MAP[mon] ?? "01"}-${day.padStart(2, "0")}`;
+}
+const BANK_TRANSFER_SEED: BankTransferRow[] = mutasiData.map(m => ({
+  id: `BT-SEED-${String(m.id).padStart(3, "0")}`,
+  tanggal: parseDMY(m.tanggal),
+  dari: m.dari, ke: m.ke, nominal: m.nominal, catatan: m.catatan,
+  status: m.status as "Selesai", dicatatOleh: "Admin",
+  waktuCatat: new Date(parseDMY(m.tanggal) + "T08:00:00.000Z").toISOString(),
+}));
+
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -121,16 +145,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transaksiList, setTransaksiList] = useState<TransaksiPembayaran[]>(initialTransaksiPembayaran);
   const [nilaiList, setNilaiList] = useState<NilaiSiswa[]>(dataNilaiSiswa);
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
-  const MANUAL_TRANSAKSI_SEED: ManualTransaksiRow[] = [
-    { id:"MT-SEED-001", tipe:"masuk",  tanggal:"2026-07-13", keterangan:"Pembayaran Daftar Ulang",           kategori:"Daftar Ulang",  akun:"Bank BSI",             jumlah:   350_000, ref:"KW/2026/07/0142", dicatatOleh:"Admin", waktuCatat:"2026-07-13T08:00:00.000Z" },
-    { id:"MT-SEED-002", tipe:"masuk",  tanggal:"2026-07-13", keterangan:"Pembayaran Adm. PPDB",              kategori:"PPDB",          akun:"Kas Tunai",            jumlah:   250_000, ref:"KW/2026/07/0141", dicatatOleh:"Admin", waktuCatat:"2026-07-13T08:05:00.000Z" },
-    { id:"MT-SEED-003", tipe:"masuk",  tanggal:"2026-07-12", keterangan:"Penerimaan Dana BOS Triwulan III",  kategori:"Dana BOS",      akun:"Bank BSI",             jumlah: 7_500_000, ref:"—",               dicatatOleh:"Admin", waktuCatat:"2026-07-12T09:00:00.000Z" },
-    { id:"MT-SEED-004", tipe:"masuk",  tanggal:"2026-07-12", keterangan:"Cicilan Administrasi PPDB",         kategori:"PPDB",          akun:"Bank BSI",             jumlah:   175_000, ref:"KW/2026/07/0139", dicatatOleh:"Admin", waktuCatat:"2026-07-12T09:10:00.000Z" },
-    { id:"MT-SEED-005", tipe:"keluar", tanggal:"2026-07-11", keterangan:"Pembelian ATK dan Perlengkapan",    kategori:"Operasional",   akun:"Kas Tunai",            jumlah:   500_000, ref:"BV/2026/07/001",  dicatatOleh:"Admin", waktuCatat:"2026-07-11T10:00:00.000Z" },
-    { id:"MT-SEED-006", tipe:"keluar", tanggal:"2026-07-10", keterangan:"Honor Pengajar Ekstrakurikuler",    kategori:"Honor",         akun:"Bank BSI",             jumlah: 1_500_000, ref:"BV/2026/07/002",  dicatatOleh:"Admin", waktuCatat:"2026-07-10T10:00:00.000Z" },
-    { id:"MT-SEED-007", tipe:"keluar", tanggal:"2026-07-10", keterangan:"Pembayaran Tagihan Listrik & Air",  kategori:"Utilitas",      akun:"Bank Mandiri Syariah", jumlah: 1_200_000, ref:"BV/2026/07/003",  dicatatOleh:"Admin", waktuCatat:"2026-07-10T10:05:00.000Z" },
-    { id:"MT-SEED-008", tipe:"masuk",  tanggal:"2026-07-09", keterangan:"Pembayaran Kegiatan Siswa",         kategori:"Kegiatan",      akun:"Kas Tunai",            jumlah:   175_000, ref:"KW/2026/07/0131", dicatatOleh:"Admin", waktuCatat:"2026-07-09T08:00:00.000Z" },
-  ];
 
   const [manualTransaksiList, setManualTransaksiList] = useState<ManualTransaksiRow[]>(() => {
     try {
@@ -155,16 +169,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return s ? JSON.parse(s) : RAB_DATA;
     } catch { return RAB_DATA; }
   });
-
-  const MON_MAP: Record<string, string> = { Jan:"01",Feb:"02",Mar:"03",Apr:"04",Mei:"05",Jun:"06",Jul:"07",Agt:"08",Sep:"09",Okt:"10",Nov:"11",Des:"12" };
-  const parseDMY = (d: string) => { const [day, mon, yr] = d.split(" "); return `${yr}-${MON_MAP[mon] ?? "01"}-${day.padStart(2, "0")}`; };
-  const BANK_TRANSFER_SEED: BankTransferRow[] = mutasiData.map(m => ({
-    id: `BT-SEED-${String(m.id).padStart(3, "0")}`,
-    tanggal: parseDMY(m.tanggal),
-    dari: m.dari, ke: m.ke, nominal: m.nominal, catatan: m.catatan,
-    status: m.status as "Selesai", dicatatOleh: "Admin",
-    waktuCatat: new Date(parseDMY(m.tanggal) + "T08:00:00.000Z").toISOString(),
-  }));
 
   const [bankTransferList, setBankTransferList] = useState<BankTransferRow[]>(() => {
     try {
@@ -573,7 +577,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const newAlumni: AlumniRow[] = toGraduate.map(s => ({
       ...s,
       tahunLulus,
-      angkatan: new Date().getFullYear() - 1990, // example logic
+      angkatan: parseInt(tahunLulus, 10),
       keterangan: "Lulus Reguler"
     }));
 

@@ -95,7 +95,7 @@ function generateTagihanSeed(): TagihanSiswa[] {
   for (const s of siswaData) {
     if (s.status !== "Aktif") continue;
     const kelas = s.kelas[0]; // "7", "8", "9"
-    const spp = s.statusSPP;
+    const spp = s.statusTagihan;
 
     if (kelas === "7") {
       const paid = spp === "Lunas" ? 750_000

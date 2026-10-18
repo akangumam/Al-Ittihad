@@ -192,9 +192,9 @@ function PiutangDonut() {
   const { siswaList } = useAppContext();
   const piutangData = useMemo(() => {
     const aktif = siswaList.filter(s => s.status === "Aktif");
-    const lunas    = aktif.filter(s => s.statusSPP === "Lunas").length;
-    const mencicil = aktif.filter(s => s.statusSPP === "Mencicil").length;
-    const menunggak = aktif.filter(s => s.statusSPP === "Menunggak").length;
+    const lunas    = aktif.filter(s => s.statusTagihan === "Lunas").length;
+    const mencicil = aktif.filter(s => s.statusTagihan === "Mencicil").length;
+    const menunggak = aktif.filter(s => s.statusTagihan === "Menunggak").length;
     return [
       { name: "Lunas",     value: lunas,     color: "#3E8A2F" },
       { name: "Mencicil",  value: mencicil,  color: "#F6B31E" },
@@ -377,7 +377,7 @@ function TransaksiTerbaru() {
           kategori: t.alokasi[0]?.namaTagihan ?? "—",
           metode:   t.metode,
           jumlah:   t.nominal,
-          status:   siswa?.statusSPP ?? "Mencicil",
+          status:   siswa?.statusTagihan ?? "Mencicil",
         };
       });
   }, [transaksiList, siswaList]);

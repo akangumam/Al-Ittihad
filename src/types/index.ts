@@ -31,26 +31,7 @@ export interface NavGroup {
 
 // ─── Entities ──────────────────────────────────────────────────────────────────
 
-export interface SiswaRow {
-  id: number;
-  nama: string;
-  nis: string;
-  nisn: string;
-  kelas: string;
-  jk: JenisKelamin;
-  waliNama: string;
-  waliHp: string;
-  statusTagihan: StatusTagihan;
-  status: StatusSiswa;
-  inits: string;
-  tempatLahir: string;
-  tanggalLahir: string;
-  namaAyah: string;
-  namaIbu: string;
-  alamat: string;
-  kelurahan: string;
-  kecamatan: string;
-}
+export type { SiswaRow } from "@/data/siswa";
 
 export interface GuruRow {
   id: number;

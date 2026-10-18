@@ -12,6 +12,7 @@ import { KelasJadwal } from "@/app/components/KelasJadwal";
 import { Absensi } from "@/app/components/Absensi";
 import { AbsensiSiswa } from "@/app/components/AbsensiSiswa";
 import { MobileAbsensi } from "@/app/components/MobileAbsensi";
+import { KartuDigital } from "@/app/components/KartuDigital";
 import { Pembayaran } from "@/app/components/Pembayaran";
 import { MobilePembayaran } from "@/app/components/MobilePembayaran";
 import { Tunggakan } from "@/app/components/Tunggakan";
@@ -93,7 +94,10 @@ export const router = createBrowserRouter([
         element: <RequireRole roles={["Admin", "Bendahara"]}><Siswa /></RequireRole>,
       },
       { path: "akademik/alumni",       element: <Navigate to="/akademik/siswa?tab=alumni" replace /> },
-      { path: "akademik/kartu-digital",element: <Navigate to="/akademik/siswa" replace /> },
+      {
+        path: "akademik/kartu-digital",
+        element: <RequireRole roles={["Admin", "TU"]}><KartuDigital /></RequireRole>,
+      },
       { path: "akademik/gerbang",      element: <Navigate to="/" replace /> },
       { path: "akademik/nilai-siswa",  element: <Navigate to="/" replace /> },
       {

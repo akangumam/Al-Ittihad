@@ -551,7 +551,7 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
                 <div>
                   <p className="text-xs text-[#6B7769] mb-1">Status Pembayaran SPP</p>
                   <div className="flex items-center gap-2">
-                    <StatusBadge status={siswa?.statusSPP || "Lunas"} />
+                    <StatusBadge status={siswa?.statusTagihan || "Lunas"} />
                     <span className="text-sm font-semibold text-[#1C2517]">Juli 2026</span>
                   </div>
                 </div>
@@ -1389,7 +1389,7 @@ export function Siswa() {
       result.sort((a, b) => a.nama.localeCompare(b.nama));
     } else if (sortBy === "status-spp") {
       const getSppScore = (status: string) => status === "Tunggakan" ? 0 : (status === "Belum Lunas" ? 1 : 2);
-      result.sort((a, b) => getSppScore(a.statusSPP) - getSppScore(b.statusSPP));
+      result.sort((a, b) => getSppScore(a.statusTagihan) - getSppScore(b.statusTagihan));
     } else {
       if (statusFilter === "Semua Status") {
         result.sort((a, b) => {
@@ -1750,7 +1750,7 @@ export function Siswa() {
                     <p className="text-[11px] text-[#6B7769]" style={{ marginTop: 2 }}>{row.nis}</p>
                     <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 6 }}>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${KELAS_COLOR[row.kelas[0]] ?? "bg-[#F3F4F6] text-[#374040]"}`}>{row.kelas}</span>
-                      <StatusBadge status={row.statusSPP} />
+                      <StatusBadge status={row.statusTagihan} />
                       <StatusBadge status={row.status as "Aktif" | "Nonaktif"} />
                     </div>
                   </div>
@@ -1868,7 +1868,7 @@ export function Siswa() {
 
                     {/* Status Tagihan */}
                     <td className="py-3.5 pr-4">
-                      <StatusBadge status={row.statusSPP} />
+                      <StatusBadge status={row.statusTagihan} />
                     </td>
 
                     {/* Status */}
@@ -1956,7 +1956,7 @@ export function Siswa() {
             if (isAddingSiswa) {
               const newSiswa: SiswaRow = {
                 id: Date.now(),
-                statusSPP: "Lunas",
+                statusTagihan: "Lunas",
                 ...form,
                 inits: form.nama.substring(0, 2).toUpperCase(),
               };
@@ -2252,7 +2252,7 @@ export function Siswa() {
               jk: data.jk,
               waliNama: "",
               waliHp: "",
-              statusSPP: "Menunggak",
+              statusTagihan: "Menunggak",
               status: "Aktif",
               inits: data.nama.substring(0, 2).toUpperCase(),
               tempatLahir: "",
