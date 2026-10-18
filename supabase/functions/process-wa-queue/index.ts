@@ -4,10 +4,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const WAHA_URL      = Deno.env.get("WAHA_URL")!;
 const WAHA_API_KEY  = Deno.env.get("WAHA_API_KEY")!;
-const WAHA_SESSION  = Deno.env.get("WAHA_SESSION") ?? "alittihad";
+const WAHA_SESSION  = Deno.env.get("WAHA_SESSION") ?? "al-ittihad";
 const MAX_PER_RUN   = 5;    // maks pesan per eksekusi cron
 const JAM_MULAI_WIB = 6;    // 06:00 WIB
-const JAM_TUTUP_WIB = 21;   // 21:00 WIB
+const JAM_TUTUP_WIB = 21;   // 21:00 WIB (jam aktif 06:00 - 21:00 WIB)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
