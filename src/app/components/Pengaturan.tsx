@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
-import { Plus, MoreHorizontal, Trash2, CheckCircle2, Archive } from "lucide-react";
+import { Plus, MoreHorizontal, Trash2, CheckCircle2, Archive, MessageCircle, Loader2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import logoEmblem from "../../imports/aliet_logo.png";
 import { useAppContext } from "@/context/AppContext";
+import { useWAQueue } from "@/hooks/useWAQueue";
 
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
@@ -412,6 +413,144 @@ function IdentitasCard() {
   );
 }
 
+// ─── WAHA card ────────────────────────────────────────────────────────────────
+
+function WAHACard() {
+  const { appSettings, setAppSettings } = useAppContext();
+  const { enqueue } = useWAQueue();
+
+  const [url,     setUrl]     = useState(appSettings.wahaUrl     ?? "");
+  const [apiKey,  setApiKey]  = useState(appSettings.wahaApiKey  ?? "");
+  const [session, setSession] = useState(appSettings.wahaSession ?? "alittihad");
+  const [showKey, setShowKey] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testPhone, setTestPhone] = useState("");
+
+  const enabled = appSettings.wahaEnabled ?? false;
+
+  function handleToggle() {
+    setAppSettings(s => ({ ...s, wahaEnabled: !s.wahaEnabled }));
+    toast.success(!enabled ? "Notifikasi WhatsApp diaktifkan" : "Notifikasi WhatsApp dinonaktifkan");
+  }
+
+  function handleSave() {
+    if (url && !url.startsWith("http")) {
+      toast.error("URL harus diawali https://");
+      return;
+    }
+    setAppSettings(s => ({
+      ...s,
+      wahaUrl:     url.trim(),
+      wahaApiKey:  apiKey.trim(),
+      wahaSession: session.trim() || "alittihad",
+    }));
+    toast.success("Konfigurasi WAHA disimpan");
+  }
+
+  async function handleTest() {
+    if (!testPhone.trim()) { toast.error("Masukkan nomor tujuan test"); return; }
+    if (!url.trim())       { toast.error("URL WAHA belum diisi");       return; }
+    setTesting(true);
+    const result = await enqueue({
+      phone:         testPhone.trim(),
+      nama_penerima: "Test",
+      pesan:         `✅ *Test Notifikasi WAHA*\n\nKoneksi ke MTs Al-Ittihad berhasil!\nWaktu: ${new Date().toLocaleString("id-ID")}`,
+      jenis:         "custom",
+      priority:      1,
+    });
+    setTesting(false);
+    if (result.ok) {
+      toast.success("Pesan test masuk ke antrian — akan terkirim dalam ±1 menit");
+    } else {
+      toast.error(`Gagal: ${result.error}`);
+    }
+  }
+
+  return (
+    <Card title="Notifikasi WhatsApp (WAHA)" onSave={handleSave}>
+      <div className="space-y-4">
+        {/* Toggle aktif */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-[#1C2517]">Aktifkan notifikasi otomatis</p>
+            <p className="text-xs text-[#6B7769]">Kirim pesan WA untuk absensi, tagihan, dan pembayaran</p>
+          </div>
+          <Switch checked={enabled} onChange={handleToggle} />
+        </div>
+
+        {/* Banner info queue */}
+        <div className="rounded-lg px-4 py-3 flex gap-3" style={{ background: "#F0FDF4", border: "1px solid #BBF7D0" }}>
+          <MessageCircle size={16} className="mt-0.5 shrink-0" style={{ color: "#16A34A" }} />
+          <p className="text-xs" style={{ color: "#15803D" }}>
+            Pesan tidak dikirim langsung — masuk ke <strong>antrian</strong> dan diproses maks. 5 pesan/menit
+            (06.00–21.00 WIB) untuk menghindari pemblokiran oleh Meta.
+          </p>
+        </div>
+
+        <div className="grid gap-3" style={{ opacity: enabled ? 1 : 0.5, pointerEvents: enabled ? "auto" : "none" }}>
+          <FloatingInput
+            label="WAHA URL"
+            value={url}
+            onChange={setUrl}
+            required
+          />
+
+          {/* API Key dengan toggle show/hide */}
+          <div className="relative">
+            <FloatingInput
+              label="API Key"
+              value={apiKey}
+              onChange={setApiKey}
+              type={showKey ? "text" : "password"}
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(v => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] hover:text-[#374040]"
+            >
+              {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+
+          <FloatingInput
+            label="Nama Session"
+            value={session}
+            onChange={setSession}
+          />
+        </div>
+
+        {/* Test kirim */}
+        <div style={{ opacity: enabled ? 1 : 0.5, pointerEvents: enabled ? "auto" : "none" }}>
+          <p className="text-xs font-medium text-[#1C2517] mb-2">Test kirim pesan</p>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <FloatingInput
+                label="Nomor WA tujuan (628xxx)"
+                value={testPhone}
+                onChange={setTestPhone}
+              />
+            </div>
+            <button
+              onClick={handleTest}
+              disabled={testing}
+              className="shrink-0 px-4 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-60"
+              style={{ background: "#3E8A2F", color: "#fff", minWidth: 100 }}
+            >
+              {testing
+                ? <><Loader2 size={14} className="animate-spin" /> Mengantri...</>
+                : <><MessageCircle size={14} /> Test</>
+              }
+            </button>
+          </div>
+          <p className="text-xs text-[#9CA3A0] mt-1.5">
+            Pesan masuk ke antrian dan dikirim oleh server dalam ±1 menit.
+          </p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Pengaturan() {
@@ -426,6 +565,7 @@ export function Pengaturan() {
       <AkademikCard />
       <KeuanganCard />
       <IdentitasCard />
+      <WAHACard />
     </div>
   );
 }

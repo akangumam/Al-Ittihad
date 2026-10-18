@@ -70,6 +70,11 @@ export interface AppSettings {
   alamatMadrasah: string;
   kirimWA: boolean;
   tahunAjaranRows?: { year: string; status: "Aktif" | "Arsip" | "Draft" }[];
+  // ─── WAHA (WhatsApp HTTP API) ──────────────────────────────────────────────
+  wahaEnabled: boolean;
+  wahaUrl: string;       // e.g. "https://waha.alittihadpedaleman.web.id"
+  wahaApiKey: string;
+  wahaSession: string;   // default "alittihad"
 }
 
 export interface AbsensiSettings {

@@ -200,6 +200,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     namaMadrasah: "MTs Al-Ittihad Pedaleman",
     alamatMadrasah: "Jl. Pedaleman No. 1, Babakan, Kota Cirebon, Jawa Barat 45121",
     kirimWA: true,
+    wahaEnabled: false,
+    wahaUrl: "",
+    wahaApiKey: "",
+    wahaSession: "alittihad",
   };
   // Lazy init: read from localStorage immediately so the save effect never overwrites with stale defaults.
   // Merge with defaultAppSettings so fields added later (kirimWA, alamatMadrasah, etc.) are always populated.
