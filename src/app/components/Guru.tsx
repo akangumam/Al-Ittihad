@@ -926,6 +926,16 @@ export function Guru() {
                   </td>
                 </tr>
               ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="text-center py-12">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <p className="text-sm font-semibold text-[#1C2517]">Belum ada data guru</p>
+                      <p className="text-xs text-[#6B7769]">Klik tombol "+ Tambah Guru" untuk menambahkan data guru riil.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </DataTable>
         </div>

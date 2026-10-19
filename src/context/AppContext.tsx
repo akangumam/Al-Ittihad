@@ -193,13 +193,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           savedGuru = await (window as any).electronAPI.getStoreValue("alittihad_guru");
         } else {
           // Versioning: auto-clean old test/mock data from previous browser sessions
-          const CLEAN_VERSION = "2026_clean_v1";
+          const CLEAN_VERSION = "2026_clean_v2";
           const currentCleanV = localStorage.getItem("alittihad_db_v");
           if (currentCleanV !== CLEAN_VERSION) {
             localStorage.removeItem("alittihad_siswa");
             localStorage.removeItem("alittihad_alumni");
+            localStorage.removeItem("alittihad_guru");
+            localStorage.removeItem("alittihad_jadwal");
+            localStorage.removeItem("alittihad_jadwal_overrides");
             localStorage.removeItem("alittihad_absensi_siswa");
             localStorage.removeItem("alittihad_absensi_siswa_history");
+            localStorage.removeItem("alittihad_absensi_guru");
+            localStorage.removeItem("alittihad_absensi_guru_history");
             localStorage.removeItem("alittihad_tagihan");
             localStorage.removeItem("alittihad_transaksi");
             localStorage.removeItem("alittihad_mutasi");
@@ -553,6 +558,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const resetToCleanData = () => {
     setSiswaList([]);
     setAlumniList([]);
+    setGuruList([]);
+    setJadwalList([]);
+    setJadwalOverridesList([]);
     setTagihanList([]);
     setTransaksiList([]);
     setAbsensiSiswaHariIni({});
@@ -566,6 +574,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     localStorage.removeItem("alittihad_siswa");
     localStorage.removeItem("alittihad_alumni");
+    localStorage.removeItem("alittihad_guru");
+    localStorage.removeItem("alittihad_jadwal");
+    localStorage.removeItem("alittihad_jadwal_overrides");
     localStorage.removeItem("alittihad_tagihan");
     localStorage.removeItem("alittihad_transaksi");
     localStorage.removeItem("alittihad_absensi_siswa");
@@ -575,7 +586,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("alittihad_manual_transaksi");
     localStorage.removeItem("alittihad_bank_transfer");
     localStorage.removeItem("alittihad_activity_log");
-    localStorage.setItem("alittihad_db_v", "2026_clean_v1");
+    localStorage.setItem("alittihad_db_v", "2026_clean_v2");
 
     if (isElectron) {
       (window as any).electronAPI?.setStoreValue("alittihad_siswa", []);

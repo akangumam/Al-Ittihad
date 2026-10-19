@@ -640,7 +640,7 @@ function AbsensiPreview() {
   const now = new Date();
   const totalHariKerja = hitungHariKerja(now.getFullYear(), now.getMonth());
   const bulanLabel = now.toLocaleString("id-ID", { month: "long", year: "numeric" });
-  const avgPct = Math.round(absensiRekapData.reduce((s, r) => s + r.pct, 0) / absensiRekapData.length);
+  const avgPct = absensiRekapData.length > 0 ? Math.round(absensiRekapData.reduce((s, r) => s + r.pct, 0) / absensiRekapData.length) : 0;
   const kurang = absensiRekapData.filter(r => r.pct < 80).length;
 
   const csvRows: (string | number)[][] = [
@@ -702,27 +702,34 @@ function AbsensiPreview() {
                   </tr>
                 );
               })}
+              {absensiRekapData.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-sm text-[#9CA3A0]">Belum ada rekapitulasi absensi guru</td>
+                </tr>
+              )}
             </tbody>
-            <tfoot>
-              <tr style={{ borderTop: "2px solid #E2E8DE", background: "#FAFBF9" }}>
-                <td className="py-3.5 pl-6 pr-4 text-sm font-bold text-[#1C2517]">Rata-rata</td>
-                <td className="py-3.5 pr-4 text-right tabular-nums text-sm font-bold text-[#3E8A2F]">
-                  {Math.round(absensiRekapData.reduce((s, g) => s + g.hadir, 0) / absensiRekapData.length)}
-                </td>
-                <td className="py-3.5 pr-4 text-right tabular-nums text-sm font-bold text-[#D97706]">
-                  {Math.round(absensiRekapData.reduce((s, g) => s + g.terlambat, 0) / absensiRekapData.length)}
-                </td>
-                <td className="py-3.5 pr-4 text-right tabular-nums text-sm font-bold text-[#6B7769]">
-                  {Math.round(absensiRekapData.reduce((s, g) => s + g.izin, 0) / absensiRekapData.length)}
-                </td>
-                <td className="py-3.5 pr-4 text-right tabular-nums text-sm font-bold text-[#DC2626]">
-                  {Math.round(absensiRekapData.reduce((s, g) => s + g.alpa, 0) / absensiRekapData.length)}
-                </td>
-                <td className="py-3.5 pr-6 text-xs font-bold tabular-nums" style={{ color: avgPct >= 90 ? "#3E8A2F" : avgPct >= 80 ? "#D97706" : "#DC2626" }}>
-                  {avgPct}%
-                </td>
-              </tr>
-            </tfoot>
+            {absensiRekapData.length > 0 && (
+              <tfoot>
+                <tr style={{ borderTop: "2px solid #E2E8DE", background: "#FAFBF9" }}>
+                  <td className="py-3.5 pl-6 pr-4 text-sm font-bold text-[#1C2517]">Rata-rata</td>
+                  <td className="py-3.5 pr-4 text-right tabular-nums text-sm font-bold text-[#3E8A2F]">
+                    {Math.round(absensiRekapData.reduce((s, g) => s + g.hadir, 0) / absensiRekapData.length)}
+                  </td>
+                  <td className="py-3.5 pr-4 text-right tabular-nums text-sm font-bold text-[#D97706]">
+                    {Math.round(absensiRekapData.reduce((s, g) => s + g.terlambat, 0) / absensiRekapData.length)}
+                  </td>
+                  <td className="py-3.5 pr-4 text-right tabular-nums text-sm font-bold text-[#6B7769]">
+                    {Math.round(absensiRekapData.reduce((s, g) => s + g.izin, 0) / absensiRekapData.length)}
+                  </td>
+                  <td className="py-3.5 pr-4 text-right tabular-nums text-sm font-bold text-[#DC2626]">
+                    {Math.round(absensiRekapData.reduce((s, g) => s + g.alpa, 0) / absensiRekapData.length)}
+                  </td>
+                  <td className="py-3.5 pr-6 text-xs font-bold tabular-nums" style={{ color: avgPct >= 90 ? "#3E8A2F" : avgPct >= 80 ? "#D97706" : "#DC2626" }}>
+                    {avgPct}%
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </DataTable>
         </div>
         <PrintCaption />

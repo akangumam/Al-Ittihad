@@ -598,18 +598,8 @@ const _WAKTU_TO_JAM: Record<string, number> = {
   "09:50": 4, "10:30": 5, "11:10": 6, "11:50": 7,
 };
 
-// Exported slot-based jadwal (Istirahat rows removed, waktuMulai → jam)
-export const jadwalData: JadwalRow[] = (_jadwalRaw as any[])
-  .filter((r: any) => r.mapel !== "Istirahat")
-  .map((r: any) => ({
-    id: r.id,
-    kelas: r.kelas,
-    hari: r.hari,
-    jam: _WAKTU_TO_JAM[r.waktuMulai as string] ?? 0,
-    mapel: r.mapel,
-    guruId: r.guruId,
-    ruang: r.ruang,
-  }));
+// Exported slot-based jadwal (empty for real data entry)
+export const jadwalData: JadwalRow[] = [];
 
 export interface JadwalOverride {
   id: string;           // e.g., "2026-08-10_7A_3"
@@ -630,9 +620,9 @@ export interface KelasRow {
 }
 
 export const kelasData: KelasRow[] = [
-  { id: "7A", tingkat: "VII", waliId: 5, kapasitas: 32 },
-  { id: "7B", tingkat: "VII", waliId: 6, kapasitas: 32 },
-  { id: "7C", tingkat: "VII", waliId: 7, kapasitas: 32 },
+  { id: "7A", tingkat: "VII", waliId: null, kapasitas: 32 },
+  { id: "7B", tingkat: "VII", waliId: null, kapasitas: 32 },
+  { id: "7C", tingkat: "VII", waliId: null, kapasitas: 32 },
   { id: "7D", tingkat: "VII", waliId: null, kapasitas: 32 },
   { id: "8A", tingkat: "VIII", waliId: null, kapasitas: 32 },
   { id: "8B", tingkat: "VIII", waliId: null, kapasitas: 32 },
