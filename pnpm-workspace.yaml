@@ -9,6 +9,12 @@ supportedArchitectures:
   libc:
     - glibc
 
+allowBuilds:
+  '@tailwindcss/oxide': true
+  'electron-winstaller': true
+  'esbuild': true
+  'rollup': true
+
 onlyBuiltDependencies:
   - '@tailwindcss/oxide'
   - 'electron-winstaller'
