@@ -103,6 +103,7 @@
     },
     "onlyBuiltDependencies": [
       "@tailwindcss/oxide",
+      "electron-winstaller",
       "esbuild",
       "rollup"
     ]
