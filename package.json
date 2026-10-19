@@ -97,17 +97,7 @@
       "optional": true
     }
   },
-  "pnpm": {
-    "overrides": {
-      "vite": "6.3.5"
-    },
-    "onlyBuiltDependencies": [
-      "@tailwindcss/oxide",
-      "electron-winstaller",
-      "esbuild",
-      "rollup"
-    ]
-  },
+
   "build": {
     "appId": "com.alittihad.app",
     "productName": "Al-Ittihad",

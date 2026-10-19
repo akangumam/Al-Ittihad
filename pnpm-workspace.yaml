@@ -8,3 +8,12 @@ supportedArchitectures:
     - arm64
   libc:
     - glibc
+
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - 'electron-winstaller'
+  - 'esbuild'
+  - 'rollup'
+
+overrides:
+  vite: '6.3.5'
