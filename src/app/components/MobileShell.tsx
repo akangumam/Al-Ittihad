@@ -5,7 +5,7 @@ import {
   LayoutDashboard, CreditCard, AlertTriangle, ClipboardList, MoreHorizontal,
   Calendar, Users, GraduationCap, BookOpen,
   FileText, Landmark, BarChart3, Calculator,
-  Shield, Activity, Settings, IdCard, Archive, UserCheck, Award
+  Shield, Activity, Settings, IdCard, Archive, UserCheck
 } from "lucide-react";
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
@@ -55,8 +55,7 @@ const MENU_GROUPS: Array<{
     items: [
       { Icon: Users,         label: "Siswa",          path: "/akademik/siswa",         roles: ["Admin", "Bendahara"] },
       { Icon: UserCheck,     label: "Absensi Siswa",  path: "/akademik/absensi-siswa", roles: ["Admin", "TU"] },
-      { Icon: Award,         label: "Nilai Siswa",    path: "/akademik/nilai-siswa",   roles: ["Admin", "TU"] },
-      { Icon: Archive,       label: "Data Alumni",    path: "/akademik/alumni",        roles: ["Admin"] },
+{ Icon: Archive,       label: "Data Alumni",    path: "/akademik/alumni",        roles: ["Admin"] },
       { Icon: GraduationCap, label: "Guru",           path: "/akademik/guru",          roles: ["Admin", "TU"] },
       { Icon: ClipboardList, label: "Absensi Guru",   path: "/akademik/absensi",       roles: ["Admin", "TU"] },
       { Icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal",  roles: ["Admin", "TU"] },

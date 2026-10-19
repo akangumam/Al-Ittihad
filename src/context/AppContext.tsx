@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, type ReactNode } from "react";
-import type { Role, AbsensiGerbangRecord, AbsensiSettings, AppSettings, ActivityLogEntry, MutasiRecord, ManualTransaksiRow, BankTransferRow } from "@/types";
+import type { Role, AppSettings, ActivityLogEntry, MutasiRecord, ManualTransaksiRow, BankTransferRow } from "@/types";
 import { RABRow, RAB_DATA, mutasiData } from "@/data/keuangan";
 import { useAuth } from "@/context/AuthContext";
 import { fmt } from "@/lib/formatters";
@@ -14,7 +14,6 @@ import { siswaData, type SiswaRow } from "@/data/siswa";
 import { alumniData, type AlumniRow } from "@/data/alumni";
 import { guruData, type GuruRow } from "@/data/guru";
 import { type JadwalRow, type KelasRow, kelasData, type JadwalOverride, jadwalData, type WaktuProfile, defaultWaktuProfile } from "@/data/kelas";
-import { dataNilaiSiswa, type NilaiSiswa } from "@/data/nilai";
 
 interface AppContextValue {
   tahunAjaran: string;
@@ -71,15 +70,7 @@ interface AppContextValue {
   addTagihanSiswaManual: (nis: string, namaTagihan: string, nominal: number, jatuhTempo: string, kategori?: string) => void;
   addTransaksi: (transaksi: TransaksiPembayaran, updatedTagihan: TagihanSiswa[]) => void;
 
-  nilaiList: NilaiSiswa[];
-  bulkUpdateNilai: (updates: Record<string, Partial<NilaiSiswa>>) => void;
-
   absensiGuruHistory: Record<string, Record<number, { status: string; jam: string }>>;
-
-  absensiGerbangLog: AbsensiGerbangRecord[];
-  setAbsensiGerbangLog: React.Dispatch<React.SetStateAction<AbsensiGerbangRecord[]>>;
-  absensiSettings: AbsensiSettings;
-  setAbsensiSettings: React.Dispatch<React.SetStateAction<AbsensiSettings>>;
 
   appSettings: AppSettings;
   setAppSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
@@ -143,7 +134,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [absensiGuruHistory, setAbsensiGuruHistory] = useState<Record<string, Record<number, { status: string; jam: string }>>>({});
   const [tagihanList, setTagihanList] = useState<TagihanSiswa[]>(initialTagihanSiswa);
   const [transaksiList, setTransaksiList] = useState<TransaksiPembayaran[]>(initialTransaksiPembayaran);
-  const [nilaiList, setNilaiList] = useState<NilaiSiswa[]>(dataNilaiSiswa);
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
 
   const [manualTransaksiList, setManualTransaksiList] = useState<ManualTransaksiRow[]>(() => {
@@ -179,18 +169,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return [...existing, ...missing];
     } catch { return BANK_TRANSFER_SEED; }
   });
-
-  const defaultAbsensiSettings: AbsensiSettings = {
-    batasHadir: "08:00",
-    batasTerlambat: "08:15",
-    jamBuka: "06:30",
-    jamTutupOtomatis: "09:00",
-    enableFingerprint: true,
-    enableQR: true,
-    enableManual: true,
-  };
-  const [absensiSettings, setAbsensiSettings] = useState<AbsensiSettings>(defaultAbsensiSettings);
-  const [absensiGerbangLog, setAbsensiGerbangLog] = useState<AbsensiGerbangRecord[]>([]);
 
   const defaultAppSettings: AppSettings = {
     tahunAjaran: "2025/2026",
@@ -245,7 +223,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const s8 = localStorage.getItem("alittihad_guru");
           const s9 = localStorage.getItem("alittihad_kelas");
           const s10 = localStorage.getItem("alittihad_jadwal_overrides");
-          const s11 = localStorage.getItem("alittihad_nilai");
           // s1 handled above
           if (s2) savedAlumni = JSON.parse(s2);
           if (s3) savedAbsensi = JSON.parse(s3);
@@ -287,7 +264,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (parsed.length >= 12) setKelasList(parsed);
           }
           if (s10) setJadwalOverridesList(JSON.parse(s10));
-          if (s11) setNilaiList(JSON.parse(s11));
 
           const s15 = localStorage.getItem("alittihad_waktu_profiles");
           if (s15) {
@@ -295,12 +271,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (Array.isArray(parsed) && parsed.length >= 1) setWaktuProfiles(parsed);
           }
           
-          const s12 = localStorage.getItem("alittihad_absensi_settings");
-          if (s12) setAbsensiSettings(JSON.parse(s12));
-
-          const s13 = localStorage.getItem("alittihad_absensi_gerbang");
-          if (s13) setAbsensiGerbangLog(JSON.parse(s13));
-
           // appSettings is lazily initialized from localStorage in useState — no loadData needed.
 
           const s16 = localStorage.getItem("alittihad_activity_log");
@@ -424,22 +394,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isElectron) {
-      (window as any).electronAPI.setStoreValue("alittihad_absensi_settings", absensiSettings);
-    } else {
-      localStorage.setItem("alittihad_absensi_settings", JSON.stringify(absensiSettings));
-    }
-  }, [absensiSettings, isElectron]);
-
-  useEffect(() => {
-    if (isElectron) {
-      (window as any).electronAPI.setStoreValue("alittihad_absensi_gerbang", absensiGerbangLog);
-    } else {
-      localStorage.setItem("alittihad_absensi_gerbang", JSON.stringify(absensiGerbangLog));
-    }
-  }, [absensiGerbangLog, isElectron]);
-
-  useEffect(() => {
-    if (isElectron) {
       (window as any).electronAPI.setStoreValue("alittihad_app_settings", appSettings);
     } else {
       localStorage.setItem("alittihad_app_settings", JSON.stringify(appSettings));
@@ -461,14 +415,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       (window as any).electronAPI.setStoreValue("alittihad_transaksi", transaksiList);
     }
   }, [transaksiList, isElectron]);
-
-  useEffect(() => {
-    if (!isElectron) {
-      localStorage.setItem("alittihad_nilai", JSON.stringify(nilaiList));
-    } else {
-      (window as any).electronAPI.setStoreValue("alittihad_nilai", nilaiList);
-    }
-  }, [nilaiList, isElectron]);
 
   useEffect(() => {
     if (!isElectron) {
@@ -698,21 +644,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const bulkUpdateNilai = (updates: Record<string, Partial<NilaiSiswa>>) => {
-    setNilaiList(prev => {
-      let next = [...prev];
-      Object.keys(updates).forEach(id => {
-        const idx = next.findIndex(n => n.id === id);
-        if (idx >= 0) {
-          next[idx] = { ...next[idx], ...updates[id] } as NilaiSiswa;
-        } else {
-          next.push(updates[id] as NilaiSiswa);
-        }
-      });
-      return next;
-    });
-  };
-
   // Derived counts for sidebar badges
   const tunggakanCount = useMemo(() => {
     const today = new Date();
@@ -786,12 +717,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         absensiGuruHariIni, setAbsensiGuruHariIni,
         absensiGuruHistory,
         tagihanList, transaksiList, addTagihan, updateTagihanSiswa, deleteTagihanSiswa, addTagihanSiswaManual, addTransaksi,
-        nilaiList, bulkUpdateNilai,
         isElectron,
-        absensiGerbangLog,
-        setAbsensiGerbangLog,
-        absensiSettings,
-        setAbsensiSettings,
         appSettings,
         setAppSettings,
         activityLogs,

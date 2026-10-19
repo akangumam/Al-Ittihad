@@ -98,8 +98,6 @@ export const router = createBrowserRouter([
         path: "akademik/kartu-digital",
         element: <RequireRole roles={["Admin", "TU"]}><KartuDigital /></RequireRole>,
       },
-      { path: "akademik/gerbang",      element: <Navigate to="/" replace /> },
-      { path: "akademik/nilai-siswa",  element: <Navigate to="/" replace /> },
       {
         path: "akademik/guru",
         element: <RequireRole roles={["Admin", "TU"]}><Guru /></RequireRole>,

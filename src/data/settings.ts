@@ -8,6 +8,10 @@ export const defaultSettings: AppSettings = {
   namaMadrasah: "MTs Al-Ittihad Pedaleman",
   alamatMadrasah: "Jl. Pedaleman, Babakan, Cirebon",
   kirimWA: true,
+  wahaEnabled: false,
+  wahaUrl: "",
+  wahaApiKey: "",
+  wahaSession: "alittihad",
 };
 
 export const tahunAjaranOptions = [
