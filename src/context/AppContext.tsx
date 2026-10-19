@@ -93,31 +93,11 @@ interface AppContextValue {
 
   bankTransferList: BankTransferRow[];
   addBankTransfer: (row: Omit<BankTransferRow, "id" | "dicatatOleh" | "waktuCatat">) => void;
+  resetToCleanData: () => void;
 }
 
-const MANUAL_TRANSAKSI_SEED: ManualTransaksiRow[] = [
-  { id:"MT-SEED-001", tipe:"masuk",  tanggal:"2026-07-13", keterangan:"Pembayaran Daftar Ulang",           kategori:"Daftar Ulang",  akun:"Bank BSI",             jumlah:   350_000, ref:"KW/2026/07/0142", dicatatOleh:"Admin", waktuCatat:"2026-07-13T08:00:00.000Z" },
-  { id:"MT-SEED-002", tipe:"masuk",  tanggal:"2026-07-13", keterangan:"Pembayaran Adm. PPDB",              kategori:"PPDB",          akun:"Kas Tunai",            jumlah:   250_000, ref:"KW/2026/07/0141", dicatatOleh:"Admin", waktuCatat:"2026-07-13T08:05:00.000Z" },
-  { id:"MT-SEED-003", tipe:"masuk",  tanggal:"2026-07-12", keterangan:"Penerimaan Dana BOS Triwulan III",  kategori:"Dana BOS",      akun:"Bank BSI",             jumlah: 7_500_000, ref:"—",               dicatatOleh:"Admin", waktuCatat:"2026-07-12T09:00:00.000Z" },
-  { id:"MT-SEED-004", tipe:"masuk",  tanggal:"2026-07-12", keterangan:"Cicilan Administrasi PPDB",         kategori:"PPDB",          akun:"Bank BSI",             jumlah:   175_000, ref:"KW/2026/07/0139", dicatatOleh:"Admin", waktuCatat:"2026-07-12T09:10:00.000Z" },
-  { id:"MT-SEED-005", tipe:"keluar", tanggal:"2026-07-11", keterangan:"Pembelian ATK dan Perlengkapan",    kategori:"Operasional",   akun:"Kas Tunai",            jumlah:   500_000, ref:"BV/2026/07/001",  dicatatOleh:"Admin", waktuCatat:"2026-07-11T10:00:00.000Z" },
-  { id:"MT-SEED-006", tipe:"keluar", tanggal:"2026-07-10", keterangan:"Honor Pengajar Ekstrakurikuler",    kategori:"Honor",         akun:"Bank BSI",             jumlah: 1_500_000, ref:"BV/2026/07/002",  dicatatOleh:"Admin", waktuCatat:"2026-07-10T10:00:00.000Z" },
-  { id:"MT-SEED-007", tipe:"keluar", tanggal:"2026-07-10", keterangan:"Pembayaran Tagihan Listrik & Air",  kategori:"Utilitas",      akun:"Bank Mandiri Syariah", jumlah: 1_200_000, ref:"BV/2026/07/003",  dicatatOleh:"Admin", waktuCatat:"2026-07-10T10:05:00.000Z" },
-  { id:"MT-SEED-008", tipe:"masuk",  tanggal:"2026-07-09", keterangan:"Pembayaran Kegiatan Siswa",         kategori:"Kegiatan",      akun:"Kas Tunai",            jumlah:   175_000, ref:"KW/2026/07/0131", dicatatOleh:"Admin", waktuCatat:"2026-07-09T08:00:00.000Z" },
-];
-
-const MON_MAP: Record<string, string> = { Jan:"01",Feb:"02",Mar:"03",Apr:"04",Mei:"05",Jun:"06",Jul:"07",Agt:"08",Sep:"09",Okt:"10",Nov:"11",Des:"12" };
-function parseDMY(d: string): string {
-  const [day, mon, yr] = d.split(" ");
-  return `${yr}-${MON_MAP[mon] ?? "01"}-${day.padStart(2, "0")}`;
-}
-const BANK_TRANSFER_SEED: BankTransferRow[] = mutasiData.map(m => ({
-  id: `BT-SEED-${String(m.id).padStart(3, "0")}`,
-  tanggal: parseDMY(m.tanggal),
-  dari: m.dari, ke: m.ke, nominal: m.nominal, catatan: m.catatan,
-  status: m.status as "Selesai", dicatatOleh: "Admin",
-  waktuCatat: new Date(parseDMY(m.tanggal) + "T08:00:00.000Z").toISOString(),
-}));
+const MANUAL_TRANSAKSI_SEED: ManualTransaksiRow[] = [];
+const BANK_TRANSFER_SEED: BankTransferRow[] = [];
 
 const AppContext = createContext<AppContextValue | null>(null);
 
@@ -212,12 +192,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
           savedAbsensi = await (window as any).electronAPI.getStoreValue("alittihad_absensi_siswa");
           savedGuru = await (window as any).electronAPI.getStoreValue("alittihad_guru");
         } else {
+          // Versioning: auto-clean old test/mock data from previous browser sessions
+          const CLEAN_VERSION = "2026_clean_v1";
+          const currentCleanV = localStorage.getItem("alittihad_db_v");
+          if (currentCleanV !== CLEAN_VERSION) {
+            localStorage.removeItem("alittihad_siswa");
+            localStorage.removeItem("alittihad_alumni");
+            localStorage.removeItem("alittihad_absensi_siswa");
+            localStorage.removeItem("alittihad_absensi_siswa_history");
+            localStorage.removeItem("alittihad_tagihan");
+            localStorage.removeItem("alittihad_transaksi");
+            localStorage.removeItem("alittihad_mutasi");
+            localStorage.removeItem("alittihad_manual_transaksi");
+            localStorage.removeItem("alittihad_bank_transfer");
+            localStorage.removeItem("alittihad_activity_log");
+            localStorage.setItem("alittihad_db_v", CLEAN_VERSION);
+          }
+
           const s1 = localStorage.getItem("alittihad_siswa");
           if (s1) {
-            const parsed = JSON.parse(s1);
-            if (parsed.length > 20) {
-              savedSiswa = parsed;
-            }
+            try {
+              const parsed = JSON.parse(s1);
+              if (Array.isArray(parsed)) savedSiswa = parsed;
+            } catch {}
           }
           const s2 = localStorage.getItem("alittihad_alumni");
           const s3 = localStorage.getItem("alittihad_absensi_siswa");
@@ -227,58 +224,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const s8 = localStorage.getItem("alittihad_guru");
           const s9 = localStorage.getItem("alittihad_kelas");
           const s10 = localStorage.getItem("alittihad_jadwal_overrides");
-          // s1 handled above
-          if (s2) savedAlumni = JSON.parse(s2);
+          if (s2) {
+            try {
+              const parsed = JSON.parse(s2);
+              if (Array.isArray(parsed)) savedAlumni = parsed;
+            } catch {}
+          }
           if (s3) savedAbsensi = JSON.parse(s3);
           if (s4) {
-            const parsed = JSON.parse(s4);
-            // Only use stored data if it has entries; otherwise fall back to seed data
-            // Also check seed version: if seed was updated, clear stale localStorage
-            const storedVersion = localStorage.getItem("alittihad_tagihan_seed_v");
-            const CURRENT_SEED_V = "3"; // increment this when initialTagihanSiswa changes
-            if (storedVersion !== CURRENT_SEED_V) {
-              // Seed version changed — discard old localStorage tagihan so seed takes effect
-              localStorage.removeItem("alittihad_tagihan");
-              localStorage.setItem("alittihad_tagihan_seed_v", CURRENT_SEED_V);
-            } else if (parsed.length > 0) {
-              setTagihanList(parsed);
-            }
-          } else {
-            // No stored tagihan at all, set seed version
-            localStorage.setItem("alittihad_tagihan_seed_v", "3");
+            try {
+              const parsed = JSON.parse(s4);
+              if (Array.isArray(parsed)) setTagihanList(parsed);
+            } catch {}
           }
-          if (s5) setTransaksiList(JSON.parse(s5));
+          if (s5) {
+            try {
+              const parsed = JSON.parse(s5);
+              if (Array.isArray(parsed)) setTransaksiList(parsed);
+            } catch {}
+          }
           // Jadwal format version guard — clears stale data if format changed
           const jadwalV = localStorage.getItem("alittihad_jadwal_v");
           if (jadwalV !== "2") {
-            // Format changed from time-strings to slot numbers — discard stale data
             localStorage.removeItem("alittihad_jadwal");
             localStorage.removeItem("alittihad_jadwal_overrides");
             localStorage.setItem("alittihad_jadwal_v", "2");
           } else if (s6) {
-            const parsed = JSON.parse(s6);
-            if (parsed.length >= 1) setJadwalList(parsed);
+            try {
+              const parsed = JSON.parse(s6);
+              if (Array.isArray(parsed)) setJadwalList(parsed);
+            } catch {}
           }
           if (s8) {
-            const parsed = JSON.parse(s8);
-            if (parsed.length >= 13) savedGuru = parsed;
+            try {
+              const parsed = JSON.parse(s8);
+              if (Array.isArray(parsed)) savedGuru = parsed;
+            } catch {}
           }
           if (s9) {
-            const parsed = JSON.parse(s9);
-            if (parsed.length >= 12) setKelasList(parsed);
+            try {
+              const parsed = JSON.parse(s9);
+              if (Array.isArray(parsed)) setKelasList(parsed);
+            } catch {}
           }
-          if (s10) setJadwalOverridesList(JSON.parse(s10));
+          if (s10) {
+            try {
+              const parsed = JSON.parse(s10);
+              if (Array.isArray(parsed)) setJadwalOverridesList(parsed);
+            } catch {}
+          }
 
           const s15 = localStorage.getItem("alittihad_waktu_profiles");
           if (s15) {
             const parsed = JSON.parse(s15);
             if (Array.isArray(parsed) && parsed.length >= 1) setWaktuProfiles(parsed);
           }
-          
-          // appSettings is lazily initialized from localStorage in useState — no loadData needed.
 
           const s16 = localStorage.getItem("alittihad_activity_log");
-          if (s16) setActivityLogs(JSON.parse(s16));
+          if (s16) {
+            try {
+              const parsed = JSON.parse(s16);
+              if (Array.isArray(parsed)) setActivityLogs(parsed);
+            } catch {}
+          }
         }
 
         if (savedSiswa) setSiswaList(savedSiswa);
@@ -542,6 +550,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const resetToCleanData = () => {
+    setSiswaList([]);
+    setAlumniList([]);
+    setTagihanList([]);
+    setTransaksiList([]);
+    setAbsensiSiswaHariIni({});
+    setAbsensiGuruHariIni({});
+    setAbsensiSiswaHistory({});
+    setAbsensiGuruHistory({});
+    setMutasiList([]);
+    setManualTransaksiList([]);
+    setBankTransferList([]);
+    setActivityLogs([]);
+
+    localStorage.removeItem("alittihad_siswa");
+    localStorage.removeItem("alittihad_alumni");
+    localStorage.removeItem("alittihad_tagihan");
+    localStorage.removeItem("alittihad_transaksi");
+    localStorage.removeItem("alittihad_absensi_siswa");
+    localStorage.removeItem("alittihad_absensi_siswa_history");
+    localStorage.removeItem("alittihad_absensi_guru_history");
+    localStorage.removeItem("alittihad_mutasi");
+    localStorage.removeItem("alittihad_manual_transaksi");
+    localStorage.removeItem("alittihad_bank_transfer");
+    localStorage.removeItem("alittihad_activity_log");
+    localStorage.setItem("alittihad_db_v", "2026_clean_v1");
+
+    if (isElectron) {
+      (window as any).electronAPI?.setStoreValue("alittihad_siswa", []);
+      (window as any).electronAPI?.setStoreValue("alittihad_alumni", []);
+      (window as any).electronAPI?.setStoreValue("alittihad_tagihan", []);
+      (window as any).electronAPI?.setStoreValue("alittihad_transaksi", []);
+      (window as any).electronAPI?.setStoreValue("alittihad_absensi_siswa", { date: "", data: {}, dataGuru: {} });
+      (window as any).electronAPI?.setStoreValue("alittihad_absensi_siswa_history", {});
+    }
+  };
+
   const addKelas = (kelas: KelasRow) => setKelasList(prev => [...prev, kelas]);
   const updateKelas = (id: string, data: Partial<KelasRow>) => {
     setKelasList(prev => prev.map(k => k.id === id ? { ...k, ...data } : k));
@@ -773,6 +818,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         manualTransaksiList, addManualTransaksi, nextBVRef,
         rabList, addRab, updateRab, deleteRab,
         bankTransferList, addBankTransfer,
+        resetToCleanData,
       }}
     >
       {children}

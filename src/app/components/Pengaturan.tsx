@@ -558,6 +558,73 @@ function WAHACard() {
   );
 }
 
+// ─── Manajemen Data card ──────────────────────────────────────────────────────
+
+function ManajemenDataCard() {
+  const { resetToCleanData } = useAppContext();
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  function handleReset() {
+    resetToCleanData();
+    setShowConfirm(false);
+    toast.success("Semua data operasional berhasil dibersihkan! Aplikasi siap diisi data riil.");
+  }
+
+  return (
+    <>
+      <Card title="Manajemen & Pembersihan Data">
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm font-medium text-[#1C2517] mb-1">Pembersihan Data Operasional</p>
+            <p className="text-xs text-[#6B7769] leading-relaxed">
+              Gunakan fungsi ini untuk mengosongkan seluruh data siswa, alumni, tagihan, transaksi pembayaran, mutasi, dan log aktivitas agar sistem bersih dan siap diisi data riil madrasah.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={() => setShowConfirm(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors cursor-pointer"
+            >
+              <Trash2 size={16} /> Bersihkan Semua Data Simulasi
+            </button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Confirmation Modal */}
+      {showConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setShowConfirm(false)}>
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 relative animate-in zoom-in-95 duration-200 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+              <Trash2 size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-[#1C2517] mb-2">Konfirmasi Pembersihan Data</h3>
+            <p className="text-sm text-[#6B7769] mb-6 leading-relaxed">
+              Apakah Anda yakin ingin mengosongkan seluruh data Siswa, Alumni, Tagihan, Pembayaran, dan Riwayat Mutasi?
+              Tindakan ini akan menyiapkan sistem dengan basis data kosong untuk siap diinput data riil.
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-[#374040] hover:bg-[#F5F9F4] transition-colors border border-[#E2E8DE] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleReset}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] transition-colors shadow-sm cursor-pointer"
+              >
+                Ya, Bersihkan Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Pengaturan() {
@@ -573,6 +640,7 @@ export function Pengaturan() {
       <KeuanganCard />
       <IdentitasCard />
       <WAHACard />
+      <ManajemenDataCard />
     </div>
   );
 }

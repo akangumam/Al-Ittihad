@@ -1,32 +1,39 @@
 // ─── KasBank Data ────────────────────────────────────────────────────────────
 
-export const transaksiData = [
-  { id: 1, tanggal: "13 Jul 2026", keterangan: "Pembayaran Daftar Ulang",          kategori: "Daftar Ulang",akun: "Bank BSI",            ref: "KW/2026/07/0142", jumlah:   350_000, tipe: "masuk"  },
-  { id: 2, tanggal: "13 Jul 2026", keterangan: "Pembayaran Adm. PPDB",             kategori: "PPDB",        akun: "Kas Tunai",           ref: "KW/2026/07/0141", jumlah:   250_000, tipe: "masuk"  },
-  { id: 3, tanggal: "12 Jul 2026", keterangan: "Penerimaan Dana BOS Triwulan III", kategori: "Dana BOS",    akun: "Bank BSI",            ref: "—",               jumlah: 7_500_000, tipe: "masuk"  },
-  { id: 4, tanggal: "12 Jul 2026", keterangan: "Cicilan Administrasi PPDB",        kategori: "PPDB",        akun: "Bank BSI",            ref: "KW/2026/07/0139", jumlah:   175_000, tipe: "masuk"  },
-  { id: 5, tanggal: "11 Jul 2026", keterangan: "Pembelian ATK dan Perlengkapan",   kategori: "Operasional", akun: "Kas Tunai",           ref: "—",               jumlah:   500_000, tipe: "keluar" },
-  { id: 6, tanggal: "10 Jul 2026", keterangan: "Honor Pengajar Ekstrakurikuler",   kategori: "Honor",       akun: "Bank BSI",            ref: "—",               jumlah: 1_500_000, tipe: "keluar" },
-  { id: 7, tanggal: "10 Jul 2026", keterangan: "Pembayaran Tagihan Listrik & Air", kategori: "Utilitas",    akun: "Bank Mandiri Syariah",ref: "—",               jumlah: 1_200_000, tipe: "keluar" },
-  { id: 8, tanggal: "9 Jul 2026",  keterangan: "Pembayaran Kegiatan Siswa",        kategori: "Kegiatan",    akun: "Kas Tunai",           ref: "KW/2026/07/0131", jumlah:   175_000, tipe: "masuk"  },
-];
+export interface TransaksiRow {
+  id: number;
+  tanggal: string;
+  keterangan: string;
+  kategori: string;
+  akun: string;
+  ref: string;
+  jumlah: number;
+  tipe: "masuk" | "keluar";
+}
 
-export const BSI_SPARK    = [83.5,82.1,84.2,83.8,85.0,84.3,83.9,85.2,84.7,86.1,85.3,84.9,83.8,85.1,84.6,83.7,85.4,84.8,86.3,85.2,84.5,83.9,85.6,84.2,83.8,85.3,84.9,86.2,85.1,85.2];
-export const MANDIRI_SPARK= [31.8,32.2,31.9,32.4,32.1,31.7,32.5,32.3,31.8,32.6,32.1,31.9,32.7,32.2,31.8,32.9,32.4,31.7,32.8,32.5,32.0,31.8,32.6,32.3,32.7,32.4,32.1,32.8,32.7,32.75];
-export const KAS_SPARK    = [8.5,9.2,10.1,7.8,11.2,9.5,8.8,12.1,10.5,9.8,8.5,11.5,10.2,9.0,8.7,10.8,9.5,8.2,11.0,9.8,8.5,10.5,9.2,8.8,11.5,10.0,9.5,8.8,10.2,10.5];
+export const transaksiData: TransaksiRow[] = [];
+
+export const BSI_SPARK    = [0, 0, 0];
+export const MANDIRI_SPARK= [0, 0, 0];
+export const KAS_SPARK    = [0, 0, 0];
 
 export const akunData = [
-  { id: 1, nama: "Bank BSI",            nomor: "7101-0254-3318", saldo: 85_200_000, spark: BSI_SPARK,     sparkColor: "#3E8A2F", icon: "bank",   rekonsiliasi: "30 Jun 2026" },
-  { id: 2, nama: "Bank Mandiri Syariah",nomor: "1234-5678-9021", saldo: 32_750_000, spark: MANDIRI_SPARK, sparkColor: "#57A946", icon: "bank",   rekonsiliasi: "30 Jun 2026" },
-  { id: 3, nama: "Kas Tunai",           nomor: null,             saldo: 10_500_000, spark: KAS_SPARK,     sparkColor: "#F6B31E", icon: "wallet", rekonsiliasi: "30 Jun 2026" },
+  { id: 1, nama: "Bank BSI",            nomor: "7101-0254-3318", saldo: 0, spark: BSI_SPARK,     sparkColor: "#3E8A2F", icon: "bank",   rekonsiliasi: "—" },
+  { id: 2, nama: "Bank Mandiri Syariah",nomor: "1234-5678-9021", saldo: 0, spark: MANDIRI_SPARK, sparkColor: "#57A946", icon: "bank",   rekonsiliasi: "—" },
+  { id: 3, nama: "Kas Tunai",           nomor: null,             saldo: 0, spark: KAS_SPARK,     sparkColor: "#F6B31E", icon: "wallet", rekonsiliasi: "—" },
 ];
 
-export const mutasiData = [
-  { id: 1, tanggal: "13 Jul 2026", dari: "Kas Tunai",  ke: "Bank BSI",            nominal: 5_000_000,  catatan: "Setoran tunai mingguan",      status: "Selesai" },
-  { id: 2, tanggal: "7 Jul 2026",  dari: "Kas Tunai",  ke: "Bank BSI",            nominal: 3_500_000,  catatan: "Setoran tunai mingguan",      status: "Selesai" },
-  { id: 3, tanggal: "5 Jul 2026",  dari: "Bank BSI",   ke: "Bank Mandiri Syariah",nominal: 10_000_000, catatan: "Alokasi dana operasional",    status: "Selesai" },
-  { id: 4, tanggal: "1 Jul 2026",  dari: "Kas Tunai",  ke: "Bank BSI",            nominal: 4_200_000,  catatan: "Setoran tunai mingguan",      status: "Selesai" },
-];
+export interface MutasiBankRow {
+  id: number;
+  tanggal: string;
+  dari: string;
+  ke: string;
+  nominal: number;
+  catatan: string;
+  status: string;
+}
+
+export const mutasiData: MutasiBankRow[] = [];
 
 export const kategoriOptions = ["Semua Kategori","Daftar Ulang","PPDB","Kelas 9","Dana BOS","Operasional","Honor","Utilitas","Kegiatan"];
 

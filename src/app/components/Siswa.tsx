@@ -6,7 +6,7 @@ import {
   Plus, Upload, MoreHorizontal, X, Eye, Pencil,
   MessageCircle, Trash2, Check, IdCard,
   GraduationCap, ArrowRightLeft, BarChart3, SlidersHorizontal,
-  ArrowUpDown, LogOut, LogIn, UserX, AlertCircle
+  ArrowUpDown, LogOut, LogIn, UserX, AlertCircle, Users
 } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
@@ -1769,6 +1769,13 @@ export function Siswa() {
             </div>
           );
         })}
+        {filteredRows.length === 0 && !isLoading && (
+          <div className="bg-white rounded-xl p-8 text-center flex flex-col items-center justify-center gap-2" style={{ border: "1px solid #E2E8DE" }}>
+            <Users size={32} className="text-[#9CA3A0]" />
+            <p className="text-sm font-semibold text-[#1C2517]">Belum ada data siswa</p>
+            <p className="text-xs text-[#6B7769]">Klik tombol "+ Tambah Siswa" atau "Import Excel" untuk menambahkan peserta didik.</p>
+          </div>
+        )}
         <div className="flex items-center justify-center py-4">
           <span className="text-[12px] text-[#6B7769]">Menampilkan semua <strong className="text-[#1C2517]">{filteredRows.length}</strong> siswa</span>
         </div>
@@ -1895,6 +1902,17 @@ export function Siswa() {
                   </tr>
                 );
               })}
+              {rows.length === 0 && !isLoading && (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Users size={36} className="text-[#9CA3A0]" />
+                      <p className="text-sm font-semibold text-[#1C2517]">Belum ada data siswa</p>
+                      <p className="text-xs text-[#6B7769]">Klik "+ Tambah Siswa" atau "Import Excel" untuk memasukkan data siswa riil.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </DataTable>
         </div>

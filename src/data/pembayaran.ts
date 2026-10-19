@@ -125,7 +125,7 @@ function generateTagihanSeed(): TagihanSiswa[] {
   return rows;
 }
 
-export const initialTagihanSiswa: TagihanSiswa[] = generateTagihanSeed();
+export const initialTagihanSiswa: TagihanSiswa[] = [];
 
 export const initialTransaksiPembayaran: TransaksiPembayaran[] = [];
 
@@ -154,7 +154,7 @@ export interface Template {
 export const tagihanTemplates: Template[] = [
   {
     id: 1, nama: "Administrasi PPDB",
-    tipe: "PPDB", target: "Siswa Baru", applied: 120,
+    tipe: "PPDB", target: "Siswa Baru", applied: 0,
     komponen: [
       { nama: "Seragam Batik, Kaos Olahraga & Atribut", jumlah: 200_000 },
       { nama: "LKS Semester 1",                          jumlah: 130_000 },
@@ -167,7 +167,7 @@ export const tagihanTemplates: Template[] = [
   },
   {
     id: 2, nama: "Daftar Ulang",
-    tipe: "Daftar Ulang", target: "Siswa Lama (Kelas 8 & 9)", applied: 235,
+    tipe: "Daftar Ulang", target: "Siswa Lama (Kelas 8 & 9)", applied: 0,
     komponen: [
       { nama: "LKS Semester 1",           jumlah: 130_000 },
       { nama: "Iuran Semester 1 & 2",     jumlah: 170_000 },
@@ -177,7 +177,7 @@ export const tagihanTemplates: Template[] = [
   },
   {
     id: 3, nama: "Administrasi Kelas 9",
-    tipe: "Kelas 9", target: "Khusus Kelas 9", applied: 115,
+    tipe: "Kelas 9", target: "Khusus Kelas 9", applied: 0,
     komponen: [
       { nama: "Foto",                      jumlah:  40_000 },
       { nama: "Iuran Ujian",               jumlah: 200_000 },
