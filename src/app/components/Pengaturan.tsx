@@ -280,20 +280,22 @@ function TahunAjaranCard() {
 function AkademikCard() {
   const { appSettings, setAppSettings } = useAppContext();
   // Lazy init reads correct values from appSettings (already loaded from localStorage)
-  const [kapasitas, setKapasitas] = useState(String(appSettings.kapasitasKelas ?? 32));
-  const [jamMasuk, setJamMasuk]   = useState(appSettings.jamMasukGuru ?? "07:00");
+  const [kapasitas, setKapasitas]         = useState(String(appSettings.kapasitasKelas ?? 32));
+  const [jamMasuk, setJamMasuk]           = useState(appSettings.jamMasukGuru ?? "07:00");
+  const [jamMasukSiswa, setJamMasukSiswa] = useState(appSettings.jamMasukSiswa ?? "07:00");
 
   function save() {
     const kap = Number(kapasitas);
     if (!kap || kap < 1 || kap > 100) { toast.error("Kapasitas harus antara 1–100"); return; }
-    if (!/^\d{2}:\d{2}$/.test(jamMasuk)) { toast.error("Format jam masuk: HH:MM, contoh 07:00"); return; }
-    setAppSettings(s => ({ ...s, kapasitasKelas: kap, jamMasukGuru: jamMasuk }));
+    if (!/^\d{2}:\d{2}$/.test(jamMasuk)) { toast.error("Format jam masuk guru: HH:MM, contoh 07:00"); return; }
+    if (!/^\d{2}:\d{2}$/.test(jamMasukSiswa)) { toast.error("Format jam masuk siswa: HH:MM, contoh 07:00"); return; }
+    setAppSettings(s => ({ ...s, kapasitasKelas: kap, jamMasukGuru: jamMasuk, jamMasukSiswa }));
     toast.success("Pengaturan akademik disimpan");
   }
 
   return (
     <Card title="Akademik" onSave={save}>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
         <FloatingInput
           label="Kapasitas maksimal per kelas"
           value={kapasitas}
@@ -305,9 +307,14 @@ function AkademikCard() {
           value={jamMasuk}
           onChange={setJamMasuk}
         />
+        <FloatingInput
+          label="Jam masuk siswa (HH:MM)"
+          value={jamMasukSiswa}
+          onChange={setJamMasukSiswa}
+        />
       </div>
       <p className="text-xs text-[#9CA3A0]">
-        Digunakan untuk perhitungan <span className="font-medium text-[#374040]">Terlambat</span> pada modul Absensi.
+        Digunakan untuk perhitungan <span className="font-medium text-[#374040]">Terlambat</span> pada presensi QR dan modul Absensi Guru & Siswa.
       </p>
     </Card>
   );

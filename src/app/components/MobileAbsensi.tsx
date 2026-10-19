@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { useAppContext } from "@/context/AppContext";
 import { bulanOptions, tahunOptions } from "@/data/constants";
 import type { GuruRow } from "@/data/guru";
+import { KonfirmasiAbsensiGuruModal } from "@/app/components/shared/KonfirmasiAbsensiGuruModal";
+import { AbsensiStatusControl } from "@/app/components/shared/AbsensiStatusControl";
 
 function isTerlambat(jam: string | undefined, jamMasuk: string) {
   if (!jam) return false;
@@ -14,35 +16,6 @@ function isTerlambat(jam: string | undefined, jamMasuk: string) {
   return h > limH || (h === limH && m > limM);
 }
 
-// ─── segmented status control ─────────────────────────────────────────────────
-
-const STATUS_ACTIVE: Record<string, React.CSSProperties> = {
-  Hadir: { background: "#3E8A2F", color: "#fff", border: "none" },
-  Izin:  { background: "#F6B31E", color: "#fff", border: "none" },
-  Alpa:  { background: "#DC2626", color: "#fff", border: "none" },
-};
-
-function StatusControl({ value, onChange }: { value: string | null; onChange: (v: string) => void }) {
-  return (
-    <div className="flex overflow-hidden rounded-lg" style={{ border: "1px solid #E2E8DE" }}>
-      {(["Hadir", "Izin", "Alpa"] as const).map((s, i) => (
-        <button
-          key={s}
-          onClick={() => onChange(s)}
-          className="flex-1 flex items-center justify-center transition-colors"
-          style={{
-            height: 44, fontFamily: "inherit", fontSize: 13, fontWeight: 600, cursor: "pointer",
-            borderLeft: i > 0 ? "1px solid #E2E8DE" : "none",
-            ...(value === s ? STATUS_ACTIVE[s] : { background: "transparent", color: "#6B7769" }),
-            ...(i > 0 && value !== s ? { borderLeft: "1px solid #E2E8DE" } : {}),
-          }}
-        >
-          {s}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ─── teacher card ─────────────────────────────────────────────────────────────
 
@@ -113,7 +86,7 @@ function TeacherCard({
       )}
 
       <div className="px-4 pb-4">
-        <StatusControl value={status} onChange={(v) => onStatusChange(guru.id, v)} />
+        <AbsensiStatusControl value={status} onChange={(v) => onStatusChange(guru.id, v)} minH={44} />
       </div>
     </div>
   );
@@ -122,8 +95,9 @@ function TeacherCard({
 // ─── Hari Ini tab ─────────────────────────────────────────────────────────────
 
 function HariIniTab() {
-  const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, appSettings } = useAppContext();
+  const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, appSettings, logActivity } = useAppContext();
   const jamMasuk = appSettings.jamMasukGuru ?? "07:00";
+  const [showModal, setShowModal] = useState(false);
 
   const [statuses, setStatuses] = useState<Record<number, string | null>>(
     () => {
@@ -151,20 +125,53 @@ function HariIniTab() {
     });
   };
 
+  const handleConfirm = async () => {
+    let hadir = 0, terlambat = 0, izin = 0, sakit = 0, alpa = 0;
+    const safeData = absensiGuruHariIni || {};
+    guruList.forEach(g => {
+      const st = safeData[g.id]?.status;
+      if (st === "Hadir") hadir++;
+      else if (st === "Terlambat") terlambat++;
+      else if (st === "Izin") izin++;
+      else if (st === "Sakit") sakit++;
+      else if (st === "Alpa") alpa++;
+    });
+
+    logActivity({
+      tipe: "Absensi Guru",
+      deskripsi: `Simpan absensi guru (mobile): ${hadir} Hadir, ${terlambat} Terlambat, ${izin + sakit} Izin/Sakit, ${alpa} Alpa`,
+      ref: "—",
+    });
+
+    toast.success(`Data absensi guru berhasil disimpan (${tercatat} tercatat)!`);
+  };
+
+  const handleSaveClick = () => {
+    if (chips.Belum > 0) {
+      setShowModal(true);
+    } else {
+      handleConfirm();
+    }
+  };
+
   const chips = useMemo(() => ({
-    Hadir: Object.values(statuses).filter(s => s === "Hadir").length,
-    Izin:  Object.values(statuses).filter(s => s === "Izin").length,
-    Alpa:  Object.values(statuses).filter(s => s === "Alpa").length,
-    Belum: Object.values(statuses).filter(s => s === null).length,
+    Hadir:     Object.values(statuses).filter(s => s === "Hadir").length,
+    Terlambat: Object.values(statuses).filter(s => s === "Terlambat").length,
+    Izin:      Object.values(statuses).filter(s => s === "Izin").length,
+    Sakit:     Object.values(statuses).filter(s => s === "Sakit").length,
+    Alpa:      Object.values(statuses).filter(s => s === "Alpa").length,
+    Belum:     Object.values(statuses).filter(s => s === null).length,
   }), [statuses]);
 
   const tercatat = Object.values(statuses).filter(s => s !== null).length;
 
   const chipDefs = [
-    { label: "Hadir", value: chips.Hadir, bg: "#DCFCE7", fg: "#166534" },
-    { label: "Izin",  value: chips.Izin,  bg: "#FEF3C7", fg: "#92400E" },
-    { label: "Alpa",  value: chips.Alpa,  bg: "#FEE2E2", fg: "#991B1B" },
-    { label: "Belum", value: chips.Belum, bg: "#F3F4F6", fg: "#374151" },
+    { label: "Hadir",     value: chips.Hadir,     bg: "#DCFCE7", fg: "#166534" },
+    { label: "Terlambat", value: chips.Terlambat, bg: "#FEF3C7", fg: "#92400E" },
+    { label: "Izin",      value: chips.Izin,      bg: "#FEF9C3", fg: "#854D0E" },
+    { label: "Sakit",     value: chips.Sakit,     bg: "#DBEAFE", fg: "#1E40AF" },
+    { label: "Alpa",      value: chips.Alpa,      bg: "#FEE2E2", fg: "#991B1B" },
+    { label: "Belum",     value: chips.Belum,     bg: "#F3F4F6", fg: "#374151" },
   ];
 
   const todayStr = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
@@ -174,21 +181,20 @@ function HariIniTab() {
       <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
         {/* Date row */}
         <div className="flex items-center justify-between">
-          <button
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white transition-colors"
+          <div
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white"
             style={{ border: "1.5px solid #3E8A2F", minHeight: 44 }}
           >
             <CalendarDays size={15} color="#3E8A2F" />
             <span className="text-sm font-semibold text-[#1C2517]">{todayStr}</span>
-            <ChevronDown size={13} color="#6B7769" />
-          </button>
+          </div>
           <p className="text-xs text-[#9CA3A0]">
             Jam masuk: <span className="font-semibold text-[#6B7769]">{jamMasuk}</span>
           </p>
         </div>
 
         {/* Stat chips */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-1.5">
           {chipDefs.map((c) => (
             <div key={c.label} className="flex flex-col items-center justify-center rounded-xl py-3" style={{ background: c.bg }}>
               <span className="tabular-nums font-bold leading-none" style={{ fontSize: "1.125rem", color: c.fg }}>{c.value}</span>
@@ -229,12 +235,21 @@ function HariIniTab() {
           )}
         </div>
         <button
-          onClick={() => toast.success("Data absensi guru berhasil dicatat.")}
+          onClick={handleSaveClick}
           style={{ height: 40, padding: "0 20px", background: "#3E8A2F", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}
         >
-          Konfirmasi
+          Simpan Absensi
         </button>
       </div>
+
+      {/* Modal Konfirmasi */}
+      <KonfirmasiAbsensiGuruModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        activeGuru={guruList}
+        absensiGuruHariIni={absensiGuruHariIni}
+        onConfirm={handleConfirm}
+      />
     </div>
   );
 }

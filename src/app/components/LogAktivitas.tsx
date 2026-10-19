@@ -16,6 +16,8 @@ const TIPE_STYLE: Record<ActivityLogTipe, string> = {
   "Hapus Tagihan":     "bg-[#FEE2E2] text-[#991B1B]",
   "Pembatalan":        "bg-[#FEE2E2] text-[#991B1B]",
   "Mutasi Siswa":      "bg-[#FEF3C7] text-[#92400E]",
+  "Absensi Siswa":     "bg-[#DCFCE7] text-[#166534]",
+  "Absensi Guru":      "bg-[#DCFCE7] text-[#166534]",
 };
 
 function TipeBadge({ tipe }: { tipe: ActivityLogTipe }) {

@@ -7,40 +7,12 @@ import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
 import { bulanOptions, tahunOptions } from "@/data/constants";
 import type { GuruRow } from "@/data/guru";
-
-// ─── StatusControl ────────────────────────────────────────────────────────────
-const STATUS_ACTIVE: Record<string, string> = {
-  Hadir: "bg-[#3E8A2F] text-white",
-  Terlambat: "bg-[#F59E0B] text-white",
-  Izin:  "bg-[#F6B31E] text-white",
-  Sakit: "bg-[#3B82F6] text-white",
-  Alpa:  "bg-[#DC2626] text-white",
-};
-
-function StatusControl({ value, onChange }: { value: string | null; onChange: (v: string) => void; }) {
-  return (
-    <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #E2E8DE" }}>
-      {(["Hadir", "Terlambat", "Izin", "Sakit", "Alpa"] as const).map((s, i) => (
-        <button
-          key={s}
-          type="button"
-          onClick={() => onChange(s)}
-          className={[
-            "px-2 py-1.5 text-[11px] font-semibold transition-colors flex-1",
-            i > 0 ? "border-l border-[#E2E8DE]" : "",
-            value === s ? STATUS_ACTIVE[s] : "text-[#6B7769] hover:bg-[#F5F9F4]",
-          ].join(" ")}
-        >
-          {s}
-        </button>
-      ))}
-    </div>
-  );
-}
+import { KonfirmasiAbsensiGuruModal } from "@/app/components/shared/KonfirmasiAbsensiGuruModal";
+import { AbsensiStatusControl } from "@/app/components/shared/AbsensiStatusControl";
 
 // ─── Scan Tab ────────────────────────────────────────────────────────────────
 function ScanTab() {
-  const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni } = useAppContext();
+  const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, appSettings } = useAppContext();
   const [scanValue, setScanValue] = useState("");
   const [lastScanned, setLastScanned] = useState<{ guru: GuruRow; status: 'success' | 'warning' | 'error'; message: string; time: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,9 +52,9 @@ function ScanTab() {
           time: timeStr 
         });
       } else {
-        // Cek keterlambatan (batas jam 07:00)
+        const [jH, jM] = (appSettings.jamMasukGuru ?? "07:00").split(":").map(Number);
         const batasMasuk = new Date();
-        batasMasuk.setHours(7, 0, 0, 0);
+        batasMasuk.setHours(jH, jM, 0, 0);
 
         const isTerlambat = now > batasMasuk;
         const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
@@ -133,13 +105,13 @@ function ScanTab() {
           (decodedText) => {
             if (isComponentMounted) {
               processScan(decodedText);
-              html5QrCode?.stop().catch(console.error);
+              html5QrCode?.stop().catch(() => {});
             }
           },
           () => {} // ignore frequent parse errors
         );
-      } catch (err) {
-        console.error("Failed to start scanner", err);
+      } catch {
+        // Camera unavailable — user sees the empty scanner placeholder
       }
     };
 
@@ -153,7 +125,7 @@ function ScanTab() {
       isComponentMounted = false;
       clearTimeout(timer);
       if (html5QrCode?.isScanning) {
-        html5QrCode.stop().catch(console.error);
+        html5QrCode.stop().catch(() => {});
       }
     };
   }, [lastScanned]);
@@ -221,9 +193,10 @@ function ScanTab() {
 
 // ─── Manual Tab ────────────────────────────────────────────────────────────────
 function ManualTab() {
-  const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni } = useAppContext();
+  const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, logActivity } = useAppContext();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("Semua");
+  const [showModal, setShowModal] = useState(false);
 
   const activeGuru = useMemo(() => guruList.filter(g => g.status === "Aktif"), [guruList]);
 
@@ -247,6 +220,35 @@ function ManualTab() {
       return next;
     });
     toast.success("Semua guru yang belum absen telah ditandai Hadir");
+  };
+
+  const handleConfirm = async () => {
+    let hadir = 0, terlambat = 0, izin = 0, sakit = 0, alpa = 0;
+    const safeData = absensiGuruHariIni || {};
+    activeGuru.forEach(g => {
+      const st = safeData[g.id]?.status;
+      if (st === "Hadir") hadir++;
+      else if (st === "Terlambat") terlambat++;
+      else if (st === "Izin") izin++;
+      else if (st === "Sakit") sakit++;
+      else if (st === "Alpa") alpa++;
+    });
+
+    logActivity({
+      tipe: "Absensi Guru",
+      deskripsi: `Simpan absensi guru: ${hadir} Hadir, ${terlambat} Terlambat, ${izin + sakit} Izin/Sakit, ${alpa} Alpa`,
+      ref: "—",
+    });
+
+    toast.success(`Data absensi guru berhasil disimpan (${activeGuru.length - chips.Belum} tercatat)!`);
+  };
+
+  const handleSaveClick = () => {
+    if (chips.Belum > 0) {
+      setShowModal(true);
+    } else {
+      handleConfirm();
+    }
   };
 
   const filteredRows = useMemo(() => {
@@ -389,7 +391,7 @@ function ManualTab() {
                     )}
                   </td>
                   <td className="py-3.5 pr-6 w-[420px]">
-                    <StatusControl value={status} onChange={(v) => setStatus(row.id, v)} />
+                    <AbsensiStatusControl value={status} onChange={(v) => setStatus(row.id, v)} />
                   </td>
                 </tr>
               );
@@ -411,12 +413,21 @@ function ManualTab() {
           {chips.Belum > 0 && <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FEF3C7] text-[#92400E] tabular-nums">{chips.Belum} belum absen</span>}
         </div>
         <button 
-          onClick={() => toast.success("Data absensi guru berhasil dicatat.")}
-          className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
+          onClick={handleSaveClick}
+          className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shadow-sm"
         >
-          Konfirmasi
+          Simpan Absensi
         </button>
       </div>
+
+      {/* Modal Konfirmasi */}
+      <KonfirmasiAbsensiGuruModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        activeGuru={activeGuru}
+        absensiGuruHariIni={absensiGuruHariIni}
+        onConfirm={handleConfirm}
+      />
     </div>
   );
 }

@@ -32,6 +32,18 @@ const REPORTS: ReportMeta[] = [
   { id: "absensi",   icon: CalendarDays,  iconBg: "#FEF3C7", iconColor: "#92400E", nama: "Rekap Absensi Guru",              deskripsi: "Kehadiran guru per bulan"                  },
 ];
 
+function downloadCSV(filename: string, rows: (string | number)[][]): void {
+  const csv = rows
+    .map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
 function ReportCard({ r, selected, onSelect }: { r: ReportMeta; selected: boolean; onSelect: () => void }) {
   const Icon = r.icon;
   return (
@@ -51,7 +63,12 @@ function ReportCard({ r, selected, onSelect }: { r: ReportMeta; selected: boolea
   );
 }
 
-function ReportToolbar({ title, subtitle, children }: { title: string; subtitle: string; children?: React.ReactNode }) {
+function ReportToolbar({
+  title, subtitle, children, csvRows, csvFilename,
+}: {
+  title: string; subtitle: string; children?: React.ReactNode;
+  csvRows?: (string | number)[][]; csvFilename?: string;
+}) {
   return (
     <div className="flex items-center gap-3 px-6 py-4 flex-wrap" style={{ borderBottom: "1px solid #E2E8DE" }}>
       <div>
@@ -60,11 +77,20 @@ function ReportToolbar({ title, subtitle, children }: { title: string; subtitle:
       </div>
       <div className="flex items-center gap-2 ml-auto shrink-0 flex-wrap">
         {children}
-        <button onClick={() => toast.info("Fitur ekspor akan segera tersedia")} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors" style={{ border: "1px solid #E2E8DE" }}>
+        <button
+          onClick={() => csvRows && csvFilename && downloadCSV(csvFilename, csvRows)}
+          disabled={!csvRows}
+          title={csvRows ? `Unduh ${csvFilename}` : "Data tidak tersedia"}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{ border: "1px solid #E2E8DE" }}
+        >
           <Download size={13} />
           Export Excel
         </button>
-        <button onClick={() => toast.info("Fitur ekspor akan segera tersedia")} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors">
+        <button
+          onClick={() => window.print()}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors"
+        >
           <Download size={13} />
           Export PDF
         </button>
@@ -126,9 +152,14 @@ function BKUPreview() {
   const totalDebit  = rows.reduce((s, r) => s + (r.debit  ?? 0), 0);
   const totalKeluar = rows.reduce((s, r) => s + (r.kredit ?? 0), 0);
 
+  const csvRows = useMemo((): (string | number)[][] => [
+    ["No", "Tanggal", "Uraian", "Referensi", "Debit (Rp)", "Kredit (Rp)", "Saldo (Rp)"],
+    ...rows.map(r => [r.no, r.tanggal, r.uraian, r.ref, r.debit ?? 0, r.kredit ?? 0, r.saldo]),
+  ], [rows]);
+
   return (
     <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
-      <ReportToolbar title="Buku Kas Umum" subtitle="Laporan kas masuk dan keluar per periode">
+      <ReportToolbar title="Buku Kas Umum" subtitle="Laporan kas masuk dan keluar per periode" csvRows={csvRows} csvFilename={`BKU-${currentMonth}.csv`}>
         <span className="text-sm text-[#6B7769] px-2">1–31 {currentMonth}</span>
       </ReportToolbar>
       <div className="overflow-x-auto">
@@ -192,6 +223,12 @@ function BosPreview() {
   const sisa = totalAnggaran - totalRealisasi;
   const pctTotal = Math.round((totalRealisasi / totalAnggaran) * 100);
 
+  const csvRows: (string | number)[][] = [
+    ["Komponen BOS", "Anggaran (Rp)", "Realisasi (Rp)", "Sisa (Rp)", "% Realisasi"],
+    ...BOS_KOMPONEN.map(k => [k.komponen, k.anggaran, k.realisasi, k.anggaran - k.realisasi, totalAnggaran > 0 ? Math.round((k.realisasi / k.anggaran) * 100) : 0]),
+    ["TOTAL", totalAnggaran, totalRealisasi, sisa, pctTotal],
+  ];
+
   return (
     <div className="space-y-4">
       {/* KPI */}
@@ -204,7 +241,7 @@ function BosPreview() {
 
       {/* Table */}
       <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
-        <ReportToolbar title="Laporan Dana BOS" subtitle={`Triwulan III TA 2025/2026 — serapan ${pctTotal}%`} />
+        <ReportToolbar title="Laporan Dana BOS" subtitle={`Triwulan III TA 2025/2026 — serapan ${pctTotal}%`} csvRows={csvRows} csvFilename="Dana-BOS.csv" />
         <div className="overflow-x-auto">
           <DataTable>
             <thead>
@@ -292,6 +329,18 @@ function NeracaPreview() {
 
   const totalAset = aset.reduce((s, a) => s + a.current, 0) + piutang;
 
+  const csvRows: (string | number)[][] = [
+    ["Keterangan", "Nilai (Rp)"],
+    ["ASET", ""],
+    ...aset.map(a => [`  ${a.nama}`, a.current]),
+    ["  Piutang Siswa", piutang],
+    ["Total Aset", totalAset],
+    ["KEWAJIBAN & EKUITAS", ""],
+    ["  Modal Awal", ekuitas.modalAwal],
+    ["  Surplus / (Defisit)", ekuitas.surplus],
+    ["Total Kewajiban & Ekuitas", totalAset],
+  ];
+
   function AsetRow({ label, value, indent }: { label: string; value: number; indent?: boolean }) {
     return (
       <div className={`flex items-center justify-between py-2.5 ${indent ? "pl-6" : ""}`} style={{ borderBottom: "1px solid #F5F9F4" }}>
@@ -303,7 +352,7 @@ function NeracaPreview() {
 
   return (
     <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
-      <ReportToolbar title="Neraca Keuangan" subtitle="Posisi aset, kewajiban, dan ekuitas" />
+      <ReportToolbar title="Neraca Keuangan" subtitle="Posisi aset, kewajiban, dan ekuitas" csvRows={csvRows} csvFilename="Neraca-Keuangan.csv" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x" style={{ borderColor: "#E2E8DE" }}>
         {/* ASET */}
         <div className="p-6">
@@ -378,6 +427,12 @@ function KasPreview() {
   const net = totalMasuk - totalKeluar;
   const maxVal = Math.max(...byKategori.map(r => Math.max(r.masuk, r.keluar)));
 
+  const csvRows: (string | number)[][] = [
+    ["Kategori", "Pemasukan (Rp)", "Pengeluaran (Rp)", "Selisih (Rp)"],
+    ...byKategori.map(r => [r.kat, r.masuk, r.keluar, r.net]),
+    ["TOTAL", totalMasuk, totalKeluar, net],
+  ];
+
   return (
     <div className="space-y-4">
       {/* KPI */}
@@ -389,7 +444,7 @@ function KasPreview() {
 
       {/* Table */}
       <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
-        <ReportToolbar title="Laporan Pemasukan & Pengeluaran" subtitle="Ringkasan per kategori" />
+        <ReportToolbar title="Laporan Pemasukan & Pengeluaran" subtitle="Ringkasan per kategori" csvRows={csvRows} csvFilename="Laporan-Arus-Kas.csv" />
         <div className="overflow-x-auto">
           <DataTable>
             <thead>
@@ -488,6 +543,12 @@ function TunggakanPreview() {
   const waspada   = rows.filter(r => r.aging === "Waspada").length;
   const perhatian = rows.filter(r => r.aging === "Perhatian").length;
 
+  const csvRows: (string | number)[][] = [
+    ["Nama Siswa", "Kelas", "Sisa Tagihan (Rp)", "Aging", "Jatuh Tempo"],
+    ...rows.map(r => [r.nama, r.kelas, r.sisa, r.aging, r.jatuhTempo]),
+    ["TOTAL", "", totalSisa, "", ""],
+  ];
+
   const AGING_STYLE: Record<string, { bg: string; text: string }> = {
     "Kritis":           { bg: "#FEE2E2", text: "#991B1B" },
     "Waspada":          { bg: "#FFEDD5", text: "#9A3412" },
@@ -506,7 +567,7 @@ function TunggakanPreview() {
       </div>
 
       <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
-        <ReportToolbar title="Rekap Tunggakan" subtitle={`${rows.length} siswa dengan sisa tagihan — per ${new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date())}`} />
+        <ReportToolbar title="Rekap Tunggakan" subtitle={`${rows.length} siswa dengan sisa tagihan — per ${new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(new Date())}`} csvRows={csvRows} csvFilename="Rekap-Tunggakan.csv" />
         <div className="overflow-x-auto">
           <DataTable>
             <thead>
@@ -582,6 +643,11 @@ function AbsensiPreview() {
   const avgPct = Math.round(absensiRekapData.reduce((s, r) => s + r.pct, 0) / absensiRekapData.length);
   const kurang = absensiRekapData.filter(r => r.pct < 80).length;
 
+  const csvRows: (string | number)[][] = [
+    ["Nama Guru", "Hadir", "Terlambat", "Izin", "Alpa", "% Kehadiran"],
+    ...absensiRekapData.map(g => [g.nama, g.hadir, g.terlambat, g.izin, g.alpa, g.pct]),
+  ];
+
   return (
     <div className="space-y-4">
       {/* KPI */}
@@ -592,7 +658,7 @@ function AbsensiPreview() {
       </div>
 
       <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
-        <ReportToolbar title="Rekap Absensi Guru" subtitle={`${bulanLabel} — ${totalHariKerja} hari kerja efektif`}>
+        <ReportToolbar title="Rekap Absensi Guru" subtitle={`${bulanLabel} — ${totalHariKerja} hari kerja efektif`} csvRows={csvRows} csvFilename={`Absensi-Guru-${bulanLabel}.csv`}>
           <span className="text-sm text-[#6B7769] px-2">{bulanLabel}</span>
         </ReportToolbar>
         <div className="overflow-x-auto">

@@ -658,10 +658,145 @@ function AkunTab() {
   );
 }
 
+// ─── Buat Transfer Sheet ──────────────────────────────────────────────────────
+
+function BuatTransferSheet({ onClose }: { onClose: () => void }) {
+  const { addBankTransfer, logActivity } = useAppContext();
+  const today = new Date().toISOString().split("T")[0];
+  const [tanggal, setTanggal]   = useState(today);
+  const [dari, setDari]         = useState<AkunNama>("Bank BSI");
+  const [ke, setKe]             = useState<AkunNama>("Kas Tunai");
+  const [nominal, setNominal]   = useState("");
+  const [catatan, setCatatan]   = useState("");
+  const [errors, setErrors]     = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!tanggal) errs.tanggal = "Tanggal wajib diisi";
+    if (dari === ke) errs.ke = "Akun tujuan harus berbeda dari akun asal";
+    const nom = Number(nominal.replace(/\D/g, ""));
+    if (!nom || nom <= 0) errs.nominal = "Nominal harus lebih dari 0";
+    if (Object.keys(errs).length) { setErrors(errs); return; }
+
+    setSubmitting(true);
+    addBankTransfer({ tanggal, dari, ke, nominal: nom, catatan: catatan.trim(), status: "Selesai" });
+    logActivity({ tipe: "Update Tagihan", deskripsi: `Transfer ${fmt(nom)} dari ${dari} ke ${ke}`, ref: "—" });
+    toast.success(`Transfer ${fmt(nom)} dari ${dari} → ${ke} berhasil dicatat`);
+    onClose();
+  };
+
+  const setField = <T,>(setter: React.Dispatch<React.SetStateAction<T>>, key: string) =>
+    (val: T) => { setter(val); setErrors(p => ({ ...p, [key]: "" })); };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-[#1C2517]/30" onClick={onClose} />
+      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-[480px] bg-white shadow-2xl flex flex-col" style={{ borderLeft: "1px solid #E2E8DE" }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid #E2E8DE" }}>
+          <div>
+            <h3 className="font-semibold text-[#1C2517]">Buat Transfer Antar Akun</h3>
+            <p className="text-xs text-[#6B7769] mt-0.5">Catat mutasi dana antara akun keuangan</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-[#9CA3A0] hover:text-[#1C2517] hover:bg-black/5 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+            <div>
+              <label className="text-xs font-semibold text-[#374040] block mb-1.5">Tanggal Transfer <span className="text-[#DC2626]">*</span></label>
+              <input
+                type="date" value={tanggal}
+                onChange={e => setField(setTanggal, "tanggal")(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none"
+                style={{ border: errors.tanggal ? "1px solid #DC2626" : "1px solid #E2E8DE" }}
+              />
+              {errors.tanggal && <p className="text-xs text-[#DC2626] mt-1">{errors.tanggal}</p>}
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#374040] block mb-1.5">Dari Akun <span className="text-[#DC2626]">*</span></label>
+              <select
+                value={dari}
+                onChange={e => setField(setDari, "dari")(e.target.value as AkunNama)}
+                className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none appearance-none"
+                style={{ border: "1px solid #E2E8DE" }}
+              >
+                {AKUN_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#374040] block mb-1.5">Ke Akun <span className="text-[#DC2626]">*</span></label>
+              <select
+                value={ke}
+                onChange={e => setField(setKe, "ke")(e.target.value as AkunNama)}
+                className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none appearance-none"
+                style={{ border: errors.ke ? "1px solid #DC2626" : "1px solid #E2E8DE" }}
+              >
+                {AKUN_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              {errors.ke && <p className="text-xs text-[#DC2626] mt-1">{errors.ke}</p>}
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#374040] block mb-1.5">Nominal <span className="text-[#DC2626]">*</span></label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7769]">Rp</span>
+                <input
+                  type="text" inputMode="numeric"
+                  value={nominal}
+                  onChange={e => {
+                    const raw = e.target.value.replace(/\D/g, "");
+                    setField(setNominal, "nominal")(raw ? Number(raw).toLocaleString("id-ID") : "");
+                  }}
+                  placeholder="0"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none tabular-nums"
+                  style={{ border: errors.nominal ? "1px solid #DC2626" : "1px solid #E2E8DE" }}
+                />
+              </div>
+              {errors.nominal && <p className="text-xs text-[#DC2626] mt-1">{errors.nominal}</p>}
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-[#374040] block mb-1.5">Catatan <span className="text-xs font-normal text-[#9CA3A0]">(opsional)</span></label>
+              <textarea
+                value={catatan}
+                onChange={e => setCatatan(e.target.value)}
+                rows={2}
+                placeholder="Keterangan tambahan…"
+                className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none resize-none"
+                style={{ border: "1px solid #E2E8DE" }}
+              />
+            </div>
+
+          </div>
+
+          <div className="px-6 py-4 flex items-center justify-end gap-2" style={{ borderTop: "1px solid #E2E8DE" }}>
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-[#6B7769] hover:bg-black/5 transition-colors">
+              Batal
+            </button>
+            <button type="submit" disabled={submitting}
+              className="px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors disabled:opacity-50">
+              Simpan Transfer
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
+  );
+}
+
 // ─── Mutasi tab ───────────────────────────────────────────────────────────────
 
 function MutasiTab() {
-  const { bankTransferList, addBankTransfer } = useAppContext();
+  const { bankTransferList } = useAppContext();
+  const [showSheet, setShowSheet] = useState(false);
 
   function fmtTglISO(iso: string) {
     const d = new Date(iso + "T00:00:00");
@@ -670,13 +805,15 @@ function MutasiTab() {
 
   return (
     <div>
+      {showSheet && <BuatTransferSheet onClose={() => setShowSheet(false)} />}
+
       <div className="flex items-start justify-between mb-5">
         <div>
           <p className="font-semibold text-[#1C2517]" style={{ fontSize: "0.9375rem" }}>Mutasi Antar Akun</p>
           <p className="text-sm text-[#6B7769] mt-0.5">Transfer dana antara akun keuangan</p>
         </div>
         <button
-          onClick={() => toast.info("Form buat transfer akan segera tersedia")}
+          onClick={() => setShowSheet(true)}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shrink-0"
         >
           <Plus size={14} />

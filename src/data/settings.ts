@@ -3,6 +3,7 @@ import type { AppSettings } from "@/types";
 export const defaultSettings: AppSettings = {
   tahunAjaran: "2025/2026",
   jamMasukGuru: "07:00",
+  jamMasukSiswa: "07:00",
   kapasitasKelas: 32,
   formatKuitansi: "KW/{TAHUN}/{BULAN}/{URUT}",
   namaMadrasah: "MTs Al-Ittihad Pedaleman",

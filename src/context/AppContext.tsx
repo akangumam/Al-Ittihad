@@ -56,8 +56,8 @@ interface AppContextValue {
   waktuProfiles: WaktuProfile[];
   setWaktuProfiles: (profiles: WaktuProfile[]) => void;
 
-  absensiSiswaHariIni: Record<string, string>; // nis -> status (Hadir, Izin, Sakit, Alpa)
-  setAbsensiSiswaHariIni: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  absensiSiswaHariIni: Record<string, { status: string; jam: string }>;
+  setAbsensiSiswaHariIni: React.Dispatch<React.SetStateAction<Record<string, { status: string; jam: string }>>>;
 
   absensiGuruHariIni: Record<number, { status: string; jam: string }>;
   setAbsensiGuruHariIni: React.Dispatch<React.SetStateAction<Record<number, { status: string; jam: string }>>>;
@@ -71,6 +71,8 @@ interface AppContextValue {
   addTransaksi: (transaksi: TransaksiPembayaran, updatedTagihan: TagihanSiswa[]) => void;
 
   absensiGuruHistory: Record<string, Record<number, { status: string; jam: string }>>;
+  absensiSiswaHistory: Record<string, Record<string, { status: string; jam: string }>>;
+  logActivity: (entry: Omit<ActivityLogEntry, "id" | "waktu" | "pelaku">) => void;
 
   appSettings: AppSettings;
   setAppSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
@@ -129,9 +131,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [jadwalList, setJadwalList] = useState<JadwalRow[]>(jadwalData);
   const [jadwalOverridesList, setJadwalOverridesList] = useState<JadwalOverride[]>([]);
   const [waktuProfiles, setWaktuProfiles] = useState<WaktuProfile[]>([defaultWaktuProfile]);
-  const [absensiSiswaHariIni, setAbsensiSiswaHariIni] = useState<Record<string, string>>({});
+  const [absensiSiswaHariIni, setAbsensiSiswaHariIni] = useState<Record<string, { status: string; jam: string }>>({});
   const [absensiGuruHariIni, setAbsensiGuruHariIni] = useState<Record<number, { status: string; jam: string }>>({});
   const [absensiGuruHistory, setAbsensiGuruHistory] = useState<Record<string, Record<number, { status: string; jam: string }>>>({});
+  const [absensiSiswaHistory, setAbsensiSiswaHistory] = useState<Record<string, Record<string, { status: string; jam: string }>>>({});
   const [tagihanList, setTagihanList] = useState<TagihanSiswa[]>(initialTagihanSiswa);
   const [transaksiList, setTransaksiList] = useState<TransaksiPembayaran[]>(initialTransaksiPembayaran);
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
@@ -173,6 +176,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const defaultAppSettings: AppSettings = {
     tahunAjaran: "2025/2026",
     jamMasukGuru: "07:00",
+    jamMasukSiswa: "07:00",
     kapasitasKelas: 32,
     formatKuitansi: "KW/{TAHUN}/{BULAN}/{URUT}",
     namaMadrasah: "MTs Al-Ittihad Pedaleman",
@@ -283,7 +287,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (savedAbsensi) {
           const today = new Date().toISOString().split("T")[0];
           if (savedAbsensi.date === today) {
-            setAbsensiSiswaHariIni(savedAbsensi.data || {});
+            const rawSiswa = savedAbsensi.data || {};
+            const normalizedSiswa: Record<string, { status: string; jam: string }> = {};
+            for (const [k, v] of Object.entries(rawSiswa)) {
+              if (typeof v === "string") {
+                normalizedSiswa[k] = { status: v, jam: "—" };
+              } else if (v && typeof v === "object") {
+                normalizedSiswa[k] = v as { status: string; jam: string };
+              }
+            }
+            setAbsensiSiswaHariIni(normalizedSiswa);
             setAbsensiGuruHariIni(savedAbsensi.dataGuru || {});
           }
         }
@@ -299,6 +312,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         if (savedGuruHistory && Object.keys(savedGuruHistory).length > 0) {
           setAbsensiGuruHistory(savedGuruHistory);
+        }
+
+        // Load Siswa History
+        let savedSiswaHistory: Record<string, Record<string, { status: string; jam: string }>> | null = null;
+        if (isElectron) {
+          savedSiswaHistory = await (window as any).electronAPI.getStoreValue("alittihad_absensi_siswa_history");
+        } else {
+          const raw = localStorage.getItem("alittihad_absensi_siswa_history");
+          if (raw) savedSiswaHistory = JSON.parse(raw);
+        }
+
+        if (savedSiswaHistory && Object.keys(savedSiswaHistory).length > 0) {
+          setAbsensiSiswaHistory(savedSiswaHistory);
         }
 
       } catch (e) {
@@ -381,6 +407,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return { ...prev, [today]: mergedDay };
       });
     }
+
+    // Sync current day siswa attendance to history
+    if (Object.keys(absensiSiswaHariIni).length > 0) {
+      setAbsensiSiswaHistory(prev => {
+        const currentDay = prev[today] || {};
+        const mergedDay = { ...currentDay, ...absensiSiswaHariIni };
+
+        if (JSON.stringify(currentDay) === JSON.stringify(mergedDay)) return prev;
+        return { ...prev, [today]: mergedDay };
+      });
+    }
   }, [absensiSiswaHariIni, absensiGuruHariIni, isElectron]);
 
   useEffect(() => {
@@ -391,6 +428,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("alittihad_absensi_guru_history", JSON.stringify(absensiGuruHistory));
     }
   }, [absensiGuruHistory, isElectron]);
+
+  useEffect(() => {
+    if (Object.keys(absensiSiswaHistory).length === 0) return;
+    if (isElectron) {
+      (window as any).electronAPI.setStoreValue("alittihad_absensi_siswa_history", absensiSiswaHistory);
+    } else {
+      localStorage.setItem("alittihad_absensi_siswa_history", JSON.stringify(absensiSiswaHistory));
+    }
+  }, [absensiSiswaHistory, isElectron]);
 
   useEffect(() => {
     if (isElectron) {
@@ -716,6 +762,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         absensiSiswaHariIni, setAbsensiSiswaHariIni,
         absensiGuruHariIni, setAbsensiGuruHariIni,
         absensiGuruHistory,
+        absensiSiswaHistory,
+        logActivity,
         tagihanList, transaksiList, addTagihan, updateTagihanSiswa, deleteTagihanSiswa, addTagihanSiswaManual, addTransaksi,
         isElectron,
         appSettings,

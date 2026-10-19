@@ -11,6 +11,18 @@ import { type RABRow, MONTHS, ANGGARAN_M, REALISASI_M, TOP5 } from "@/data/keuan
 
 const IDR = (v: number): string => v < 0 ? `−${fmt(Math.abs(v))}` : fmt(v);
 
+function downloadCSV(filename: string, rows: (string | number)[][]): void {
+  const csv = rows
+    .map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
 // ─── color helpers ────────────────────────────────────────────────────────────
 
 const sColor = (pct: number) => pct >= 100 ? "#DC2626" : pct >= 80 ? "#D97706" : "#3E8A2F";
@@ -300,11 +312,17 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => toast.info("Fitur ekspor akan segera tersedia")}
+            onClick={() => {
+              const csvRows: (string | number)[][] = [
+                ["Kelompok", "Uraian", "Anggaran (Rp)", "Terpakai (Rp)", "Sisa (Rp)", "% Terpakai"],
+                ...rabList.map(r => [r.group, r.nama, r.anggaran, r.terpakai, r.anggaran - r.terpakai, r.anggaran > 0 ? Math.round((r.terpakai / r.anggaran) * 100) : 0]),
+              ];
+              downloadCSV(`RAB-${tahunAjaran}.csv`, csvRows);
+            }}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors"
             style={{ border:"1px solid #E2E8DE" }}
           >
-            <Download size={13} /> Export
+            <Download size={13} /> Export CSV
           </button>
           <button
             onClick={() => setSheetRow("new")}

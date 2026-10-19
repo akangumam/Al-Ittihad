@@ -7,39 +7,13 @@ import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
 import { SiswaRow } from "@/data/siswa";
 import { kelasOptions } from "@/data/constants";
-
-// ─── StatusControl ────────────────────────────────────────────────────────────
-const STATUS_ACTIVE: Record<string, string> = {
-  Hadir: "bg-[#3E8A2F] text-white",
-  Terlambat: "bg-[#F59E0B] text-white",
-  Izin:  "bg-[#F6B31E] text-white",
-  Sakit: "bg-[#3B82F6] text-white",
-  Alpa:  "bg-[#DC2626] text-white",
-};
-
-function StatusControl({ value, onChange }: { value: string | null; onChange: (v: string) => void; }) {
-  return (
-    <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid #E2E8DE" }}>
-      {(["Hadir", "Terlambat", "Izin", "Sakit", "Alpa"] as const).map((s, i) => (
-        <button
-          key={s}
-          onClick={() => onChange(s)}
-          className={[
-            "px-2 py-1.5 text-[11px] font-semibold transition-colors flex-1",
-            i > 0 ? "border-l border-[#E2E8DE]" : "",
-            value === s ? STATUS_ACTIVE[s] : "text-[#6B7769] hover:bg-[#F5F9F4]",
-          ].join(" ")}
-        >
-          {s}
-        </button>
-      ))}
-    </div>
-  );
-}
+import { KonfirmasiAbsensiSiswaModal } from "@/app/components/shared/KonfirmasiAbsensiSiswaModal";
+import { AbsensiStatusControl } from "@/app/components/shared/AbsensiStatusControl";
+import { useWAQueue, waTemplate } from "@/hooks/useWAQueue";
 
 // ─── Scan Tab ────────────────────────────────────────────────────────────────
 function ScanTab() {
-  const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni } = useAppContext();
+  const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, appSettings } = useAppContext();
   const [scanValue, setScanValue] = useState("");
   const [lastScanned, setLastScanned] = useState<{ siswa: SiswaRow; status: 'success' | 'warning' | 'error'; message: string; time: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -70,21 +44,21 @@ function ScanTab() {
         setLastScanned({ siswa, status: 'error', message: "Siswa berstatus Nonaktif", time: timeStr });
       } else if (absensiSiswaHariIni[nis]) {
         // Mencegah double tap
-        setLastScanned({ 
-          siswa, 
-          status: 'warning', 
-          message: `Sudah Tercatat: ${absensiSiswaHariIni[nis]}`, 
-          time: timeStr 
+        setLastScanned({
+          siswa,
+          status: 'warning',
+          message: `Sudah Tercatat: ${absensiSiswaHariIni[nis]?.status}`,
+          time: timeStr
         });
       } else {
-        // Cek keterlambatan (batas jam 08:00)
+        const [jH, jM] = (appSettings.jamMasukSiswa ?? appSettings.jamMasukGuru ?? "07:00").split(":").map(Number);
         const batasMasuk = new Date();
-        batasMasuk.setHours(8, 0, 0, 0);
+        batasMasuk.setHours(jH, jM, 0, 0);
 
         const isTerlambat = now > batasMasuk;
         const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
 
-        setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: statusAbsen }));
+        setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: { status: statusAbsen, jam: timeStr } }));
         setLastScanned({ 
           siswa, 
           status: isTerlambat ? 'warning' : 'success', 
@@ -130,13 +104,13 @@ function ScanTab() {
           (decodedText) => {
             if (isComponentMounted) {
               processScan(decodedText);
-              html5QrCode?.stop().catch(console.error);
+              html5QrCode?.stop().catch(() => {});
             }
           },
           () => {} // ignore frequent parse errors
         );
-      } catch (err) {
-        console.error("Failed to start scanner", err);
+      } catch {
+        // Camera unavailable — user sees the empty scanner placeholder
       }
     };
 
@@ -150,7 +124,7 @@ function ScanTab() {
       isComponentMounted = false;
       clearTimeout(timer);
       if (html5QrCode?.isScanning) {
-        html5QrCode.stop().catch(console.error);
+        html5QrCode.stop().catch(() => {});
       }
     };
   }, [lastScanned]);
@@ -193,7 +167,7 @@ function ScanTab() {
           <div className="flex flex-col items-center text-center animate-in slide-in-from-bottom-4 fade-in duration-300 w-full">
             <div className="relative mb-6">
               <div className="w-40 h-40 rounded-full overflow-hidden border-4" style={{ borderColor: statusColor }}>
-                <img src={(lastScanned.siswa as any).foto || (lastScanned.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png')} alt="Foto" className={`w-full h-full object-cover ${lastScanned.siswa.id === 0 ? 'grayscale opacity-30' : ''}`} />
+                <img src={lastScanned.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt="Foto" className={`w-full h-full object-cover ${lastScanned.siswa.id === 0 ? 'grayscale opacity-30' : ''}`} />
               </div>
               <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center border-4 border-white" style={{ background: statusColor }}>
                 <StatusIcon size={24} color="white" />
@@ -216,29 +190,67 @@ function ScanTab() {
 
 // ─── Manual Tab ────────────────────────────────────────────────────────────────
 function ManualTab() {
-  const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni } = useAppContext();
+  const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, logActivity } = useAppContext();
+  const { enqueueBulk } = useWAQueue();
+
   const [kelasFilter, setKelasFilter] = useState("Semua Kelas");
+  const [filterStatus, setFilterStatus] = useState("Semua");
   const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
 
   const activeSiswa = useMemo(() => siswaList.filter(s => s.status === "Aktif"), [siswaList]);
 
+  // Target siswa berdasarkan kelasFilter yang dipilih
+  const targetSiswa = useMemo(() => {
+    if (kelasFilter === "Semua Kelas") return activeSiswa;
+    const targetKelas = kelasFilter.replace("Kelas ", "");
+    return activeSiswa.filter(s => s.kelas === targetKelas);
+  }, [activeSiswa, kelasFilter]);
+
   const setStatus = (nis: string, v: string) => {
-    setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: v }));
+    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: { status: v, jam: prev[nis]?.jam ?? now } }));
+  };
+
+  const markAllTargetHadir = () => {
+    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    setAbsensiSiswaHariIni(prev => {
+      const next = { ...prev };
+      targetSiswa.forEach(s => {
+        if (!next[s.nis]) {
+          next[s.nis] = { status: "Hadir", jam: now };
+        }
+      });
+      return next;
+    });
+    toast.success(`Semua siswa yang belum absen di ${kelasFilter === "Semua Kelas" ? "seluruh kelas" : kelasFilter} ditandai Hadir`);
   };
 
   const filteredRows = useMemo(() => {
     const q = search.toLowerCase();
-    return activeSiswa.filter(r => {
+    return targetSiswa.filter(r => {
       const matchSearch = !q || r.nama.toLowerCase().includes(q) || r.nis.includes(q);
-      const matchKelas  = kelasFilter === "Semua Kelas" || r.kelas === kelasFilter.replace("Kelas ", "");
-      return matchSearch && matchKelas;
+      
+      let matchStatus = true;
+      if (filterStatus !== "Semua") {
+        const status = absensiSiswaHariIni[r.nis]?.status ?? null;
+        if (filterStatus === "Belum") {
+          matchStatus = status === null;
+        } else if (filterStatus === "Izin") {
+          matchStatus = status === "Izin" || status === "Sakit";
+        } else {
+          matchStatus = status === filterStatus;
+        }
+      }
+
+      return matchSearch && matchStatus;
     });
-  }, [activeSiswa, search, kelasFilter]);
+  }, [targetSiswa, search, filterStatus, absensiSiswaHariIni]);
 
   const chips = useMemo(() => {
     let hadir = 0, terlambat = 0, izin = 0, sakit = 0, alpa = 0, belum = 0;
-    activeSiswa.forEach(s => {
-      const status = absensiSiswaHariIni[s.nis];
+    targetSiswa.forEach(s => {
+      const status = absensiSiswaHariIni[s.nis]?.status;
       if (status === "Hadir") hadir++;
       else if (status === "Terlambat") terlambat++;
       else if (status === "Izin") izin++;
@@ -247,7 +259,7 @@ function ManualTab() {
       else belum++;
     });
     return { Hadir: hadir, Terlambat: terlambat, Izin: izin, Sakit: sakit, Alpa: alpa, Belum: belum };
-  }, [activeSiswa, absensiSiswaHariIni]);
+  }, [targetSiswa, absensiSiswaHariIni]);
 
   const chipDefs = [
     { label: "Hadir",       value: chips.Hadir,     color: "#DCFCE7", text: "#166534" },
@@ -260,6 +272,61 @@ function ManualTab() {
 
   const todayStr = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
+  const handleConfirm = async (sendWA: boolean = false) => {
+    // Kirim notifikasi WA queue untuk siswa Alpa jika dicentang
+    let waCount = 0;
+    if (sendWA) {
+      const alpaStudents = targetSiswa.filter(s => absensiSiswaHariIni[s.nis]?.status === "Alpa" && s.waliHp);
+      if (alpaStudents.length > 0) {
+        const payloads = alpaStudents.map(s => ({
+          phone: s.waliHp,
+          nama_penerima: s.waliNama || `Wali dari ${s.nama}`,
+          pesan: waTemplate.absensiAlpa(s.nama, s.kelas, todayStr),
+          jenis: "absensi" as const,
+          ref_id: s.nis,
+          priority: 1,
+        }));
+        const res = await enqueueBulk(payloads);
+        if (res.ok) {
+          waCount = res.count;
+        } else {
+          toast.error(`Gagal kirim antrean WA: ${res.error ?? "unknown error"}`);
+        }
+      }
+    }
+
+    // Catat log aktivitas
+    let hadir = 0, terlambat = 0, izin = 0, sakit = 0, alpa = 0;
+    targetSiswa.forEach(s => {
+      const st = absensiSiswaHariIni[s.nis]?.status;
+      if (st === "Hadir") hadir++;
+      else if (st === "Terlambat") terlambat++;
+      else if (st === "Izin") izin++;
+      else if (st === "Sakit") sakit++;
+      else if (st === "Alpa") alpa++;
+    });
+
+    logActivity({
+      tipe: "Absensi Siswa",
+      deskripsi: `Simpan absensi ${kelasFilter}: ${hadir} Hadir, ${terlambat} Terlambat, ${izin} Izin, ${sakit} Sakit, ${alpa} Alpa${waCount > 0 ? ` (${waCount} WA diantrekan)` : ""}`,
+      ref: "—",
+    });
+
+    toast.success(
+      `Presensi siswa berhasil disimpan (${targetSiswa.length - chips.Belum} tercatat)${waCount > 0 ? ` · ${waCount} notifikasi WA diantrekan` : ""}.`
+    );
+  };
+
+  const handleSaveClick = () => {
+    if (chips.Belum > 0) {
+      setShowModal(true);
+    } else {
+      handleConfirm(false);
+    }
+  };
+
+  const tercatatCount = targetSiswa.length - chips.Belum;
+
   return (
     <div className="bg-white rounded-xl pb-[72px]" style={{ border: "1px solid #E2E8DE" }}>
       <div className="px-6 py-5" style={{ borderBottom: "1px solid #E2E8DE" }}>
@@ -269,17 +336,43 @@ function ManualTab() {
             <span className="text-sm font-semibold text-[#1C2517]">{todayStr}</span>
           </div>
           
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 md:w-64" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 md:w-56" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
               <Search size={13} className="text-[#9CA3A0] shrink-0" />
               <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/NIS..." className="bg-transparent outline-none text-sm text-[#1C2517] w-full" />
             </div>
+
             <div className="relative">
               <select value={kelasFilter} onChange={(e) => setKelasFilter(e.target.value)} className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none h-full" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
                 {kelasOptions.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
               <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
             </div>
+
+            <div className="relative">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none h-full"
+                style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
+              >
+                <option value="Semua">Semua Status</option>
+                <option value="Hadir">Hadir</option>
+                <option value="Belum">Belum Absen</option>
+                <option value="Terlambat">Terlambat</option>
+                <option value="Izin">Izin/Sakit</option>
+                <option value="Alpa">Alpa</option>
+              </select>
+              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+            </div>
+
+            <button
+              onClick={markAllTargetHadir}
+              className="px-3.5 py-2 rounded-lg bg-[#F5F9F4] text-[#3E8A2F] text-sm font-semibold hover:bg-[#E8F2E6] transition-colors whitespace-nowrap"
+              style={{ border: "1px solid #3E8A2F" }}
+            >
+              Semua Hadir
+            </button>
           </div>
         </div>
 
@@ -299,20 +392,24 @@ function ManualTab() {
             <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
               <Th className="pl-6 pr-4 w-64">Siswa</Th>
               <Th className="pr-4">Kelas</Th>
+              <Th className="pr-4 w-32">Jam Masuk</Th>
               <Th className="pr-6">Status Kehadiran</Th>
             </tr>
           </thead>
           <tbody>
             {filteredRows.map((row, i) => {
-              const status = absensiSiswaHariIni[row.nis] || null;
+              const rec = absensiSiswaHariIni[row.nis];
+              const status = rec?.status ?? null;
+              const jam = rec?.jam ?? null;
               const belum = status === null;
+              const late = status === "Terlambat";
 
               return (
                 <tr key={row.id} className="transition-colors" style={{ borderBottom: i < filteredRows.length - 1 ? "1px solid #F0F7EE" : "none", background: belum ? "#FFFBEB" : undefined }}>
                   <td className="py-3.5 pl-6 pr-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 overflow-hidden" style={{ background: "#3E8A2F", color: "#FFFFFF" }}>
-                        <img src={(row as any).foto || (row.jk === 'L' ? '/foto_L.png' : '/foto_P.png')} alt={row.nama} className="w-full h-full object-cover" />
+                        <img src={row.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt={row.nama} className="w-full h-full object-cover" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-[#1C2517] leading-none">{row.nama}</p>
@@ -323,15 +420,26 @@ function ManualTab() {
                   <td className="py-3.5 pr-4 text-sm font-medium text-[#374040]">
                     {row.kelas}
                   </td>
+                  <td className="py-3.5 pr-4 text-sm font-medium">
+                    {jam ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm tabular-nums font-medium" style={{ color: late ? "#92400E" : "#6B7769" }}>
+                          {jam}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-[#D1D5DB]">—</span>
+                    )}
+                  </td>
                   <td className="py-3.5 pr-6 w-[420px]">
-                    <StatusControl value={status} onChange={(v) => setStatus(row.nis, v)} />
+                    <AbsensiStatusControl value={status} onChange={(v) => setStatus(row.nis, v)} />
                   </td>
                 </tr>
               );
             })}
             {filteredRows.length === 0 && (
               <tr>
-                <td colSpan={3} className="text-center py-8 text-sm text-[#9CA3A0]">Tidak ada data siswa ditemukan</td>
+                <td colSpan={4} className="text-center py-8 text-sm text-[#9CA3A0]">Tidak ada data siswa ditemukan</td>
               </tr>
             )}
           </tbody>
@@ -341,17 +449,33 @@ function ManualTab() {
       {/* Save bar */}
       <div className="bg-white px-6 py-4 flex items-center justify-between" style={{ position: "fixed", bottom: 0, left: "var(--sidebar-w, 260px)", right: 0, borderTop: "1px solid #E2E8DE", zIndex: 20 }}>
         <div>
-          <span className="text-sm font-semibold text-[#1C2517] tabular-nums">{activeSiswa.length - chips.Belum} dari {activeSiswa.length}</span>
+          <span className="text-sm font-semibold text-[#1C2517] tabular-nums">
+            {tercatatCount} dari {targetSiswa.length} {kelasFilter === "Semua Kelas" ? "siswa" : `siswa ${kelasFilter}`}
+          </span>
           <span className="text-sm text-[#6B7769] ml-1">tercatat</span>
-          {chips.Belum > 0 && <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FEF3C7] text-[#92400E] tabular-nums">{chips.Belum} belum absen</span>}
+          {chips.Belum > 0 && (
+            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FEF3C7] text-[#92400E] tabular-nums">
+              {chips.Belum} belum absen
+            </span>
+          )}
         </div>
         <button 
-          onClick={() => toast.success("Data absensi siswa berhasil dicatat.")}
-          className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
+          onClick={handleSaveClick}
+          className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shadow-sm"
         >
-          Konfirmasi
+          Simpan Absensi
         </button>
       </div>
+
+      {/* Modal Konfirmasi */}
+      <KonfirmasiAbsensiSiswaModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        kelasFilter={kelasFilter}
+        targetSiswa={targetSiswa}
+        absensiSiswaHariIni={absensiSiswaHariIni}
+        onConfirm={handleConfirm}
+      />
     </div>
   );
 }

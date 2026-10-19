@@ -32,19 +32,7 @@ export interface NavGroup {
 // ─── Entities ──────────────────────────────────────────────────────────────────
 
 export type { SiswaRow } from "@/data/siswa";
-
-export interface GuruRow {
-  id: number;
-  nama: string;
-  nip?: string;
-  nuptk?: string;
-  mapel: string[];
-  kelas?: string;
-  status: "PNS" | "GTY" | "Honorer";
-  jk: JenisKelamin;
-  noHp?: string;
-  inits: string;
-}
+export type { GuruRow } from "@/data/guru";
 
 export interface TunggakanRow {
   id: number;
@@ -64,6 +52,8 @@ export interface AppSettings {
   tahunAjaran: string;
   /** Format: "HH:mm", default "07:00" */
   jamMasukGuru: string;
+  /** Format: "HH:mm", default "07:00" */
+  jamMasukSiswa?: string;
   kapasitasKelas: number;
   formatKuitansi: string;
   namaMadrasah: string;
@@ -131,7 +121,9 @@ export type ActivityLogTipe =
   | "Penetapan Tagihan"
   | "Update Tagihan"
   | "Hapus Tagihan"
-  | "Mutasi Siswa";
+  | "Mutasi Siswa"
+  | "Absensi Siswa"
+  | "Absensi Guru";
 
 export interface ActivityLogEntry {
   id: string;
