@@ -9,6 +9,7 @@ import { bulanOptions, tahunOptions } from "@/data/constants";
 import type { GuruRow } from "@/data/guru";
 import { KonfirmasiAbsensiGuruModal } from "@/app/components/shared/KonfirmasiAbsensiGuruModal";
 import { AbsensiStatusControl } from "@/app/components/shared/AbsensiStatusControl";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ─── Scan Tab ────────────────────────────────────────────────────────────────
 function ScanTab() {
@@ -194,6 +195,7 @@ function ScanTab() {
 // ─── Manual Tab ────────────────────────────────────────────────────────────────
 function ManualTab() {
   const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, logActivity } = useAppContext();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("Semua");
   const [showModal, setShowModal] = useState(false);
@@ -406,7 +408,7 @@ function ManualTab() {
       </div>
 
       {/* Save bar */}
-      <div className="bg-white px-6 py-4 flex items-center justify-between" style={{ position: "fixed", bottom: 0, left: "var(--sidebar-w, 260px)", right: 0, borderTop: "1px solid #E2E8DE", zIndex: 20 }}>
+      <div className="bg-white px-6 py-4 flex items-center justify-between" style={{ position: "fixed", bottom: isMobile ? 64 : 0, left: isMobile ? 0 : "var(--sidebar-w, 260px)", right: 0, borderTop: "1px solid #E2E8DE", zIndex: 50 }}>
         <div>
           <span className="text-sm font-semibold text-[#1C2517] tabular-nums">{activeGuru.length - chips.Belum} dari {activeGuru.length}</span>
           <span className="text-sm text-[#6B7769] ml-1">tercatat</span>

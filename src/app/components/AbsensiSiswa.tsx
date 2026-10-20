@@ -10,6 +10,7 @@ import { kelasOptions } from "@/data/constants";
 import { KonfirmasiAbsensiSiswaModal } from "@/app/components/shared/KonfirmasiAbsensiSiswaModal";
 import { AbsensiStatusControl } from "@/app/components/shared/AbsensiStatusControl";
 import { useWAQueue, waTemplate } from "@/hooks/useWAQueue";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ─── Scan Tab ────────────────────────────────────────────────────────────────
 function ScanTab() {
@@ -192,6 +193,7 @@ function ScanTab() {
 function ManualTab() {
   const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, logActivity } = useAppContext();
   const { enqueueBulk } = useWAQueue();
+  const isMobile = useIsMobile();
 
   const [kelasFilter, setKelasFilter] = useState("Semua Kelas");
   const [filterStatus, setFilterStatus] = useState("Semua");
@@ -447,7 +449,7 @@ function ManualTab() {
       </div>
 
       {/* Save bar */}
-      <div className="bg-white px-6 py-4 flex items-center justify-between" style={{ position: "fixed", bottom: 0, left: "var(--sidebar-w, 260px)", right: 0, borderTop: "1px solid #E2E8DE", zIndex: 20 }}>
+      <div className="bg-white px-6 py-4 flex items-center justify-between" style={{ position: "fixed", bottom: isMobile ? 64 : 0, left: isMobile ? 0 : "var(--sidebar-w, 260px)", right: 0, borderTop: "1px solid #E2E8DE", zIndex: 50 }}>
         <div>
           <span className="text-sm font-semibold text-[#1C2517] tabular-nums">
             {tercatatCount} dari {targetSiswa.length} {kelasFilter === "Semua Kelas" ? "siswa" : `siswa ${kelasFilter}`}
