@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
-  Bell, Search, X,
+  Bell, Search, X, LogOut,
   LayoutDashboard, CreditCard, AlertTriangle, ClipboardList, MoreHorizontal,
   Calendar, Users, GraduationCap, BookOpen,
   FileText, Landmark, BarChart3, Calculator,
@@ -10,6 +10,7 @@ import {
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
 import { useAppContext } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import type { Role } from "@/types";
 
 // ─── bottom nav data ──────────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ const MENU_GROUPS: Array<{
 function BottomMenuSheet({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const { role } = useAppContext();
+  const { user, signOut } = useAuth();
 
   function go(path: string) {
     void navigate(path);
@@ -167,7 +169,24 @@ function BottomMenuSheet({ onClose }: { onClose: () => void }) {
         );
       })}
 
-      <div style={{ height: 24 }} />
+      {/* Divider + info user + tombol keluar */}
+      <div className="mx-5 mt-3" style={{ borderTop: "1px solid #F0F7EE" }}>
+        <div className="flex items-center justify-between py-3">
+          <div>
+            <p className="text-[13px] font-semibold text-[#1C2517]">{user?.nama ?? "—"}</p>
+            <p className="text-[11px] text-[#6B7769]">{user?.email ?? ""}</p>
+          </div>
+          <button
+            onClick={() => { onClose(); signOut(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#DC2626]"
+            style={{ background: "#FEF2F2", border: "1px solid #FECACA" }}
+          >
+            <LogOut size={14} />
+            Keluar
+          </button>
+        </div>
+      </div>
+      <div style={{ height: 8 }} />
     </div>
   );
 }
@@ -176,11 +195,16 @@ function BottomMenuSheet({ onClose }: { onClose: () => void }) {
 
 export function MobileShell({ children }: { children: ReactNode }) {
   const { absensiCount, tunggakanCount, appSettings, role } = useAppContext();
+  const { user } = useAuth();
   const shortYear = appSettings.tahunAjaran.split("/").map(y => y.slice(-2)).join("/");
   const navigate = useNavigate();
   const location = useLocation();
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const initials = user?.nama
+    ? user.nama.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
+    : "AU";
 
   const visibleBottomNav = BOTTOM_NAV.filter(item => !item.roles || item.roles.includes(role));
 
@@ -215,12 +239,14 @@ export function MobileShell({ children }: { children: ReactNode }) {
           >
             <Bell size={17} color="#374040" />
           </button>
-          <div
+          <button
+            onClick={() => setMenuOpen(true)}
             className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 select-none"
-            style={{ background: "#3E8A2F" }}
+            style={{ background: "#3E8A2F", border: "none", cursor: "pointer" }}
+            aria-label="Profil & Keluar"
           >
-            AU
-          </div>
+            {initials}
+          </button>
         </div>
       </div>
 

@@ -4,6 +4,7 @@ import { RABRow, RAB_DATA, mutasiData } from "@/data/keuangan";
 import { useAuth } from "@/context/AuthContext";
 import { fmt } from "@/lib/formatters";
 import { isGhostEmail } from "@/lib/ghost";
+import { supabase } from "@/lib/supabase";
 import {
   loadSiswaFromDB, loadAlumniFromDB,
   insertSiswaDB, updateSiswaDB, deleteSiswaDB, bulkDeleteSiswaDB, bulkUpdateSiswaDB, graduateSiswaDB,
@@ -581,6 +582,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       (window as any).electronAPI?.setStoreValue("alittihad_absensi_siswa", { date: "", data: {}, dataGuru: {} });
       (window as any).electronAPI?.setStoreValue("alittihad_absensi_siswa_history", {});
     }
+
+    // Hapus dari Supabase (fire-and-forget — tidak perlu await)
+    supabase.from("siswa").delete().gt("id", 0).then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus siswa dari Supabase", error.message);
+    });
+    supabase.from("alumni").delete().gt("id", 0).then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus alumni dari Supabase", error.message);
+    });
   };
 
   const addKelas = (kelas: KelasRow) => setKelasList(prev => [...prev, kelas]);
