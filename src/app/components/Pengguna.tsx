@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { UserPlus, Trash2, ShieldCheck, X, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { isGhostEmail } from "@/lib/ghost";
 import type { Role } from "@/types";
 
 interface UserRow {
@@ -51,7 +52,7 @@ export function Pengguna() {
       .select("*")
       .order("created_at", { ascending: true });
     if (error) { toast.error("Gagal memuat data pengguna."); }
-    else setUsers(data as UserRow[]);
+    else setUsers((data as UserRow[]).filter(u => !isGhostEmail(u.email)));
     setLoading(false);
   }
 

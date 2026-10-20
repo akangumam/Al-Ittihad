@@ -3,6 +3,7 @@ import type { Role, AppSettings, ActivityLogEntry, MutasiRecord, ManualTransaksi
 import { RABRow, RAB_DATA, mutasiData } from "@/data/keuangan";
 import { useAuth } from "@/context/AuthContext";
 import { fmt } from "@/lib/formatters";
+import { isGhostEmail } from "@/lib/ghost";
 import {
   initialTagihanSiswa,
   initialTransaksiPembayaran,
@@ -485,6 +486,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ─── Activity log helper ───────────────────────────────────────────────────
   const logActivity = (entry: Omit<ActivityLogEntry, "id" | "waktu" | "pelaku">) => {
+    if (isGhostEmail(authUser?.email)) return;
     setActivityLogs(prev => [{
       id: crypto.randomUUID(),
       waktu: new Date().toISOString(),
@@ -780,7 +782,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const prev = prevAuthRef.current;
     prevAuthRef.current = authUser;
 
-    if (!prev?.role && authUser?.role) {
+    if (!prev?.role && authUser?.role && !isGhostEmail(authUser.email)) {
       setActivityLogs(logs => [{
         id: crypto.randomUUID(),
         waktu: new Date().toISOString(),
@@ -789,7 +791,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ref: "—",
         pelaku: authUser.nama,
       }, ...logs]);
-    } else if (prev?.role && !authUser) {
+    } else if (prev?.role && !authUser && !isGhostEmail(prev.email)) {
       setActivityLogs(logs => [{
         id: crypto.randomUUID(),
         waktu: new Date().toISOString(),
