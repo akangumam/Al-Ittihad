@@ -458,7 +458,6 @@ function WAHACard() {
 
   async function handleTest() {
     if (!testPhone.trim()) { toast.error("Masukkan nomor tujuan test"); return; }
-    if (!url.trim())       { toast.error("URL WAHA belum diisi");       return; }
     setTesting(true);
     const result = await enqueue({
       phone:         testPhone.trim(),
@@ -528,13 +527,13 @@ function WAHACard() {
           />
         </div>
 
-        {/* Test kirim */}
-        <div style={{ opacity: enabled ? 1 : 0.5, pointerEvents: enabled ? "auto" : "none" }}>
+        {/* Test kirim — selalu aktif agar bisa dicoba tanpa toggle on */}
+        <div>
           <p className="text-xs font-medium text-[#1C2517] mb-2">Test kirim pesan</p>
           <div className="flex gap-2">
             <div className="flex-1">
               <FloatingInput
-                label="Nomor WA tujuan (628xxx)"
+                label="Nomor WA (08xxx atau 628xxx)"
                 value={testPhone}
                 onChange={setTestPhone}
               />
@@ -552,7 +551,7 @@ function WAHACard() {
             </button>
           </div>
           <p className="text-xs text-[#9CA3A0] mt-1.5">
-            Pesan masuk ke antrian dan dikirim oleh server dalam ±1 menit.
+            Format: <code className="text-[11px]">08123456789</code> atau <code className="text-[11px]">628123456789</code> — pesan masuk antrian, dikirim server dalam ±1 menit.
           </p>
         </div>
       </div>
