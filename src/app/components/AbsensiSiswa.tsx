@@ -15,6 +15,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 // ─── Scan Tab ────────────────────────────────────────────────────────────────
 function ScanTab() {
   const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, appSettings } = useAppContext();
+  const { enqueue } = useWAQueue();
   const isMobile = useIsMobile();
   const [scanValue, setScanValue] = useState("");
   const [lastScanned, setLastScanned] = useState<{ siswa: SiswaRow; status: 'success' | 'warning' | 'error'; message: string; time: string } | null>(null);
@@ -62,12 +63,23 @@ function ScanTab() {
         const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
 
         setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: { status: statusAbsen, jam: timeStr } }));
-        setLastScanned({ 
-          siswa, 
-          status: isTerlambat ? 'warning' : 'success', 
-          message: isTerlambat ? "Terlambat" : "Berhasil Hadir", 
-          time: timeStr 
+        setLastScanned({
+          siswa,
+          status: isTerlambat ? 'warning' : 'success',
+          message: isTerlambat ? "Terlambat" : "Berhasil Hadir",
+          time: timeStr
         });
+
+        if (isTerlambat && siswa.waliHp) {
+          enqueue({
+            phone: siswa.waliHp,
+            nama_penerima: siswa.waliNama || `Wali dari ${siswa.nama}`,
+            pesan: waTemplate.absensiTerlambat(siswa.nama, siswa.kelas, timeStr),
+            jenis: "absensi",
+            ref_id: siswa.nis,
+            priority: 1,
+          });
+        }
       }
     } else {
       setLastScanned({
@@ -286,27 +298,25 @@ function ManualTab() {
 
   const todayStr = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
-  const handleConfirm = async (sendWA: boolean = false) => {
+  const handleConfirm = async () => {
     try {
-      // Kirim notifikasi WA queue untuk siswa Alpa jika dicentang
+      // Kirim WA otomatis ke wali siswa Alpa
       let waCount = 0;
-      if (sendWA) {
-        const alpaStudents = targetSiswa.filter(s => absensiSiswaHariIni[s.nis]?.status === "Alpa" && s.waliHp);
-        if (alpaStudents.length > 0) {
-          const payloads = alpaStudents.map(s => ({
-            phone: s.waliHp,
-            nama_penerima: s.waliNama || `Wali dari ${s.nama}`,
-            pesan: waTemplate.absensiAlpa(s.nama, s.kelas, todayStr),
-            jenis: "absensi" as const,
-            ref_id: s.nis,
-            priority: 1,
-          }));
-          const res = await enqueueBulk(payloads);
-          if (res.ok) {
-            waCount = res.count;
-          } else {
-            toast.error(`Gagal kirim antrean WA: ${res.error ?? "unknown error"}`);
-          }
+      const alpaStudents = targetSiswa.filter(s => absensiSiswaHariIni[s.nis]?.status === "Alpa" && s.waliHp);
+      if (alpaStudents.length > 0) {
+        const payloads = alpaStudents.map(s => ({
+          phone: s.waliHp,
+          nama_penerima: s.waliNama || `Wali dari ${s.nama}`,
+          pesan: waTemplate.absensiAlpa(s.nama, s.kelas, todayStr),
+          jenis: "absensi" as const,
+          ref_id: s.nis,
+          priority: 1,
+        }));
+        const res = await enqueueBulk(payloads);
+        if (res.ok) {
+          waCount = res.count;
+        } else {
+          toast.error(`Gagal kirim antrean WA: ${res.error ?? "unknown error"}`);
         }
       }
 
@@ -339,7 +349,7 @@ function ManualTab() {
     if (chips.Belum > 0) {
       setShowModal(true);
     } else {
-      handleConfirm(false);
+      handleConfirm();
     }
   };
 

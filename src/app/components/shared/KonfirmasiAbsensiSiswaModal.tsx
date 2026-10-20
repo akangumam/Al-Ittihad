@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { X, AlertTriangle, MessageSquare, ExternalLink, Loader2 } from "lucide-react";
+import { X, AlertTriangle, MessageSquare, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
 import { SiswaRow } from "@/data/siswa";
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
   kelasFilter: string;
   targetSiswa: SiswaRow[];
   absensiSiswaHariIni: Record<string, { status: string; jam: string }>;
-  onConfirm: (sendWA: boolean) => Promise<void>;
+  onConfirm: () => Promise<void>;
 }
 
 export function KonfirmasiAbsensiSiswaModal({
@@ -19,7 +19,6 @@ export function KonfirmasiAbsensiSiswaModal({
   absensiSiswaHariIni,
   onConfirm,
 }: Props) {
-  const [sendWA, setSendWA] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const chips = useMemo(() => {
@@ -53,7 +52,7 @@ export function KonfirmasiAbsensiSiswaModal({
   const handleSave = async () => {
     try {
       setIsSubmitting(true);
-      await onConfirm(sendWA);
+      await onConfirm();
       onClose();
     } finally {
       setIsSubmitting(false);
@@ -127,33 +126,24 @@ export function KonfirmasiAbsensiSiswaModal({
             </div>
           </div>
 
-          {/* Opsi WA hanya bila ADA siswa yang berstatus Alpa */}
+          {/* Info WA otomatis untuk siswa Alpa */}
           {alpaStudents.length > 0 && (
             <div className="rounded-xl border border-[#D1FADF] bg-[#F5FBF7] p-3.5 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#25D366] text-white flex items-center justify-center shrink-0">
-                    <MessageSquare size={14} />
-                  </div>
-                  <div>
-                    <span className="text-xs font-semibold text-[#166534]">
-                      Notifikasi WhatsApp ke Wali Siswa Alpa
-                    </span>
-                    <p className="text-[11px] text-[#227244]">
-                      {alpaStudents.length} siswa ditandai Alpa di tabel
-                    </p>
-                  </div>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#25D366] text-white flex items-center justify-center shrink-0">
+                  <MessageSquare size={14} />
                 </div>
-
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={sendWA}
-                    onChange={(e) => setSendWA(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded text-[#3E8A2F] accent-[#3E8A2F] cursor-pointer"
-                  />
-                  <span className="text-xs font-semibold text-[#166534]">Kirim Antrean WA</span>
-                </label>
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-[#166534]">
+                      Notifikasi WA otomatis ke wali siswa Alpa
+                    </span>
+                    <CheckCircle2 size={13} className="text-[#3E8A2F]" />
+                  </div>
+                  <p className="text-[11px] text-[#227244]">
+                    {alpaStudents.length} pesan akan diantrekan ke WAHA
+                  </p>
+                </div>
               </div>
 
               <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
