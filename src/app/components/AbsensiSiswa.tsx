@@ -33,11 +33,14 @@ function ScanTab() {
     return () => window.removeEventListener("click", focusInput);
   }, []);
 
+  // Ref agar camera callback selalu pakai processScan terbaru (hindari stale closure)
+  const processScanRef = useRef<(text: string) => void>(() => {});
+
   const processScan = (scannedText: string) => {
     // Format QR Card: "NAMA_SEKOLAH|NIS|Nama" (contoh: "MTS AL-ITTIHAD PEDALEMAN|2024-0089|Ahmad")
-    let nis = scannedText;
-    if (scannedText.includes("|")) {
-      nis = scannedText.split("|")[1];
+    let nis = scannedText.trim();
+    if (nis.includes("|")) {
+      nis = nis.split("|")[1].trim();
     }
     
     const siswa = siswaList.find(s => s.nis === nis);
@@ -107,6 +110,9 @@ function ScanTab() {
     setScanValue("");
   };
 
+  // Selalu update ref ke versi terbaru agar closure kamera tidak basi
+  useEffect(() => { processScanRef.current = processScan; });
+
   // Initialize Html5Qrcode
   useEffect(() => {
     if (lastScanned) return;
@@ -122,7 +128,7 @@ function ScanTab() {
           { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
           (decodedText) => {
             if (isComponentMounted) {
-              processScan(decodedText);
+              processScanRef.current(decodedText); // selalu fresh
               html5QrCode?.stop().catch(() => {});
             }
           },
