@@ -1322,7 +1322,7 @@ function AlumniPanel() {
       {selectedAlumni && <AlumniSheet alumni={selectedAlumni} onClose={() => setSelectedAlumni(null)} />}
       {isAdding && (
         <AlumniFormSheet onClose={() => setIsAdding(false)} onSave={form => {
-          addAlumni({ id: Date.now(), inits: form.nama.substring(0, 2).toUpperCase(), ...form } as AlumniRow);
+          addAlumni({ inits: form.nama.substring(0, 2).toUpperCase(), ...form });
           setIsAdding(false);
         }} />
       )}
@@ -1972,13 +1972,11 @@ export function Siswa() {
           onShowCard={() => { if (selectedSiswa) setSelectedCardSiswa(selectedSiswa); }}
           onSave={(form) => {
             if (isAddingSiswa) {
-              const newSiswa: SiswaRow = {
-                id: Date.now(),
+              addSiswa({
                 statusTagihan: "Lunas",
                 ...form,
                 inits: form.nama.substring(0, 2).toUpperCase(),
-              };
-              addSiswa(newSiswa);
+              });
               toast.success(`Siswa ${form.nama} berhasil ditambahkan`);
             } else if (selectedSiswa) {
               updateSiswa(selectedSiswa.id, {
@@ -2260,9 +2258,7 @@ export function Siswa() {
         <MutasiMasukSheet
           onClose={() => setShowMutasiMasuk(false)}
           onSave={(data) => {
-            const id = Date.now();
             addSiswa({
-              id,
               nama: data.nama,
               nis: data.nis,
               nisn: "",
@@ -2282,7 +2278,7 @@ export function Siswa() {
               kecamatan: "",
             });
             addMutasi({
-              id: `mut-${id}`,
+              id: `mut-${Date.now()}`,
               nis: data.nis,
               nama: data.nama,
               kelas: data.kelas,

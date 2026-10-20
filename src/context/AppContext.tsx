@@ -5,6 +5,12 @@ import { useAuth } from "@/context/AuthContext";
 import { fmt } from "@/lib/formatters";
 import { isGhostEmail } from "@/lib/ghost";
 import {
+  loadSiswaFromDB, loadAlumniFromDB,
+  insertSiswaDB, updateSiswaDB, deleteSiswaDB, bulkDeleteSiswaDB, bulkUpdateSiswaDB, graduateSiswaDB,
+  insertAlumniDB, updateAlumniDB, deleteAlumniDB,
+} from "@/lib/supabase-siswa";
+import { toast } from "sonner";
+import {
   initialTagihanSiswa,
   initialTransaksiPembayaran,
   type TagihanSiswa,
@@ -25,14 +31,15 @@ interface AppContextValue {
   tunggakanCount: number;
   absensiCount: number;
   siswaList: SiswaRow[];
-  addSiswa: (siswa: SiswaRow) => void;
+  siswaLoading: boolean;
+  addSiswa: (siswa: Omit<SiswaRow, "id">) => void;
   updateSiswa: (id: number, data: Partial<SiswaRow>) => void;
   deleteSiswa: (id: number) => void;
   bulkUpdateSiswa: (ids: number[], data: Partial<SiswaRow>) => void;
   bulkDeleteSiswa: (ids: number[]) => void;
   graduateSiswa: (ids: number[], tahunLulus: string) => void;
   alumniList: AlumniRow[];
-  addAlumni: (alumni: AlumniRow) => void;
+  addAlumni: (alumni: Omit<AlumniRow, "id">) => void;
   updateAlumni: (id: number, data: Partial<AlumniRow>) => void;
   deleteAlumni: (id: number) => void;
   guruList: GuruRow[];
@@ -105,8 +112,9 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   // tahunAjaran is derived from appSettings — see below
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [siswaList, setSiswaList] = useState<SiswaRow[]>(siswaData);
-  const [alumniList, setAlumniList] = useState<AlumniRow[]>(alumniData);
+  const [siswaList, setSiswaList] = useState<SiswaRow[]>([]);
+  const [siswaLoading, setSiswaLoading] = useState(true);
+  const [alumniList, setAlumniList] = useState<AlumniRow[]>([]);
   const [guruList, setGuruList] = useState<GuruRow[]>(guruData);
   const [kelasList, setKelasList] = useState<KelasRow[]>(kelasData);
   const [jadwalList, setJadwalList] = useState<JadwalRow[]>(jadwalData);
@@ -186,10 +194,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        let savedSiswa, savedAlumni, savedAbsensi, savedGuru;
+        let savedAbsensi, savedGuru;
         if (isElectron) {
-          savedSiswa = await (window as any).electronAPI.getStoreValue("alittihad_siswa");
-          savedAlumni = await (window as any).electronAPI.getStoreValue("alittihad_alumni");
           savedAbsensi = await (window as any).electronAPI.getStoreValue("alittihad_absensi_siswa");
           savedGuru = await (window as any).electronAPI.getStoreValue("alittihad_guru");
         } else {
@@ -197,8 +203,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const CLEAN_VERSION = "2026_clean_v2";
           const currentCleanV = localStorage.getItem("alittihad_db_v");
           if (currentCleanV !== CLEAN_VERSION) {
-            localStorage.removeItem("alittihad_siswa");
-            localStorage.removeItem("alittihad_alumni");
             localStorage.removeItem("alittihad_guru");
             localStorage.removeItem("alittihad_jadwal");
             localStorage.removeItem("alittihad_jadwal_overrides");
@@ -215,14 +219,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             localStorage.setItem("alittihad_db_v", CLEAN_VERSION);
           }
 
-          const s1 = localStorage.getItem("alittihad_siswa");
-          if (s1) {
-            try {
-              const parsed = JSON.parse(s1);
-              if (Array.isArray(parsed)) savedSiswa = parsed;
-            } catch {}
-          }
-          const s2 = localStorage.getItem("alittihad_alumni");
           const s3 = localStorage.getItem("alittihad_absensi_siswa");
           const s4 = localStorage.getItem("alittihad_tagihan");
           const s5 = localStorage.getItem("alittihad_transaksi");
@@ -230,12 +226,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const s8 = localStorage.getItem("alittihad_guru");
           const s9 = localStorage.getItem("alittihad_kelas");
           const s10 = localStorage.getItem("alittihad_jadwal_overrides");
-          if (s2) {
-            try {
-              const parsed = JSON.parse(s2);
-              if (Array.isArray(parsed)) savedAlumni = parsed;
-            } catch {}
-          }
           if (s3) savedAbsensi = JSON.parse(s3);
           if (s4) {
             try {
@@ -295,8 +285,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        if (savedSiswa) setSiswaList(savedSiswa);
-        if (savedAlumni) setAlumniList(savedAlumni);
         if (savedGuru) setGuruList(savedGuru);
         if (savedAbsensi) {
           const today = new Date().toISOString().split("T")[0];
@@ -349,20 +337,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (isElectron) {
-      (window as any).electronAPI.setStoreValue("alittihad_siswa", siswaList);
-    } else {
-      localStorage.setItem("alittihad_siswa", JSON.stringify(siswaList));
-    }
-  }, [siswaList, isElectron]);
-
-  useEffect(() => {
-    if (isElectron) {
-      (window as any).electronAPI.setStoreValue("alittihad_alumni", alumniList);
-    } else {
-      localStorage.setItem("alittihad_alumni", JSON.stringify(alumniList));
-    }
-  }, [alumniList, isElectron]);
+    setSiswaLoading(true);
+    Promise.all([loadSiswaFromDB(), loadAlumniFromDB()])
+      .then(([siswa, alumni]) => {
+        setSiswaList(siswa);
+        setAlumniList(alumni);
+      })
+      .catch(e => console.error("Failed to load siswa/alumni from Supabase", e))
+      .finally(() => setSiswaLoading(false));
+  }, []);
 
   useEffect(() => {
     if (isElectron) {
@@ -608,43 +591,85 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setKelasList(prev => prev.filter(k => k.id !== id));
   };
 
-  const addSiswa = (siswa: SiswaRow) => setSiswaList(prev => [siswa, ...prev]);
+  const addSiswa = (siswa: Omit<SiswaRow, "id">) => {
+    const tempId = Date.now();
+    const optimistic: SiswaRow = { ...siswa, id: tempId } as SiswaRow;
+    setSiswaList(prev => [optimistic, ...prev]);
+    insertSiswaDB(siswa).then(saved => {
+      setSiswaList(prev => prev.map(s => s.id === tempId ? saved : s));
+    }).catch(() => {
+      setSiswaList(prev => prev.filter(s => s.id !== tempId));
+      toast.error("Gagal menyimpan data siswa");
+    });
+  };
   const updateSiswa = (id: number, data: Partial<SiswaRow>) => {
     setSiswaList(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+    updateSiswaDB(id, data).catch(() => {
+      toast.error("Gagal memperbarui data siswa");
+      loadSiswaFromDB().then(setSiswaList).catch(() => {});
+    });
   };
   const deleteSiswa = (id: number) => {
     setSiswaList(prev => prev.filter(s => s.id !== id));
+    deleteSiswaDB(id).catch(() => {
+      toast.error("Gagal menghapus data siswa");
+      loadSiswaFromDB().then(setSiswaList).catch(() => {});
+    });
   };
 
   const bulkUpdateSiswa = (ids: number[], data: Partial<SiswaRow>) => {
     setSiswaList(prev => prev.map(s => ids.includes(s.id) ? { ...s, ...data } : s));
+    bulkUpdateSiswaDB(ids, data).catch(() => {
+      toast.error("Gagal memperbarui data siswa");
+      loadSiswaFromDB().then(setSiswaList).catch(() => {});
+    });
   };
 
   const bulkDeleteSiswa = (ids: number[]) => {
     setSiswaList(prev => prev.filter(s => !ids.includes(s.id)));
+    bulkDeleteSiswaDB(ids).catch(() => {
+      toast.error("Gagal menghapus data siswa");
+      loadSiswaFromDB().then(setSiswaList).catch(() => {});
+    });
   };
 
   const graduateSiswa = (ids: number[], tahunLulus: string) => {
     const toGraduate = siswaList.filter(s => ids.includes(s.id));
     if (toGraduate.length === 0) return;
 
-    const newAlumni: AlumniRow[] = toGraduate.map(s => ({
-      ...s,
-      tahunLulus,
-      angkatan: parseInt(tahunLulus, 10),
-      keterangan: "Lulus Reguler"
-    }));
-
-    setAlumniList(prev => [...newAlumni, ...prev]);
     setSiswaList(prev => prev.filter(s => !ids.includes(s.id)));
+    graduateSiswaDB(toGraduate, tahunLulus).then(newAlumni => {
+      setAlumniList(prev => [...newAlumni, ...prev]);
+    }).catch(() => {
+      toast.error("Gagal meluluskan siswa");
+      loadSiswaFromDB().then(setSiswaList).catch(() => {});
+    });
   };
 
-  const addAlumni = (alumni: AlumniRow) => setAlumniList(prev => [alumni, ...prev]);
+  const addAlumni = (alumni: Omit<AlumniRow, "id">) => {
+    const tempId = Date.now();
+    const optimistic: AlumniRow = { ...alumni, id: tempId } as AlumniRow;
+    setAlumniList(prev => [optimistic, ...prev]);
+    insertAlumniDB(alumni).then(saved => {
+      setAlumniList(prev => prev.map(a => a.id === tempId ? saved : a));
+    }).catch(() => {
+      setAlumniList(prev => prev.filter(a => a.id !== tempId));
+      toast.error("Gagal menyimpan data alumni");
+    });
+  };
   const updateAlumni = (id: number, data: Partial<AlumniRow>) => {
     setAlumniList(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+    updateAlumniDB(id, data).catch(() => {
+      toast.error("Gagal memperbarui data alumni");
+      loadAlumniFromDB().then(setAlumniList).catch(() => {});
+    });
   };
   const deleteAlumni = (id: number) => {
     setAlumniList(prev => prev.filter(a => a.id !== id));
+    deleteAlumniDB(id).catch(() => {
+      toast.error("Gagal menghapus data alumni");
+      loadAlumniFromDB().then(setAlumniList).catch(() => {});
+    });
   };
 
   const addGuru = (guru: GuruRow) => setGuruList(prev => [guru, ...prev]);
@@ -810,7 +835,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         role, 
         sidebarCollapsed, setSidebarCollapsed,
         tunggakanCount, absensiCount,
-        siswaList, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa,
+        siswaList, siswaLoading, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa,
         alumniList, addAlumni, updateAlumni, deleteAlumni,
         guruList, addGuru, updateGuru, deleteGuru,
         kelasList, addKelas, updateKelas, deleteKelas,

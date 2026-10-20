@@ -462,7 +462,6 @@ export function Alumni() {
           onClose={() => setIsAdding(false)} 
           onSave={(form) => {
             addAlumni({
-              id: Date.now(),
               nama: form.nama!,
               nis: form.nis!,
               nisn: form.nisn || "",
@@ -471,7 +470,7 @@ export function Alumni() {
               angkatan: form.angkatan!,
               keterangan: form.keterangan || "",
               inits: form.nama!.substring(0,2).toUpperCase()
-            } as AlumniRow);
+            });
             setIsAdding(false);
           }} 
         />
