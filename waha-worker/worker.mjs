@@ -131,18 +131,35 @@ async function checkSession() {
   try {
     const headers = {};
     if (WAHA_API_KEY) headers["X-Api-Key"] = WAHA_API_KEY;
-    const res = await fetch(`${WAHA_URL}/api/sessions/${WAHA_SESSION}`, {
-      headers,
-      signal: AbortSignal.timeout(5_000),
+
+    // Coba endpoint v2 dulu, fallback ke list sessions
+    let status = null;
+    const r1 = await fetch(`${WAHA_URL}/api/sessions/${WAHA_SESSION}`, {
+      headers, signal: AbortSignal.timeout(5_000),
     });
-    if (!res.ok) {
-      log("warn", `[session] Status session "${WAHA_SESSION}": HTTP ${res.status} — pastikan WAHA sudah terhubung ke WhatsApp`);
-      return false;
+    if (r1.ok) {
+      const d = await r1.json();
+      status = d?.status ?? d?.state ?? null;
+    } else {
+      // Fallback: GET /api/sessions (list) — cari session yang cocok
+      const r2 = await fetch(`${WAHA_URL}/api/sessions`, {
+        headers, signal: AbortSignal.timeout(5_000),
+      });
+      if (r2.ok) {
+        const list = await r2.json();
+        const found = Array.isArray(list)
+          ? list.find(s => s.name === WAHA_SESSION || s.id === WAHA_SESSION)
+          : null;
+        status = found?.status ?? found?.state ?? null;
+      }
     }
-    const data = await res.json();
-    const status = data?.status ?? data?.state ?? "UNKNOWN";
-    log("info", `[session] "${WAHA_SESSION}" status: ${status}`);
-    return status === "WORKING";
+
+    if (status) {
+      log("info", `[session] "${WAHA_SESSION}" status: ${status}`);
+      return status === "WORKING";
+    }
+    log("warn", `[session] Tidak bisa membaca status session "${WAHA_SESSION}"`);
+    return false;
   } catch (err) {
     log("error", "[session] Tidak bisa terhubung ke WAHA:", err.message);
     return false;
