@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Html5Qrcode } from "html5-qrcode";
-import { QrCode, CalendarDays, Search, ChevronDown, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { QrCode, CalendarDays, Search, ChevronDown, CheckCircle2, AlertCircle, Info, SwitchCamera } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
@@ -15,8 +15,10 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 // ─── Scan Tab ────────────────────────────────────────────────────────────────
 function ScanTab() {
   const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, appSettings } = useAppContext();
+  const isMobile = useIsMobile();
   const [scanValue, setScanValue] = useState("");
   const [lastScanned, setLastScanned] = useState<{ siswa: SiswaRow; status: 'success' | 'warning' | 'error'; message: string; time: string } | null>(null);
+  const [cameraMode, setCameraMode] = useState<"user" | "environment">(isMobile ? "environment" : "user");
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Keep focus on hidden input for physical scanner
@@ -100,7 +102,7 @@ function ScanTab() {
       try {
         html5QrCode = new Html5Qrcode("reader");
         await html5QrCode.start(
-          { facingMode: "user" }, // Use front-facing camera for laptops
+          { facingMode: cameraMode },
           { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
           (decodedText) => {
             if (isComponentMounted) {
@@ -108,7 +110,7 @@ function ScanTab() {
               html5QrCode?.stop().catch(() => {});
             }
           },
-          () => {} // ignore frequent parse errors
+          () => {}
         );
       } catch {
         // Camera unavailable — user sees the empty scanner placeholder
@@ -128,7 +130,7 @@ function ScanTab() {
         html5QrCode.stop().catch(() => {});
       }
     };
-  }, [lastScanned]);
+  }, [lastScanned, cameraMode]);
 
   let statusColor = '#DC2626'; // error
   let statusBg = '#FEF2F2';
@@ -148,11 +150,9 @@ function ScanTab() {
 
   return (
     <div className="flex flex-col items-center min-h-[600px] bg-white rounded-xl py-8 px-4 relative" style={{ border: "1px solid #E2E8DE" }}>
-      <style>{`
-        #reader video {
-          transform: scaleX(-1) !important;
-        }
-      `}</style>
+      {cameraMode === "user" && (
+        <style>{`#reader video { transform: scaleX(-1) !important; }`}</style>
+      )}
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-lg mt-4">
         <form onSubmit={handleScan} className="opacity-0 absolute -top-10">
           <input ref={inputRef} type="text" value={scanValue} onChange={(e) => setScanValue(e.target.value)} autoFocus />
@@ -160,7 +160,19 @@ function ScanTab() {
 
         {!lastScanned ? (
           <div className="flex flex-col items-center text-center animate-in fade-in zoom-in duration-300 w-full">
-            <div id="reader" className="w-full rounded-2xl overflow-hidden mb-6" style={{ border: "2px solid #E2E8DE" }}></div>
+            <div className="relative w-full mb-6">
+              <div id="reader" className="w-full rounded-2xl overflow-hidden" style={{ border: "2px solid #E2E8DE" }}></div>
+              {isMobile && (
+                <button
+                  onClick={() => setCameraMode(m => m === "user" ? "environment" : "user")}
+                  className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/50 text-white text-xs font-medium backdrop-blur-sm"
+                  title="Ganti kamera"
+                >
+                  <SwitchCamera size={14} />
+                  {cameraMode === "environment" ? "Belakang" : "Depan"}
+                </button>
+              )}
+            </div>
             <h3 className="text-2xl font-bold text-[#1C2517] mb-2">Arahkan Kartu ke Kamera</h3>
             <p className="text-[#6B7769] text-sm">Atau gunakan alat Scanner Fisik (kursor otomatis sudah standby).</p>
           </div>
@@ -275,48 +287,52 @@ function ManualTab() {
   const todayStr = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
   const handleConfirm = async (sendWA: boolean = false) => {
-    // Kirim notifikasi WA queue untuk siswa Alpa jika dicentang
-    let waCount = 0;
-    if (sendWA) {
-      const alpaStudents = targetSiswa.filter(s => absensiSiswaHariIni[s.nis]?.status === "Alpa" && s.waliHp);
-      if (alpaStudents.length > 0) {
-        const payloads = alpaStudents.map(s => ({
-          phone: s.waliHp,
-          nama_penerima: s.waliNama || `Wali dari ${s.nama}`,
-          pesan: waTemplate.absensiAlpa(s.nama, s.kelas, todayStr),
-          jenis: "absensi" as const,
-          ref_id: s.nis,
-          priority: 1,
-        }));
-        const res = await enqueueBulk(payloads);
-        if (res.ok) {
-          waCount = res.count;
-        } else {
-          toast.error(`Gagal kirim antrean WA: ${res.error ?? "unknown error"}`);
+    try {
+      // Kirim notifikasi WA queue untuk siswa Alpa jika dicentang
+      let waCount = 0;
+      if (sendWA) {
+        const alpaStudents = targetSiswa.filter(s => absensiSiswaHariIni[s.nis]?.status === "Alpa" && s.waliHp);
+        if (alpaStudents.length > 0) {
+          const payloads = alpaStudents.map(s => ({
+            phone: s.waliHp,
+            nama_penerima: s.waliNama || `Wali dari ${s.nama}`,
+            pesan: waTemplate.absensiAlpa(s.nama, s.kelas, todayStr),
+            jenis: "absensi" as const,
+            ref_id: s.nis,
+            priority: 1,
+          }));
+          const res = await enqueueBulk(payloads);
+          if (res.ok) {
+            waCount = res.count;
+          } else {
+            toast.error(`Gagal kirim antrean WA: ${res.error ?? "unknown error"}`);
+          }
         }
       }
+
+      // Catat log aktivitas
+      let hadir = 0, terlambat = 0, izin = 0, sakit = 0, alpa = 0;
+      targetSiswa.forEach(s => {
+        const st = absensiSiswaHariIni[s.nis]?.status;
+        if (st === "Hadir") hadir++;
+        else if (st === "Terlambat") terlambat++;
+        else if (st === "Izin") izin++;
+        else if (st === "Sakit") sakit++;
+        else if (st === "Alpa") alpa++;
+      });
+
+      logActivity({
+        tipe: "Absensi Siswa",
+        deskripsi: `Simpan absensi ${kelasFilter}: ${hadir} Hadir, ${terlambat} Terlambat, ${izin} Izin, ${sakit} Sakit, ${alpa} Alpa${waCount > 0 ? ` (${waCount} WA diantrekan)` : ""}`,
+        ref: "—",
+      });
+
+      toast.success(
+        `Presensi siswa berhasil disimpan (${targetSiswa.length - chips.Belum} tercatat)${waCount > 0 ? ` · ${waCount} notifikasi WA diantrekan` : ""}.`
+      );
+    } catch {
+      toast.error("Gagal menyimpan absensi. Coba lagi.");
     }
-
-    // Catat log aktivitas
-    let hadir = 0, terlambat = 0, izin = 0, sakit = 0, alpa = 0;
-    targetSiswa.forEach(s => {
-      const st = absensiSiswaHariIni[s.nis]?.status;
-      if (st === "Hadir") hadir++;
-      else if (st === "Terlambat") terlambat++;
-      else if (st === "Izin") izin++;
-      else if (st === "Sakit") sakit++;
-      else if (st === "Alpa") alpa++;
-    });
-
-    logActivity({
-      tipe: "Absensi Siswa",
-      deskripsi: `Simpan absensi ${kelasFilter}: ${hadir} Hadir, ${terlambat} Terlambat, ${izin} Izin, ${sakit} Sakit, ${alpa} Alpa${waCount > 0 ? ` (${waCount} WA diantrekan)` : ""}`,
-      ref: "—",
-    });
-
-    toast.success(
-      `Presensi siswa berhasil disimpan (${targetSiswa.length - chips.Belum} tercatat)${waCount > 0 ? ` · ${waCount} notifikasi WA diantrekan` : ""}.`
-    );
   };
 
   const handleSaveClick = () => {
