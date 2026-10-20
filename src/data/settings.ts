@@ -7,7 +7,7 @@ export const defaultSettings: AppSettings = {
   kapasitasKelas: 32,
   formatKuitansi: "KW/{TAHUN}/{BULAN}/{URUT}",
   namaMadrasah: "MTs Al-Ittihad Pedaleman",
-  alamatMadrasah: "Jl. Pedaleman, Babakan, Cirebon",
+  alamatMadrasah: "Jl. Syekh Nawawi Kp. Pesisir Pedaleman, Kec. Tanara, Kab. Serang, Prov. Banten 42194",
   kirimWA: true,
   wahaEnabled: false,
   wahaUrl: "",

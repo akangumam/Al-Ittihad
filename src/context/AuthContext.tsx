@@ -24,6 +24,17 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// ── Dev-only screenshot bypass ────────────────────────────────────────────────
+const DEV_SKIP = import.meta.env.VITE_DEV_SKIP_AUTH === "true";
+const DEV_USER: AuthUser = {
+  id: "dev-bypass",
+  email: "dev@alittihad.test",
+  nama: "Dev Admin",
+  avatar: "",
+  role: "Admin",
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function sessionToUser(session: Session | null): Promise<AuthUser | null> {
   if (!session?.user) return null;
   const u = session.user;
@@ -45,10 +56,12 @@ async function sessionToUser(session: Session | null): Promise<AuthUser | null> 
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]       = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]       = useState<AuthUser | null>(DEV_SKIP ? DEV_USER : null);
+  const [loading, setLoading] = useState(!DEV_SKIP);
 
   useEffect(() => {
+    if (DEV_SKIP) return; // bypass aktif — skip semua Supabase calls
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(await sessionToUser(session));
       setLoading(false);
