@@ -1,0 +1,18 @@
+[Unit]
+Description=WAHA Worker — Al-Ittihad WA Queue Processor
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/waha-worker
+EnvironmentFile=/opt/waha-worker/.env
+ExecStart=/usr/bin/node /opt/waha-worker/worker.mjs
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=waha-worker
+
+[Install]
+WantedBy=multi-user.target

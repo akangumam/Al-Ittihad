@@ -1,0 +1,15 @@
+{
+  "name": "waha-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Worker polling wa_queue Supabase → kirim via WAHA API",
+  "scripts": {
+    "start": "node worker.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
