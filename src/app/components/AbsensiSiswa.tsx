@@ -71,7 +71,7 @@ function ScanTab() {
           time: timeStr
         });
 
-        if (isTerlambat && siswa.waliHp) {
+        if (isTerlambat && siswa.waliHp && appSettings.wahaEnabled) {
           enqueue({
             phone: siswa.waliHp,
             nama_penerima: siswa.waliNama || `Wali dari ${siswa.nama}`,
@@ -306,7 +306,9 @@ function ManualTab() {
     try {
       // Kirim WA otomatis ke wali siswa Alpa
       let waCount = 0;
-      const alpaStudents = targetSiswa.filter(s => absensiSiswaHariIni[s.nis]?.status === "Alpa" && s.waliHp);
+      const alpaStudents = appSettings.wahaEnabled
+        ? targetSiswa.filter(s => absensiSiswaHariIni[s.nis]?.status === "Alpa" && s.waliHp)
+        : [];
       if (alpaStudents.length > 0) {
         const payloads = alpaStudents.map(s => ({
           phone: s.waliHp,
