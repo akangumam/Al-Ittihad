@@ -23,6 +23,7 @@ import { Anggaran } from "@/app/components/Anggaran";
 import { Pengaturan } from "@/app/components/Pengaturan";
 import { LogAktivitas } from "@/app/components/LogAktivitas";
 import { Pengguna } from "@/app/components/Pengguna";
+import { WABlast } from "@/app/components/WABlast";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { Role } from "@/types";
 
@@ -160,6 +161,10 @@ export const router = createBrowserRouter([
       {
         path: "sistem/pengaturan",
         element: <RequireRole roles={["Admin"]}><Pengaturan /></RequireRole>,
+      },
+      {
+        path: "sistem/wa-blast",
+        element: <RequireRole roles={["Admin"]}><WABlast /></RequireRole>,
       },
     ],
   },

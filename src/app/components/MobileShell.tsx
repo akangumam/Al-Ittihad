@@ -5,7 +5,7 @@ import {
   LayoutDashboard, CreditCard, AlertTriangle, ClipboardList, MoreHorizontal,
   Calendar, Users, GraduationCap, BookOpen,
   FileText, Landmark, BarChart3, Calculator,
-  Shield, Activity, Settings, IdCard, Archive, UserCheck
+  Shield, Activity, Settings, IdCard, Archive, UserCheck, Megaphone,
 } from "lucide-react";
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
@@ -82,9 +82,10 @@ const MENU_GROUPS: Array<{
   {
     group: "SISTEM",
     items: [
-      { Icon: Shield,   label: "Pengguna & Akses", path: "/sistem/pengguna",      roles: ["Admin"] },
-      { Icon: Activity, label: "Log Aktivitas",    path: "/sistem/log-aktivitas", roles: ["Admin"] },
-      { Icon: Settings, label: "Pengaturan",       path: "/sistem/pengaturan",    roles: ["Admin"] },
+      { Icon: Shield,    label: "Pengguna & Akses", path: "/sistem/pengguna",      roles: ["Admin"] },
+      { Icon: Activity,  label: "Log Aktivitas",    path: "/sistem/log-aktivitas", roles: ["Admin"] },
+      { Icon: Megaphone, label: "WA Blast",          path: "/sistem/wa-blast",      roles: ["Admin"] },
+      { Icon: Settings,  label: "Pengaturan",        path: "/sistem/pengaturan",    roles: ["Admin"] },
     ],
   },
 ];

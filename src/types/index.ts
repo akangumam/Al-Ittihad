@@ -65,6 +65,16 @@ export interface AppSettings {
   wahaUrl: string;       // e.g. "https://waha.alittihadpedaleman.web.id"
   wahaApiKey: string;
   wahaSession: string;   // default "alittihad"
+  waTemplates?: WATemplates;
+}
+
+export interface WATemplates {
+  absensiAlpa: string;
+  absensiTerlambat: string;
+  pembayaranLunas: string;
+  tagihanJatuhTempo: string;
+  tunggakanKritis: string;
+  blast: string;
 }
 
 

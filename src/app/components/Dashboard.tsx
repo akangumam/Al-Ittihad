@@ -1,14 +1,17 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ArrowUpRight, ArrowDownRight, Minus,
   TrendingUp, Wallet, AlertTriangle, MessageCircle, Banknote,
+  Send, CheckCircle2, XCircle, Clock, Zap,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { PieChart, Pie, Cell } from "recharts";
 import { fmt, fmtCompact, fmtJt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { akunData, transaksiData } from "@/data/keuangan";
+import { supabase } from "@/lib/supabase";
 import type { AgingBadge } from "@/types";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -460,6 +463,95 @@ function MobileChart({ chartData6 }: { chartData6: ChartEntry[] }) {
   );
 }
 
+// ─── WAHA Widget ──────────────────────────────────────────────────────────────
+
+interface WAStats { sent: number; failed: number; pending: number; total: number }
+
+function WAHAWidget() {
+  const { appSettings } = useAppContext();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState<WAStats | null>(null);
+
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    supabase
+      .from("wa_queue")
+      .select("status")
+      .gte("created_at", today.toISOString())
+      .then(({ data }) => {
+        if (!data) return;
+        setStats({
+          sent:    data.filter(r => r.status === "sent").length,
+          failed:  data.filter(r => r.status === "failed").length,
+          pending: data.filter(r => ["pending", "sending"].includes(r.status)).length,
+          total:   data.length,
+        });
+      });
+  }, []);
+
+  const enabled = appSettings.wahaEnabled;
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden" style={{ border: "1px solid #E2E8DE" }}>
+      <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid #E2E8DE" }}>
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#E7FBF0" }}>
+            <MessageCircle size={16} style={{ color: "#25D366" }} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-[#1C2517]">WhatsApp Notifications</p>
+            <p className="text-xs text-[#6B7769]">Statistik antrian hari ini</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[11px] font-semibold px-2.5 py-1 rounded-full"
+            style={enabled
+              ? { background: "#DCFCE7", color: "#166534" }
+              : { background: "#F3F4F6", color: "#6B7769" }
+            }
+          >
+            {enabled ? "Aktif" : "Nonaktif"}
+          </span>
+          <button
+            onClick={() => void navigate("/sistem/wa-blast")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            style={{ background: "#3E8A2F", color: "#fff" }}
+          >
+            <Zap size={12} /> WA Blast
+          </button>
+        </div>
+      </div>
+
+      <div className="px-5 py-4">
+        {stats === null ? (
+          <p className="text-sm text-[#9CA3A0]">Memuat statistik...</p>
+        ) : stats.total === 0 ? (
+          <p className="text-sm text-[#9CA3A0]">Belum ada pesan hari ini.</p>
+        ) : (
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { label: "Terkirim",  value: stats.sent,    icon: <CheckCircle2 size={16} />, bg: "#DCFCE7", text: "#166534" },
+              { label: "Pending",   value: stats.pending, icon: <Clock size={16} />,        bg: "#FEF3C7", text: "#92400E" },
+              { label: "Gagal",     value: stats.failed,  icon: <XCircle size={16} />,      bg: "#FEE2E2", text: "#991B1B" },
+              { label: "Total",     value: stats.total,   icon: <Send size={16} />,          bg: "#EFF6FF", text: "#1E40AF" },
+            ].map(stat => (
+              <div key={stat.label} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: stat.bg }}>
+                <span style={{ color: stat.text }}>{stat.icon}</span>
+                <div>
+                  <p className="text-xl font-bold tabular-nums leading-none" style={{ color: stat.text }}>{stat.value}</p>
+                  <p className="text-[11px] font-medium mt-0.5" style={{ color: stat.text }}>{stat.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
@@ -708,6 +800,7 @@ export function Dashboard() {
         </div>
 
         <TransaksiTerbaru />
+        <WAHAWidget />
       </div>
     </>
   );

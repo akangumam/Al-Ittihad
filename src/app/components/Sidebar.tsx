@@ -5,7 +5,7 @@ import {
   ClipboardList, CreditCard, AlertTriangle, FileText, Landmark,
   BarChart3, Calculator, Shield, Activity, Settings,
   ChevronLeft, ChevronRight, UserCheck,
-  ChevronDown, Folder
+  ChevronDown, Folder, Megaphone,
 } from "lucide-react";
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
@@ -79,9 +79,10 @@ const getNavGroups = (absensiCount: number, tunggakanCount: number): NavGroup[] 
   {
     group: "SISTEM",
     items: [
-      { icon: Shield,   label: "Pengguna & Akses",  path: "/sistem/pengguna",      roles: ["Admin"] },
-      { icon: Activity, label: "Log Aktivitas",      path: "/sistem/log-aktivitas", roles: ["Admin"] },
-      { icon: Settings, label: "Pengaturan",         path: "/sistem/pengaturan",    roles: ["Admin"] },
+      { icon: Shield,    label: "Pengguna & Akses",  path: "/sistem/pengguna",      roles: ["Admin"] },
+      { icon: Activity,  label: "Log Aktivitas",      path: "/sistem/log-aktivitas", roles: ["Admin"] },
+      { icon: Megaphone, label: "WA Blast",            path: "/sistem/wa-blast",      roles: ["Admin"] },
+      { icon: Settings,  label: "Pengaturan",          path: "/sistem/pengaturan",    roles: ["Admin"] },
     ],
   },
 ];

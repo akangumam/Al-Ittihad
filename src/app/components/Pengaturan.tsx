@@ -1,9 +1,11 @@
 import { useState, useRef } from "react";
-import { Plus, MoreHorizontal, Trash2, CheckCircle2, Archive, MessageCircle, Loader2, Eye, EyeOff } from "lucide-react";
+import { Plus, MoreHorizontal, Trash2, CheckCircle2, Archive, MessageCircle, Loader2, Eye, EyeOff, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import logoEmblem from "../../imports/aliet_logo.png";
 import { useAppContext } from "@/context/AppContext";
 import { useWAQueue } from "@/hooks/useWAQueue";
+import { WA_TEMPLATE_DEFAULTS, WA_TEMPLATE_LABELS, WA_TEMPLATE_VARS, type WATemplateKey } from "@/lib/waTemplates";
+import type { WATemplates } from "@/types";
 
 
 // ─── shared helpers ───────────────────────────────────────────────────────────
@@ -625,6 +627,94 @@ function ManajemenDataCard() {
   );
 }
 
+// ─── WA Templates Card ────────────────────────────────────────────────────────
+
+const TEMPLATE_KEYS: WATemplateKey[] = [
+  "absensiAlpa", "absensiTerlambat", "pembayaranLunas",
+  "tagihanJatuhTempo", "tunggakanKritis", "blast",
+];
+
+function WATemplatesCard() {
+  const { appSettings, setAppSettings } = useAppContext();
+  const merged: WATemplates = { ...WA_TEMPLATE_DEFAULTS, ...(appSettings.waTemplates ?? {}) };
+
+  const [drafts, setDrafts] = useState<WATemplates>({ ...merged });
+  const [activeKey, setActiveKey] = useState<WATemplateKey>("absensiAlpa");
+
+  function handleSave() {
+    setAppSettings(s => ({ ...s, waTemplates: { ...drafts } }));
+    toast.success("Template pesan WA disimpan");
+  }
+
+  function handleReset(key: WATemplateKey) {
+    setDrafts(d => ({ ...d, [key]: WA_TEMPLATE_DEFAULTS[key] }));
+    toast.info("Template dikembalikan ke bawaan");
+  }
+
+  return (
+    <Card title="Template Pesan WA" onSave={handleSave}>
+      <div className="space-y-4">
+        <p className="text-xs text-[#6B7769] leading-relaxed">
+          Kustomisasi isi pesan otomatis. Gunakan placeholder dalam kurung kurawal yang akan diganti otomatis saat pengiriman.
+        </p>
+
+        {/* Tab selector */}
+        <div className="flex flex-wrap gap-1.5">
+          {TEMPLATE_KEYS.map(key => (
+            <button
+              key={key}
+              onClick={() => setActiveKey(key)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+              style={
+                activeKey === key
+                  ? { background: "#3E8A2F", color: "#fff" }
+                  : { background: "#F3F4F6", color: "#374040" }
+              }
+            >
+              {WA_TEMPLATE_LABELS[key]}
+            </button>
+          ))}
+        </div>
+
+        {/* Editor for active key */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-[#1C2517]">{WA_TEMPLATE_LABELS[activeKey]}</p>
+            <button
+              onClick={() => handleReset(activeKey)}
+              className="flex items-center gap-1 text-xs text-[#6B7769] hover:text-[#374040] transition-colors"
+            >
+              <RotateCcw size={11} /> Reset
+            </button>
+          </div>
+
+          <textarea
+            value={drafts[activeKey]}
+            onChange={e => setDrafts(d => ({ ...d, [activeKey]: e.target.value }))}
+            rows={7}
+            className="w-full rounded-lg px-3 py-2.5 text-sm text-[#1C2517] outline-none resize-none font-mono"
+            style={{ border: "1.5px solid #3E8A2F", lineHeight: 1.6 }}
+          />
+
+          {/* Placeholder legend */}
+          <div className="flex flex-wrap gap-1.5">
+            {WA_TEMPLATE_VARS[activeKey].map(v => (
+              <code
+                key={v}
+                className="px-2 py-0.5 rounded text-[11px] font-mono"
+                style={{ background: "#F0FDF4", color: "#166534", border: "1px solid #BBF7D0" }}
+              >
+                {v}
+              </code>
+            ))}
+          </div>
+          <p className="text-[11px] text-[#9CA3A0]">Klik kode di atas untuk referensi — placeholder akan diganti data real saat pesan terkirim.</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Pengaturan() {
@@ -640,6 +730,7 @@ export function Pengaturan() {
       <KeuanganCard />
       <IdentitasCard />
       <WAHACard />
+      <WATemplatesCard />
       <ManajemenDataCard />
     </div>
   );

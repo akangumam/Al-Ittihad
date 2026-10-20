@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import type { Role, AppSettings, ActivityLogEntry, MutasiRecord, ManualTransaksiRow, BankTransferRow } from "@/types";
+import { WA_TEMPLATE_DEFAULTS } from "@/lib/waTemplates";
 import { RABRow, RAB_DATA, mutasiData } from "@/data/keuangan";
 import { useAuth } from "@/context/AuthContext";
 import { fmt } from "@/lib/formatters";
@@ -176,6 +177,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     wahaUrl: "",
     wahaApiKey: "",
     wahaSession: "alittihad",
+    waTemplates: WA_TEMPLATE_DEFAULTS,
   };
   // Lazy init: read from localStorage immediately so the save effect never overwrites with stale defaults.
   // Merge with defaultAppSettings so fields added later (kirimWA, alamatMadrasah, etc.) are always populated.

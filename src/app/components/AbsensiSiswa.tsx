@@ -9,7 +9,8 @@ import { SiswaRow } from "@/data/siswa";
 import { kelasOptions } from "@/data/constants";
 import { KonfirmasiAbsensiSiswaModal } from "@/app/components/shared/KonfirmasiAbsensiSiswaModal";
 import { AbsensiStatusControl } from "@/app/components/shared/AbsensiStatusControl";
-import { useWAQueue, waTemplate } from "@/hooks/useWAQueue";
+import { useWAQueue } from "@/hooks/useWAQueue";
+import { WA_TEMPLATE_DEFAULTS, renderTemplate } from "@/lib/waTemplates";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ─── Scan Tab ────────────────────────────────────────────────────────────────
@@ -74,7 +75,10 @@ function ScanTab() {
           enqueue({
             phone: siswa.waliHp,
             nama_penerima: siswa.waliNama || `Wali dari ${siswa.nama}`,
-            pesan: waTemplate.absensiTerlambat(siswa.nama, siswa.kelas, timeStr),
+            pesan: renderTemplate(
+              appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat,
+              { nama_siswa: siswa.nama, kelas: siswa.kelas, jam_masuk: timeStr },
+            ),
             jenis: "absensi",
             ref_id: siswa.nis,
             priority: 1,
@@ -215,7 +219,7 @@ function ScanTab() {
 
 // ─── Manual Tab ────────────────────────────────────────────────────────────────
 function ManualTab() {
-  const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, logActivity } = useAppContext();
+  const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, logActivity, appSettings } = useAppContext();
   const { enqueueBulk } = useWAQueue();
   const isMobile = useIsMobile();
 
@@ -307,7 +311,10 @@ function ManualTab() {
         const payloads = alpaStudents.map(s => ({
           phone: s.waliHp,
           nama_penerima: s.waliNama || `Wali dari ${s.nama}`,
-          pesan: waTemplate.absensiAlpa(s.nama, s.kelas, todayStr),
+          pesan: renderTemplate(
+            appSettings.waTemplates?.absensiAlpa ?? WA_TEMPLATE_DEFAULTS.absensiAlpa,
+            { nama_siswa: s.nama, kelas: s.kelas, tanggal: todayStr },
+          ),
           jenis: "absensi" as const,
           ref_id: s.nis,
           priority: 1,
