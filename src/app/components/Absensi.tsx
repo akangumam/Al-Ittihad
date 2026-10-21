@@ -12,11 +12,47 @@ import { AbsensiStatusControl } from "@/app/components/shared/AbsensiStatusContr
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ─── Scan Tab ────────────────────────────────────────────────────────────────
+// ─── Scanner Audio Feedback (Web Audio API) ──────────────────────────────────
+function playScannerBeep(type: 'success' | 'warning' | 'error') {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'success') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    } else {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.setValueAtTime(330, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+    }
+  } catch {
+    // audio context might be blocked if browser requires user gesture
+  }
+}
+
+// ─── Scan Tab ────────────────────────────────────────────────────────────────
 function ScanTab() {
   const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, appSettings } = useAppContext();
   const [scanValue, setScanValue] = useState("");
   const [lastScanned, setLastScanned] = useState<{ guru: GuruRow; status: 'success' | 'warning' | 'error'; message: string; time: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastScannedIdRef = useRef<{ id: string; time: number } | null>(null);
+  const resetTimerRef = useRef<any>(null);
 
   // Keep focus on hidden input for physical scanner
   useEffect(() => {
@@ -28,24 +64,37 @@ function ScanTab() {
     return () => window.removeEventListener("click", focusInput);
   }, []);
 
+  const handleNextScan = () => {
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    setLastScanned(null);
+    lastScannedIdRef.current = null;
+  };
+
+  const processScanRef = useRef<(text: string) => void>(() => {});
+
   const processScan = (scannedText: string) => {
-    // Format QR Card Guru: "SEKOLAH|NUPTK|Nama" atau "GURU|ID|Nama"
-    // Untuk toleransi, kita cari berdasarkan NUPTK atau ID
     let identifier = scannedText.trim();
     if (identifier.includes("|")) {
       identifier = identifier.split("|")[1]?.trim() || identifier;
     }
     
-    // Coba cari berdasarkan NUPTK, jika kosong/tidak cocok cari berdasarkan ID
+    // Cooldown per ID: 5 detik agar tidak spam
+    const nowMs = Date.now();
+    if (lastScannedIdRef.current && lastScannedIdRef.current.id === identifier && nowMs - lastScannedIdRef.current.time < 5000) {
+      return;
+    }
+    lastScannedIdRef.current = { id: identifier, time: nowMs };
+
     const guru = guruList.find(g => g.nuptk === identifier || String(g.id) === identifier);
     const now = new Date();
     const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
     if (guru) {
       if (guru.status === "Nonaktif") {
+        playScannerBeep('error');
         setLastScanned({ guru, status: 'error', message: "Guru berstatus Nonaktif", time: timeStr });
       } else if ((absensiGuruHariIni || {})[guru.id]) {
-        // Mencegah double tap
+        playScannerBeep('warning');
         setLastScanned({ 
           guru, 
           status: 'warning', 
@@ -60,6 +109,7 @@ function ScanTab() {
         const isTerlambat = now > batasMasuk;
         const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
 
+        playScannerBeep(isTerlambat ? 'warning' : 'success');
         setAbsensiGuruHariIni(prev => ({ ...(prev || {}), [guru.id]: { status: statusAbsen, jam: timeStr } }));
         setLastScanned({ 
           guru, 
@@ -69,18 +119,20 @@ function ScanTab() {
         });
       }
     } else {
+      playScannerBeep('error');
       setLastScanned({
         guru: { id: 0, nuptk: identifier, nama: "Tidak Ditemukan", inits: "-", nip: "", mapel: [], statusKepeg: "GTY", waliKelas: null, kehadiran: 0, status: "Aktif", jk: "L", tanggalLahir: "", jabatan: "", pendidikan: "", hp: "", email: "", alamat: "" },
         status: 'error', message: "Data tidak terdaftar", time: timeStr
       });
     }
 
-    setTimeout(() => {
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(() => {
       setLastScanned(prev => {
         if (prev?.guru.id === guru?.id || (!guru && prev?.guru.id === 0)) return null;
         return prev;
       });
-    }, 4000);
+    }, 6000);
   };
 
   const handleScan = (e: React.FormEvent) => {
@@ -90,10 +142,10 @@ function ScanTab() {
     setScanValue("");
   };
 
-  // Initialize Html5Qrcode
-  useEffect(() => {
-    if (lastScanned) return;
+  useEffect(() => { processScanRef.current = processScan; });
 
+  // Initialize Html5Qrcode — Berjalan terus-menerus tanpa putus
+  useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
     let isComponentMounted = true;
 
@@ -101,18 +153,17 @@ function ScanTab() {
       try {
         html5QrCode = new Html5Qrcode("reader-guru");
         await html5QrCode.start(
-          { facingMode: "user" }, // Use front-facing camera
-          { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false }, // disableFlip: false for mirror effect
+          { facingMode: "user" },
+          { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
           (decodedText) => {
             if (isComponentMounted) {
-              processScan(decodedText);
-              html5QrCode?.stop().catch(() => {});
+              processScanRef.current(decodedText);
             }
           },
-          () => {} // ignore frequent parse errors
+          () => {}
         );
       } catch {
-        // Camera unavailable — user sees the empty scanner placeholder
+        // Camera unavailable
       }
     };
 
@@ -120,7 +171,7 @@ function ScanTab() {
       if (isComponentMounted) {
         startScanner();
       }
-    }, 100);
+    }, 150);
 
     return () => {
       isComponentMounted = false;
@@ -129,7 +180,7 @@ function ScanTab() {
         html5QrCode.stop().catch(() => {});
       }
     };
-  }, [lastScanned]);
+  }, []);
 
   let statusColor = '#DC2626'; // error
   let statusBg = '#FEF2F2';
@@ -148,45 +199,98 @@ function ScanTab() {
   }
 
   return (
-    <div className="flex flex-col items-center min-h-[600px] bg-white rounded-xl py-8 px-4 relative" style={{ border: "1px solid #E2E8DE" }}>
+    <div className="flex flex-col items-center min-h-[560px] bg-white rounded-xl py-6 px-4 relative" style={{ border: "1px solid #E2E8DE" }}>
       <style>{`
         #reader-guru video {
           transform: scaleX(-1) !important;
         }
       `}</style>
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-lg mt-4">
-        <form onSubmit={handleScan} className="opacity-0 absolute -top-10">
-          <input ref={inputRef} type="text" value={scanValue} onChange={(e) => setScanValue(e.target.value)} autoFocus />
-        </form>
+      <form onSubmit={handleScan} className="opacity-0 absolute -top-10">
+        <input ref={inputRef} type="text" value={scanValue} onChange={(e) => setScanValue(e.target.value)} autoFocus />
+      </form>
 
-        {!lastScanned ? (
-          <div className="flex flex-col items-center text-center animate-in fade-in zoom-in duration-300 w-full">
-            <div id="reader-guru" className="w-full rounded-2xl overflow-hidden mb-6" style={{ border: "2px solid #E2E8DE" }}></div>
-            <h3 className="text-2xl font-bold text-[#1C2517] mb-2">Arahkan Kartu ke Kamera</h3>
-            <p className="text-[#6B7769] text-sm">Atau gunakan alat Scanner Fisik (kursor otomatis sudah standby).</p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center text-center animate-in slide-in-from-bottom-4 fade-in duration-300 w-full">
-            <div className="relative mb-6">
-              <div className="w-40 h-40 rounded-full bg-[#3E8A2F] flex items-center justify-center border-4 text-white font-bold text-5xl" style={{ borderColor: statusColor }}>
-                {lastScanned.guru.inits}
-              </div>
-              <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full flex items-center justify-center border-4 border-white" style={{ background: statusColor }}>
-                <StatusIcon size={24} color="white" />
-              </div>
+      <div className="w-full max-w-4xl flex flex-col items-center">
+        {/* Banner Indikator Kamera Aktif */}
+        <div className="w-full max-w-2xl flex items-center justify-between px-4 py-2.5 mb-4 bg-[#F4F9F2] rounded-xl border border-[#D5E7CE] text-xs font-medium text-[#2E6B22]">
+          <span className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#3E8A2F] animate-pulse"></span>
+            <strong>Scanner Guru Berjalan Otomatis</strong> — Pindai kartu QR tanpa perlu refresh
+          </span>
+          <span className="text-[#6B7769]">Kamera Depan</span>
+        </div>
+
+        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+          {/* Kamera Selalu Hidup */}
+          <div className="flex flex-col items-center w-full">
+            <div className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-sm bg-neutral-900" style={{ border: "2px solid #E2E8DE" }}>
+              <div id="reader-guru" className="w-full min-h-[260px]"></div>
             </div>
-            
-            <h2 className="text-4xl font-bold text-[#1C2517] mb-2">{lastScanned.guru.nama}</h2>
-            <p className="text-xl font-medium text-[#6B7769] mb-6">
-              {lastScanned.guru.nuptk ? `NUPTK: ${lastScanned.guru.nuptk}` : "NUPTK: -"}
+            <p className="text-xs text-[#6B7769] mt-2.5 text-center">
+              Arahkan kartu ke kamera atau gunakan scanner barcode fisik.
             </p>
-            
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-2xl"
-              style={{ background: statusBg, color: statusText }}>
-              {lastScanned.message} • {lastScanned.time}
-            </div>
           </div>
-        )}
+
+          {/* Kartu Guru Terakhir */}
+          <div className="flex flex-col items-center justify-center w-full min-h-[280px]">
+            {!lastScanned ? (
+              <div className="flex flex-col items-center justify-center text-center p-8 bg-[#FAFCF8] rounded-2xl border border-dashed border-[#D5E7CE] w-full h-full min-h-[280px]">
+                <div className="w-16 h-16 rounded-full bg-[#EDF7EC] flex items-center justify-center mb-4 text-[#3E8A2F]">
+                  <CheckCircle2 size={32} />
+                </div>
+                <h4 className="text-lg font-bold text-[#1C2517] mb-1">Menunggu Kartu Guru</h4>
+                <p className="text-xs text-[#6B7769] max-w-xs leading-relaxed">
+                  Data presensi guru langsung tersimpan dan otomatis tersinkron ke semua perangkat.
+                </p>
+              </div>
+            ) : (
+              <div
+                className="flex flex-col items-center text-center p-6 bg-white rounded-2xl border w-full shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200"
+                style={{ borderColor: statusColor }}
+              >
+                <div className="relative mb-3">
+                  <div
+                    className="w-24 h-24 rounded-full bg-[#3E8A2F] flex items-center justify-center border-4 text-white font-bold text-3xl shadow-sm"
+                    style={{ borderColor: statusColor }}
+                  >
+                    {lastScanned.guru.inits}
+                  </div>
+                  <div
+                    className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow"
+                    style={{ background: statusColor }}
+                  >
+                    <StatusIcon size={16} color="white" />
+                  </div>
+                </div>
+
+                <h3 className="text-2xl font-bold text-[#1C2517] mb-1">{lastScanned.guru.nama}</h3>
+                <p className="text-sm font-medium text-[#6B7769] mb-3">
+                  {lastScanned.guru.nuptk ? `NUPTK: ${lastScanned.guru.nuptk}` : "NUPTK: -"}
+                </p>
+
+                <div
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-full font-bold text-base mb-3 shadow-sm"
+                  style={{ background: statusBg, color: statusText }}
+                >
+                  {lastScanned.message} • {lastScanned.time}
+                </div>
+
+                <div className="w-full pt-2 border-t border-[#E2E8DE] flex items-center justify-between text-xs text-[#6B7769]">
+                  <span className="flex items-center gap-1.5 text-[#3E8A2F] font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-[#3E8A2F] animate-ping"></span>
+                    Kamera siap scan berikutnya...
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleNextScan}
+                    className="text-xs text-[#6B7769] hover:text-[#1C2517] underline font-medium"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

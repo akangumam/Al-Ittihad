@@ -743,6 +743,75 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // ─── Auto-Polling & Visibility Sync (Sinkronisasi Laptop & HP Tanpa Refresh) ───
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncAttendanceFromCloud = async () => {
+      if (!isLoadedFromDB.current) return;
+      try {
+        const today = getTodayDateString();
+        const [absSiswa, absGuru] = await Promise.all([
+          loadAbsensiSiswaHariIniDB(today).catch(() => null),
+          loadAbsensiGuruHariIniDB(today).catch(() => null),
+        ]);
+
+        if (!isMounted) return;
+
+        if (absSiswa) {
+          setAbsensiSiswaHariIni(prev => {
+            let changed = false;
+            const next = { ...prev };
+            for (const [nis, val] of Object.entries(absSiswa)) {
+              if (prev[nis]?.status !== val.status || prev[nis]?.jam !== val.jam) {
+                next[nis] = val;
+                changed = true;
+              }
+            }
+            return changed ? next : prev;
+          });
+        }
+
+        if (absGuru) {
+          setAbsensiGuruHariIni(prev => {
+            let changed = false;
+            const next = { ...prev };
+            for (const [id, val] of Object.entries(absGuru)) {
+              const numId = Number(id);
+              if (prev[numId]?.status !== val.status || prev[numId]?.jam !== val.jam) {
+                next[numId] = val;
+                changed = true;
+              }
+            }
+            return changed ? next : prev;
+          });
+        }
+      } catch {
+        // silent fallback
+      }
+    };
+
+    // Polling setiap 3.5 detik agar antar device (Laptop & HP) selalu up-to-date otomatis
+    const interval = setInterval(syncAttendanceFromCloud, 3500);
+
+    // Sync instan ketika window mendapatkan fokus atau tab dibuka kembali
+    const onFocusOrVisible = () => {
+      if (document.visibilityState === "visible") {
+        syncAttendanceFromCloud();
+      }
+    };
+
+    window.addEventListener("focus", onFocusOrVisible);
+    document.addEventListener("visibilitychange", onFocusOrVisible);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onFocusOrVisible);
+    };
+  }, []);
+
   // Simpan siswaList ke localStorage sebagai offline fallback
   useEffect(() => {
     if (siswaList.length > 0) {
