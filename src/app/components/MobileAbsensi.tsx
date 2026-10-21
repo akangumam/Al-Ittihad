@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { CalendarDays, ChevronDown, FileText } from "lucide-react";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { bulanOptions, tahunOptions } from "@/data/constants";
 import type { GuruRow } from "@/data/guru";
 import { KonfirmasiAbsensiGuruModal } from "@/app/components/shared/KonfirmasiAbsensiGuruModal";
 import { AbsensiStatusControl } from "@/app/components/shared/AbsensiStatusControl";
+import { ScanTabGuru } from "@/app/components/Absensi";
 
 function isTerlambat(jam: string | undefined, jamMasuk: string) {
   if (!jam) return false;
@@ -15,7 +16,6 @@ function isTerlambat(jam: string | undefined, jamMasuk: string) {
   const [h, m] = jam.split(sep).map(Number);
   return h > limH || (h === limH && m > limM);
 }
-
 
 // ─── teacher card ─────────────────────────────────────────────────────────────
 
@@ -92,7 +92,7 @@ function TeacherCard({
   );
 }
 
-// ─── Hari Ini tab ─────────────────────────────────────────────────────────────
+// ─── Hari Ini / Manual Tab ────────────────────────────────────────────────────
 
 function HariIniTab() {
   const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, appSettings, logActivity } = useAppContext();
@@ -105,6 +105,12 @@ function HariIniTab() {
       return Object.fromEntries(guruList.map(g => [g.id, safe[g.id]?.status ?? null]));
     },
   );
+
+  // Sync statuses saat absensiGuruHariIni terupdate dari cloud
+  useEffect(() => {
+    const safe = absensiGuruHariIni ?? {};
+    setStatuses(Object.fromEntries(guruList.map(g => [g.id, safe[g.id]?.status ?? null])));
+  }, [absensiGuruHariIni, guruList]);
 
   const setStatus = (id: number, v: string) => {
     setStatuses(prev => ({ ...prev, [id]: v }));
@@ -177,66 +183,67 @@ function HariIniTab() {
   const todayStr = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* Date row */}
-        <div className="flex items-center justify-between">
-          <div
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white"
-            style={{ border: "1.5px solid #3E8A2F", minHeight: 44 }}
-          >
-            <CalendarDays size={15} color="#3E8A2F" />
-            <span className="text-sm font-semibold text-[#1C2517]">{todayStr}</span>
-          </div>
-          <p className="text-xs text-[#9CA3A0]">
-            Jam masuk: <span className="font-semibold text-[#6B7769]">{jamMasuk}</span>
-          </p>
-        </div>
-
-        {/* Stat chips */}
-        <div className="grid grid-cols-3 gap-1.5">
-          {chipDefs.map((c) => (
-            <div key={c.label} className="flex flex-col items-center justify-center rounded-xl py-3" style={{ background: c.bg }}>
-              <span className="tabular-nums font-bold leading-none" style={{ fontSize: "1.125rem", color: c.fg }}>{c.value}</span>
-              <span className="text-[9px] font-semibold mt-1 leading-none" style={{ color: c.fg }}>{c.label}</span>
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={markAllHadir}
-          className="w-full flex items-center justify-center rounded-lg text-sm font-semibold text-[#3E8A2F] transition-colors hover:bg-[#EDF7EC]"
-          style={{ height: 44, background: "transparent", border: "1px solid #D4EDD0", cursor: "pointer", fontFamily: "inherit" }}
+    <div className="p-4 flex flex-col gap-3 pb-28">
+      {/* Date row */}
+      <div className="flex items-center justify-between">
+        <div
+          className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-white"
+          style={{ border: "1.5px solid #3E8A2F", minHeight: 44 }}
         >
-          Tandai Semua Hadir
-        </button>
+          <CalendarDays size={15} color="#3E8A2F" />
+          <span className="text-sm font-semibold text-[#1C2517]">{todayStr}</span>
+        </div>
+        <p className="text-xs text-[#9CA3A0]">
+          Jam masuk: <span className="font-semibold text-[#6B7769]">{jamMasuk}</span>
+        </p>
+      </div>
 
-        {guruList.map((g) => (
-          <TeacherCard
-            key={g.id}
-            guru={g}
-            jam={(absensiGuruHariIni ?? {})[g.id]?.jam}
-            keterangan={undefined}
-            status={statuses[g.id] ?? null}
-            onStatusChange={setStatus}
-            jamMasuk={jamMasuk}
-          />
+      {/* Stat chips */}
+      <div className="grid grid-cols-3 gap-1.5">
+        {chipDefs.map((c) => (
+          <div key={c.label} className="flex flex-col items-center justify-center rounded-xl py-3" style={{ background: c.bg }}>
+            <span className="tabular-nums font-bold leading-none" style={{ fontSize: "1.125rem", color: c.fg }}>{c.value}</span>
+            <span className="text-[9px] font-semibold mt-1 leading-none" style={{ color: c.fg }}>{c.label}</span>
+          </div>
         ))}
       </div>
 
-      <div style={{ flexShrink: 0, background: "#fff", borderTop: "1px solid #E2E8DE", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      <button
+        onClick={markAllHadir}
+        className="w-full flex items-center justify-center rounded-lg text-sm font-semibold text-[#3E8A2F] transition-colors hover:bg-[#EDF7EC]"
+        style={{ height: 44, background: "transparent", border: "1px solid #D4EDD0", cursor: "pointer", fontFamily: "inherit" }}
+      >
+        Tandai Semua Hadir
+      </button>
+
+      {guruList.map((g) => (
+        <TeacherCard
+          key={g.id}
+          guru={g}
+          jam={(absensiGuruHariIni ?? {})[g.id]?.jam}
+          keterangan={undefined}
+          status={statuses[g.id] ?? null}
+          onStatusChange={setStatus}
+          jamMasuk={jamMasuk}
+        />
+      ))}
+
+      {/* Fixed bottom floating bar above MobileShell bottom nav (bottom: 64px) */}
+      <div
+        className="fixed bottom-16 left-0 right-0 z-30 bg-white border-t border-[#E2E8DE] px-4 py-2.5 flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]"
+      >
         <div>
           <span className="text-sm font-semibold text-[#1C2517] tabular-nums">{tercatat} dari {guruList.length}</span>
           <span className="text-sm text-[#6B7769]"> tercatat</span>
           {chips.Belum > 0 && (
-            <span className="ml-2 text-[10px] font-semibold rounded-full px-2 py-px tabular-nums" style={{ background: "#FEF3C7", color: "#92400E" }}>
+            <span className="ml-2 text-[10px] font-semibold rounded-full px-2 py-0.5 tabular-nums" style={{ background: "#FEF3C7", color: "#92400E" }}>
               {chips.Belum} belum
             </span>
           )}
         </div>
         <button
           onClick={handleSaveClick}
-          style={{ height: 40, padding: "0 20px", background: "#3E8A2F", color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}
+          className="h-10 px-5 bg-[#3E8A2F] hover:bg-[#2E6B22] text-white rounded-lg text-sm font-semibold cursor-pointer shrink-0 transition-colors shadow-sm"
         >
           Simpan Absensi
         </button>
@@ -288,7 +295,7 @@ function RekapitulasiTab() {
   }, [guruList, absensiGuruHistory, bulan, tahun, jamMasuk]);
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="p-4 flex flex-col gap-3 pb-12">
       {/* Filter row */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -362,35 +369,55 @@ function RekapitulasiTab() {
 export function MobileAbsensi() {
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
-  const activeTab = tab || "hari-ini";
+  const activeTab = tab || "scan";
+
+  const isScan = activeTab === "scan";
+  const isManual = activeTab === "manual" || activeTab === "hari-ini";
+  const isRekap = activeTab === "rekapitulasi";
+
+  const tabs = [
+    { id: "scan",         label: "Scan QR", path: "/akademik/absensi/scan" },
+    { id: "manual",       label: "Manual",  path: "/akademik/absensi/manual" },
+    { id: "rekapitulasi", label: "Rekap",   path: "/akademik/absensi/rekapitulasi" },
+  ] as const;
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{ flexShrink: 0, padding: "12px 16px 0" }}>
-        <div className="inline-flex rounded-lg p-1" style={{ background: "#EDF7EC" }}>
-          {(["hari-ini", "rekapitulasi"] as const).map((t) => {
-            const active = activeTab === t;
+    <div className="w-full min-h-full flex flex-col">
+      <div className="sticky top-0 z-20 bg-[#FAFBF9] px-4 pt-3 pb-2 border-b border-[#E2E8DE]/60">
+        <div className="inline-flex rounded-xl p-1 w-full justify-between" style={{ background: "#EDF7EC" }}>
+          {tabs.map((t) => {
+            const active = (t.id === "scan" && isScan) || (t.id === "manual" && isManual) || (t.id === "rekapitulasi" && isRekap);
             return (
               <button
-                key={t}
-                onClick={() => navigate(`/akademik/absensi/${t}`)}
-                className="px-4 rounded-md text-sm font-semibold transition-all"
+                key={t.id}
+                onClick={() => navigate(t.path)}
+                className="flex-1 px-3 rounded-lg text-xs font-semibold transition-all"
                 style={{
-                  height: 36, background: active ? "#fff" : "transparent", color: active ? "#1C2517" : "#6B7769",
+                  height: 36,
+                  background: active ? "#fff" : "transparent",
+                  color: active ? "#1C2517" : "#6B7769",
                   boxShadow: active ? "0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06)" : "none",
-                  border: "none", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {t === "hari-ini" ? "Hari Ini" : "Rekapitulasi"}
+                {t.label}
               </button>
             );
           })}
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        {activeTab === "hari-ini"     && <HariIniTab />}
-        {activeTab === "rekapitulasi" && <RekapitulasiTab />}
+      <div className="flex-1">
+        {isScan && (
+          <div className="p-4 pb-12">
+            <ScanTabGuru />
+          </div>
+        )}
+        {isManual && <HariIniTab />}
+        {isRekap && <RekapitulasiTab />}
       </div>
     </div>
   );

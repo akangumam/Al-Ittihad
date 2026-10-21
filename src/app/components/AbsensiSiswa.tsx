@@ -13,7 +13,7 @@ import { useWAQueue } from "@/hooks/useWAQueue";
 import { WA_TEMPLATE_DEFAULTS, renderTemplate } from "@/lib/waTemplates";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
-// ─── Scanner Audio Feedback (Web Audio API) ──────────────────────────────────
+// --- Scanner Audio Feedback (Web Audio API) ---
 function playScannerBeep(type: 'success' | 'warning' | 'error') {
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -46,7 +46,7 @@ function playScannerBeep(type: 'success' | 'warning' | 'error') {
   }
 }
 
-// ─── Scan Tab ────────────────────────────────────────────────────────────────
+// --- Scan Tab ----------------------------------------------------------------
 function ScanTab() {
   const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, appSettings } = useAppContext();
   const { enqueue } = useWAQueue();
@@ -61,19 +61,21 @@ function ScanTab() {
     waInfo?: { type: 'sent' | 'no_phone' | 'disabled'; phone?: string };
   } | null>(null);
   const [cameraMode, setCameraMode] = useState<"user" | "environment">(isMobile ? "environment" : "user");
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastScannedNisRef = useRef<{ nis: string; time: number } | null>(null);
   const resetTimerRef = useRef<any>(null);
 
-  // Keep focus on hidden input for physical scanner
+  // Keep focus on hidden input for physical scanner (desktop only, to avoid mobile keyboard popups)
   useEffect(() => {
+    if (isMobile) return;
     const focusInput = () => {
       if (inputRef.current) inputRef.current.focus();
     };
     focusInput();
     window.addEventListener("click", focusInput);
     return () => window.removeEventListener("click", focusInput);
-  }, []);
+  }, [isMobile]);
 
   const handleNextScan = () => {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
@@ -85,7 +87,7 @@ function ScanTab() {
   const processScanRef = useRef<(text: string) => void>(() => {});
 
   const processScan = (scannedText: string) => {
-    // Format QR Card: "NAMA_SEKOLAH|NIS|Nama" (contoh: "MTS AL-ITTIHAD PEDALEMAN|2024-0089|Ahmad")
+    // Format QR Card: "NAMA_SEKOLAH|NIS|Nama" (contoh: "MADRASAH AL-ITTIHAD|2024-0089|Ahmad")
     let nis = scannedText.trim();
     if (nis.includes("|")) {
       nis = nis.split("|")[1].trim();
@@ -98,7 +100,11 @@ function ScanTab() {
     }
     lastScannedNisRef.current = { nis, time: nowMs };
 
-    const siswa = siswaList.find(s => s.nis === nis);
+    const siswa = siswaList.find(s => 
+      s.nis === nis || 
+      s.nisn === nis || 
+      s.nama.toLowerCase() === nis.toLowerCase()
+    );
     const now = new Date();
     const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
@@ -106,8 +112,9 @@ function ScanTab() {
       if (siswa.status === "Nonaktif") {
         playScannerBeep('error');
         setLastScanned({ siswa, status: 'error', message: "Siswa berstatus Nonaktif", time: timeStr });
-      } else if (absensiSiswaHariIni[nis]) {
-        // Siswa sudah terdata sebelumnya — kunci status & cegah scan ulang
+        toast.error(`Siswa ${siswa.nama} berstatus Nonaktif`);
+      } else if (absensiSiswaHariIni[siswa.nis]) {
+        // Siswa sudah terdata sebelumnya --- kunci status & cegah scan ulang
         playScannerBeep('warning');
         const existing = absensiSiswaHariIni[nis];
         setLastScanned({
@@ -180,7 +187,7 @@ function ScanTab() {
         if (prev?.siswa.nis === nis) return null;
         return prev;
       });
-    }, 7000);
+    }, 6000);
   };
 
   const handleScan = (e: React.FormEvent) => {
@@ -193,27 +200,93 @@ function ScanTab() {
   // Selalu update ref ke versi terbaru agar closure kamera tidak basi
   useEffect(() => { processScanRef.current = processScan; });
 
-  // Initialize Html5Qrcode — Kamera tetap menyala terus-menerus tanpa putus (Continuous Scan)
+  // Initialize Html5Qrcode dengan dynamic qrbox dan kamera fallback multi-tier
   useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
     let isComponentMounted = true;
+    let isStarting = false;
+    setCameraError(null);
 
     const startScanner = async () => {
+      const container = document.getElementById("reader");
+      if (!container || !isComponentMounted) return;
+
       try {
+        container.innerHTML = "";
         html5QrCode = new Html5Qrcode("reader");
-        await html5QrCode.start(
-          { facingMode: cameraMode },
-          { fps: 10, qrbox: { width: 250, height: 250 }, disableFlip: false },
-          (decodedText) => {
-            if (isComponentMounted) {
-              processScanRef.current(decodedText);
-              // Kamera TIDAK distop di sini agar bisa scan siswa berikutnya tanpa refresh
-            }
+
+        const qrConfig = {
+          fps: 10,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            const edge = Math.max(Math.floor(minEdge * 0.72), 150);
+            return { width: edge, height: edge };
           },
-          () => {}
-        );
-      } catch {
-        // Camera unavailable — user sees the scanner box
+          disableFlip: false,
+        };
+
+        const onDecoded = (decodedText: string) => {
+          if (isComponentMounted) {
+            processScanRef.current(decodedText);
+          }
+        };
+
+        isStarting = true;
+        let started = false;
+
+        try {
+          await html5QrCode.start(
+            { facingMode: cameraMode },
+            qrConfig,
+            onDecoded,
+            () => {}
+          );
+          started = true;
+        } catch (e1) {
+          console.warn("Kamera mode spesifik siswa gagal, mencoba mode alternatif:", e1);
+        }
+
+        if (!started && isComponentMounted) {
+          try {
+            const altMode = cameraMode === "environment" ? "user" : "environment";
+            await html5QrCode.start(
+              { facingMode: altMode },
+              qrConfig,
+              onDecoded,
+              () => {}
+            );
+            started = true;
+          } catch (e2) {
+            console.warn("Kamera mode alternatif siswa gagal, mencoba getCameras():", e2);
+          }
+        }
+
+        if (!started && isComponentMounted) {
+          const cameras = await Html5Qrcode.getCameras().catch(() => []);
+          if (cameras && cameras.length > 0) {
+            const camId = (cameraMode === "environment" && cameras.length > 1)
+              ? cameras[cameras.length - 1].id
+              : cameras[0].id;
+            await html5QrCode.start(camId, qrConfig, onDecoded, () => {});
+            started = true;
+          }
+        }
+
+        isStarting = false;
+
+        if (!isComponentMounted && html5QrCode) {
+          if (html5QrCode.isScanning) {
+            await html5QrCode.stop().catch(() => {});
+          }
+          try { html5QrCode.clear(); } catch {}
+        }
+      } catch (err: any) {
+        console.error("Camera scanner error:", err);
+        if (isComponentMounted) {
+          setCameraError("Kamera tidak dapat diakses. Pastikan izin kamera telah diizinkan di browser Anda, atau gunakan input manual di bawah.");
+        }
+      } finally {
+        isStarting = false;
       }
     };
 
@@ -221,13 +294,21 @@ function ScanTab() {
       if (isComponentMounted) {
         startScanner();
       }
-    }, 150);
+    }, 200);
 
     return () => {
       isComponentMounted = false;
       clearTimeout(timer);
-      if (html5QrCode?.isScanning) {
-        html5QrCode.stop().catch(() => {});
+      if (html5QrCode) {
+        if (html5QrCode.isScanning) {
+          html5QrCode.stop().then(() => {
+            try { html5QrCode?.clear(); } catch {}
+          }).catch(() => {
+            try { html5QrCode?.clear(); } catch {}
+          });
+        } else if (!isStarting) {
+          try { html5QrCode.clear(); } catch {}
+        }
       }
     };
   }, [cameraMode]);
@@ -249,173 +330,180 @@ function ScanTab() {
   }
 
   return (
-    <div className="flex flex-col items-center min-h-[560px] bg-white rounded-xl py-6 px-4 relative" style={{ border: "1px solid #E2E8DE" }}>
+    <div className="flex flex-col items-center min-h-[520px] bg-white rounded-xl py-5 px-4 relative shadow-sm" style={{ border: "1px solid #E2E8DE" }}>
       {cameraMode === "user" && (
         <style>{`#reader video { transform: scaleX(-1) !important; }`}</style>
       )}
 
-      {/* Hidden input for physical barcode scanner */}
-      <form onSubmit={handleScan} className="opacity-0 absolute -top-10">
-        <input ref={inputRef} type="text" value={scanValue} onChange={(e) => setScanValue(e.target.value)} autoFocus />
-      </form>
-
-      <div className="w-full max-w-4xl flex flex-col items-center">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md">
         {/* Banner Indikator Kamera Berjalan */}
-        <div className="w-full max-w-2xl flex items-center justify-between px-4 py-2.5 mb-4 bg-[#F4F9F2] rounded-xl border border-[#D5E7CE] text-xs font-medium text-[#2E6B22]">
+        <div className="w-full flex items-center justify-between px-4 py-2 mb-3 bg-[#F4F9F2] rounded-xl border border-[#D5E7CE] text-xs font-medium text-[#2E6B22]">
           <span className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#3E8A2F] animate-pulse"></span>
-            <strong>Scanner Berjalan Otomatis</strong> — Dekatkan kartu QR siswa tanpa perlu refresh
+            <strong>Scanner Siswa Aktif</strong>
           </span>
           <span className="text-[#6B7769] font-normal">
             {cameraMode === "environment" ? "Kamera Belakang" : "Kamera Depan"}
           </span>
         </div>
 
-        {/* Layout: Kamera (Kiri/Atas) + Kartu Siswa (Kanan/Bawah) */}
-        <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          {/* Sisi Kamera: Selalu tampil dan aktif */}
-          <div className="flex flex-col items-center w-full">
-            <div className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-sm bg-neutral-900" style={{ border: "2px solid #E2E8DE" }}>
-              <div id="reader" className="w-full min-h-[260px]"></div>
-              {isMobile && (
-                <button
-                  type="button"
-                  onClick={() => setCameraMode(m => m === "user" ? "environment" : "user")}
-                  className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white text-xs font-medium backdrop-blur-sm transition-colors z-10"
-                  title="Ganti kamera"
-                >
-                  <SwitchCamera size={14} />
-                  {cameraMode === "environment" ? "Belakang" : "Depan"}
-                </button>
-              )}
-            </div>
-            <p className="text-xs text-[#6B7769] mt-2.5 text-center">
-              Scanner fisik maupun kamera HP/Laptop siap memindai beruntun.
-            </p>
+        {cameraError && (
+          <div className="w-full bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 text-center text-xs text-amber-800">
+            <p className="font-semibold mb-0.5">{cameraError}</p>
+            <p className="text-[11px] text-amber-700">Anda dapat memasukkan NIS siswa melalui formulir manual di bawah.</p>
           </div>
+        )}
 
-          {/* Sisi Kartu Siswa Terakhir Di-scan */}
-          <div className="flex flex-col items-center justify-center w-full min-h-[280px]">
-            {!lastScanned ? (
-              <div className="flex flex-col items-center justify-center text-center p-8 bg-[#FAFCF8] rounded-2xl border border-dashed border-[#D5E7CE] w-full h-full min-h-[280px]">
-                <div className="w-16 h-16 rounded-full bg-[#EDF7EC] flex items-center justify-center mb-4 text-[#3E8A2F]">
-                  <QrCode size={32} />
-                </div>
-                <h4 className="text-lg font-bold text-[#1C2517] mb-1">Arahkan Kartu ke Kamera</h4>
-                <p className="text-xs text-[#6B7769] max-w-xs leading-relaxed">
-                  Data absensi akan langsung tercatat dan tersinkron otomatis ke laptop dan HP lain dalam hitungan detik.
-                </p>
+        {/* Video Box Kamera */}
+        <div className="w-full relative mb-3">
+          <div id="reader" className="w-full rounded-2xl overflow-hidden shadow-sm bg-neutral-900" style={{ border: "2px solid #E2E8DE", minHeight: 220 }}></div>
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() => setCameraMode(m => m === "user" ? "environment" : "user")}
+              className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-white text-xs font-medium backdrop-blur-sm transition-colors z-10"
+              title="Ganti kamera"
+            >
+              <SwitchCamera size={14} />
+              {cameraMode === "environment" ? "Belakang" : "Depan"}
+            </button>
+          )}
+        </div>
+
+        {/* Input Barcode Fisik / Manual */}
+        <form onSubmit={handleScan} className="w-full mb-3 flex items-center gap-2">
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Scan barcode kartu atau ketik NIS siswa..."
+            value={scanValue}
+            onChange={(e) => setScanValue(e.target.value)}
+            autoFocus={!isMobile}
+            className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-[#E2E8DE] focus:border-[#3E8A2F] outline-none bg-neutral-50/60 font-medium placeholder:text-neutral-400"
+          />
+          <button
+            type="submit"
+            disabled={!scanValue.trim()}
+            className="px-3.5 py-2 text-xs font-semibold bg-[#3E8A2F] text-white rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#2E6B22] transition-colors shrink-0 shadow-sm"
+          >
+            Absen
+          </button>
+        </form>
+
+        {/* Hasil Scan / Status Menunggu */}
+        {!lastScanned ? (
+          <div className="flex flex-col items-center text-center py-2 animate-in fade-in duration-200">
+            <h3 className="text-xl font-bold text-[#1C2517] mb-1">Arahkan Kartu Siswa ke Kamera</h3>
+            <p className="text-[#6B7769] text-xs">Atau gunakan scanner fisik. Scanner standby dan terus menyala tanpa perlu refresh.</p>
+          </div>
+        ) : (
+          <div
+            className="flex flex-col items-center text-center p-5 bg-white rounded-2xl border w-full shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200 mb-2"
+            style={{ borderColor: statusColor }}
+          >
+            <div className="relative mb-3">
+              <div className="w-20 h-20 rounded-full overflow-hidden border-4 shadow-sm" style={{ borderColor: statusColor }}>
+                <img
+                  src={lastScanned.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png'}
+                  alt="Foto"
+                  className={`w-full h-full object-cover ${lastScanned.siswa.id === 0 ? 'grayscale opacity-30' : ''}`}
+                />
               </div>
-            ) : (
               <div
-                className="flex flex-col items-center text-center p-6 bg-white rounded-2xl border w-full shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200"
-                style={{ borderColor: statusColor }}
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center border-2 border-white shadow"
+                style={{ background: statusColor }}
               >
-                <div className="relative mb-3">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-sm" style={{ borderColor: statusColor }}>
-                    <img
-                      src={lastScanned.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png'}
-                      alt="Foto"
-                      className={`w-full h-full object-cover ${lastScanned.siswa.id === 0 ? 'grayscale opacity-30' : ''}`}
-                    />
-                  </div>
-                  <div
-                    className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow"
-                    style={{ background: statusColor }}
-                  >
-                    <StatusIcon size={16} color="white" />
-                  </div>
-                </div>
+                <StatusIcon size={15} color="white" />
+              </div>
+            </div>
 
-                <h3 className="text-2xl font-bold text-[#1C2517] mb-0.5">{lastScanned.siswa.nama}</h3>
-                <p className="text-sm font-medium text-[#6B7769] mb-3">
-                  NIS: <span className="font-semibold text-[#1C2517]">{lastScanned.siswa.nis}</span> • Kelas {lastScanned.siswa.kelas}
+            <h3 className="text-xl font-bold text-[#1C2517] mb-0.5">{lastScanned.siswa.nama}</h3>
+            <p className="text-xs font-medium text-[#6B7769] mb-2.5">
+              NIS: <span className="font-semibold text-[#1C2517]">{lastScanned.siswa.nis}</span> --- Kelas {lastScanned.siswa.kelas}
+            </p>
+
+            <div
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full font-bold text-sm mb-2.5 shadow-sm"
+              style={{ background: statusBg, color: statusText }}
+            >
+              {lastScanned.message} --- {lastScanned.time}
+            </div>
+
+            {/* Status Terkunci jika scan berulang */}
+            {lastScanned.isAlreadyRecorded && (
+              <div className="w-full bg-amber-50 border border-amber-200 rounded-xl p-2.5 mb-2.5 text-center">
+                <p className="text-amber-900 font-bold text-xs mb-0.5 flex items-center justify-center gap-1.5">
+                  <Lock size={13} className="text-amber-700" /> Status Sudah Terkunci
                 </p>
-
-                <div
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-full font-bold text-base mb-3 shadow-sm"
-                  style={{ background: statusBg, color: statusText }}
-                >
-                  {lastScanned.message} • {lastScanned.time}
-                </div>
-
-                {/* Status Terkunci jika scan berulang */}
-                {lastScanned.isAlreadyRecorded && (
-                  <div className="w-full bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3 text-center">
-                    <p className="text-amber-900 font-bold text-xs mb-0.5 flex items-center justify-center gap-1.5">
-                      <Lock size={14} className="text-amber-700" /> Status Sudah Terkunci
-                    </p>
-                    <p className="text-amber-800 text-[11px]">
-                      Siswa sudah presensi hari ini. Koreksi status dapat dilakukan di tab <strong>Rekap Manual</strong>.
-                    </p>
-                  </div>
-                )}
-
-                {/* Status WhatsApp */}
-                {lastScanned.waInfo && (
-                  <div className="w-full mb-3">
-                    {lastScanned.waInfo.type === 'sent' && (
-                      <div className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium">
-                        <MessageCircle size={14} className="text-emerald-600 shrink-0" />
-                        <span>WA keterlambatan dikirim ke wali ({lastScanned.waInfo.phone})</span>
-                      </div>
-                    )}
-                    {lastScanned.waInfo.type === 'no_phone' && (
-                      <div className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium">
-                        <AlertCircle size={14} className="text-amber-600 shrink-0" />
-                        <span>Nomor WhatsApp wali belum terdaftar di data siswa</span>
-                      </div>
-                    )}
-                    {lastScanned.waInfo.type === 'disabled' && (
-                      <div className="flex flex-col items-center gap-1.5 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-600 text-xs">
-                        <span>Notifikasi WA otomatis nonaktif</span>
-                        {lastScanned.siswa.waliHp && (
-                          <a
-                            href={`https://wa.me/${lastScanned.siswa.waliHp.replace(/^0/, '62').replace(/\D/g, '')}?text=${encodeURIComponent(
-                              renderTemplate(appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat, {
-                                nama_siswa: lastScanned.siswa.nama,
-                                kelas: lastScanned.siswa.kelas,
-                                jam_masuk: lastScanned.time,
-                              })
-                            )}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 font-bold text-[#166534] bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-md text-[11px]"
-                          >
-                            <MessageCircle size={13} />
-                            Kirim WA Manual ({lastScanned.siswa.waliHp})
-                            <ExternalLink size={11} />
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Status Scanner Terus Siap */}
-                <div className="w-full pt-2 border-t border-[#E2E8DE] flex items-center justify-between text-xs text-[#6B7769]">
-                  <span className="flex items-center gap-1.5 text-[#3E8A2F] font-semibold">
-                    <span className="w-2 h-2 rounded-full bg-[#3E8A2F] animate-ping"></span>
-                    Kamera siap scan siswa berikutnya...
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleNextScan}
-                    className="text-xs text-[#6B7769] hover:text-[#1C2517] underline font-medium"
-                  >
-                    Tutup
-                  </button>
-                </div>
+                <p className="text-amber-800 text-[11px]">
+                  Siswa sudah presensi hari ini. Ubah status lewat menu <strong>Rekap Manual</strong> jika perlu koreksi.
+                </p>
               </div>
             )}
+
+            {/* Status WhatsApp */}
+            {lastScanned.waInfo && (
+              <div className="w-full mb-2.5">
+                {lastScanned.waInfo.type === 'sent' && (
+                  <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium">
+                    <MessageCircle size={14} className="text-emerald-600 shrink-0" />
+                    <span>WA keterlambatan dikirim ke wali ({lastScanned.waInfo.phone})</span>
+                  </div>
+                )}
+                {lastScanned.waInfo.type === 'no_phone' && (
+                  <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium">
+                    <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                    <span>Nomor WhatsApp wali belum terdaftar di data siswa</span>
+                  </div>
+                )}
+                {lastScanned.waInfo.type === 'disabled' && (
+                  <div className="flex flex-col items-center gap-1 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-600 text-xs">
+                    <span>Notifikasi WA otomatis nonaktif</span>
+                    {lastScanned.siswa.waliHp && (
+                      <a
+                        href={`https://wa.me/${lastScanned.siswa.waliHp.replace(/^0/, '62').replace(/\D/g, '')}?text=${encodeURIComponent(
+                          renderTemplate(appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat, {
+                            nama_siswa: lastScanned.siswa.nama,
+                            kelas: lastScanned.siswa.kelas,
+                            jam_masuk: lastScanned.time,
+                          })
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-bold text-[#166534] bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-md text-[11px]"
+                      >
+                        <MessageCircle size={13} />
+                        Kirim WA Manual ({lastScanned.siswa.waliHp})
+                        <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bar bawah kartu: siap scan berikutnya */}
+            <div className="w-full pt-2 border-t border-[#E2E8DE] flex items-center justify-between text-xs text-[#6B7769]">
+              <span className="flex items-center gap-1.5 text-[#3E8A2F] font-semibold text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-[#3E8A2F] animate-ping"></span>
+                Kamera siap scan kartu berikutnya...
+              </span>
+              <button
+                type="button"
+                onClick={handleNextScan}
+                className="text-xs text-[#6B7769] hover:text-[#1C2517] underline font-medium"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ─── Manual Tab ────────────────────────────────────────────────────────────────
+// --- Manual Tab ----------------------------------------------------------------
 function ManualTab() {
   const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, logActivity, appSettings } = useAppContext();
   const { enqueueBulk } = useWAQueue();
@@ -579,11 +667,11 @@ function ManualTab() {
       logActivity({
         tipe: "Absensi Siswa",
         deskripsi: `Simpan absensi ${kelasFilter}: ${hadir} Hadir, ${terlambat} Terlambat, ${izin} Izin, ${sakit} Sakit, ${alpa} Alpa${waCount > 0 ? ` (${waCount} WA diantrekan)` : ""}`,
-        ref: "—",
+        ref: "---",
       });
 
       toast.success(
-        `Presensi siswa berhasil disimpan (${targetSiswa.length - chips.Belum} tercatat)${waCount > 0 ? ` · ${waCount} notifikasi WA diantrekan` : ""}.`
+        `Presensi siswa berhasil disimpan (${targetSiswa.length - chips.Belum} tercatat)${waCount > 0 ? ` Â· ${waCount} notifikasi WA diantrekan` : ""}.`
       );
     } catch {
       toast.error("Gagal menyimpan absensi. Coba lagi.");
@@ -704,7 +792,7 @@ function ManualTab() {
                         </span>
                       </div>
                     ) : (
-                      <span className="text-sm text-[#D1D5DB]">—</span>
+                      <span className="text-sm text-[#D1D5DB]">---</span>
                     )}
                   </td>
                   <td className="py-3.5 pr-6 w-[450px]">
@@ -719,7 +807,7 @@ function ManualTab() {
                               ? renderTemplate(appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat, {
                                   nama_siswa: row.nama,
                                   kelas: row.kelas,
-                                  jam_masuk: jam || '—',
+                                  jam_masuk: jam || '---',
                                 })
                               : renderTemplate(appSettings.waTemplates?.absensiAlpa ?? WA_TEMPLATE_DEFAULTS.absensiAlpa, {
                                   nama_siswa: row.nama,
@@ -792,7 +880,7 @@ function ManualTab() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-[#1C2517]">{confirmEdit.siswa.nama}</p>
-                  <p className="text-xs text-[#6B7769]">NIS: {confirmEdit.siswa.nis} • Kelas {confirmEdit.siswa.kelas}</p>
+                  <p className="text-xs text-[#6B7769]">NIS: {confirmEdit.siswa.nis} --- Kelas {confirmEdit.siswa.kelas}</p>
                 </div>
               </div>
 
@@ -803,7 +891,7 @@ function ManualTab() {
                     {confirmEdit.oldStatus} ({confirmEdit.currentJam})
                   </span>
                 </div>
-                <div className="text-neutral-400 font-bold text-base px-2">➔</div>
+                <div className="text-neutral-400 font-bold text-base px-2">---</div>
                 <div className="flex flex-col items-end">
                   <span className="text-[#6B7769] mb-1">Ubah Menjadi:</span>
                   <span className="font-bold px-2.5 py-1 rounded-md bg-[#3E8A2F] text-white shadow-sm">
@@ -850,7 +938,7 @@ function ManualTab() {
   );
 }
 
-// ─── page ─────────────────────────────────────────────────────────────────────
+// --- page ---
 export function AbsensiSiswa() {
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
