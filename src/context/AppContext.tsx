@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase";
 import {
   loadSiswaFromDB, loadAlumniFromDB,
   insertSiswaDB, updateSiswaDB, deleteSiswaDB, bulkDeleteSiswaDB, bulkUpdateSiswaDB, graduateSiswaDB,
-  insertAlumniDB, updateAlumniDB, deleteAlumniDB,
+  insertAlumniDB, updateAlumniDB, deleteAlumniDB, bulkInsertSiswaDB, rowToSiswa,
 } from "@/lib/supabase-siswa";
 import {
   loadGuruFromDB,
@@ -403,10 +403,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const initCloudData = async () => {
       // 1. Siswa & Alumni
       try {
-        const [siswa, alumni] = await Promise.all([
+        let [siswa, alumni] = await Promise.all([
           loadSiswaFromDB(),
           loadAlumniFromDB(),
         ]);
+
+        // Fallback jika Supabase masih kosong, cek localStorage (misal dari HP yang sudah ada datanya)
+        if (siswa.length === 0) {
+          const localSiswaStr = localStorage.getItem("alittihad_siswa");
+          if (localSiswaStr) {
+            try {
+              const parsed = JSON.parse(localSiswaStr);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                try {
+                  const toSeed = parsed.map(({ id, ...rest }: any) => rest);
+                  siswa = await bulkInsertSiswaDB(toSeed);
+                } catch (seedErr) {
+                  console.error("Gagal seed siswa ke Supabase", seedErr);
+                  siswa = parsed;
+                }
+              }
+            } catch {}
+          }
+        }
+
         setSiswaList(siswa);
         setAlumniList(alumni);
       } catch (e) {
@@ -695,12 +715,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "siswa" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const row = rowToSiswa(payload.new);
+            setSiswaList(prev => {
+              if (prev.some(s => s.id === row.id || s.nis === row.nis)) return prev;
+              return [row, ...prev];
+            });
+          } else if (payload.eventType === "UPDATE") {
+            const row = rowToSiswa(payload.new);
+            setSiswaList(prev => prev.map(s => s.id === row.id ? row : s));
+          } else if (payload.eventType === "DELETE") {
+            const oldId = (payload.old as any)?.id;
+            if (oldId) {
+              setSiswaList(prev => prev.filter(s => s.id !== oldId));
+            }
+          }
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // Simpan siswaList ke localStorage sebagai offline fallback
+  useEffect(() => {
+    if (siswaList.length > 0) {
+      if (isElectron) {
+        (window as any).electronAPI.setStoreValue("alittihad_siswa", siswaList);
+      } else {
+        localStorage.setItem("alittihad_siswa", JSON.stringify(siswaList));
+      }
+    }
+  }, [siswaList, isElectron]);
 
   useEffect(() => {
     if (isElectron) {

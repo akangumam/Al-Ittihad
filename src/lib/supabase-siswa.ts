@@ -139,6 +139,14 @@ export async function insertSiswaDB(s: Omit<SiswaRow, "id">): Promise<SiswaRow> 
   return rowToSiswa(data);
 }
 
+export async function bulkInsertSiswaDB(records: Omit<SiswaRow, "id">[]): Promise<SiswaRow[]> {
+  if (records.length === 0) return [];
+  const payload = records.map(siswaToInsert);
+  const { data, error } = await supabase.from("siswa").insert(payload).select();
+  if (error) throw error;
+  return (data ?? []).map(rowToSiswa);
+}
+
 export async function updateSiswaDB(id: number, data: Partial<SiswaRow>): Promise<void> {
   const { error } = await supabase
     .from("siswa").update(partialSiswaToUpdate(data)).eq("id", id);
