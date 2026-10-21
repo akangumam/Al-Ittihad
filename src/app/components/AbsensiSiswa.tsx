@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Html5Qrcode } from "html5-qrcode";
-import { QrCode, CalendarDays, Search, ChevronDown, CheckCircle2, AlertCircle, Info, SwitchCamera } from "lucide-react";
+import { QrCode, CalendarDays, Search, ChevronDown, CheckCircle2, AlertCircle, Info, SwitchCamera, Lock, MessageCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
@@ -19,9 +19,18 @@ function ScanTab() {
   const { enqueue } = useWAQueue();
   const isMobile = useIsMobile();
   const [scanValue, setScanValue] = useState("");
-  const [lastScanned, setLastScanned] = useState<{ siswa: SiswaRow; status: 'success' | 'warning' | 'error'; message: string; time: string } | null>(null);
+  const [lastScanned, setLastScanned] = useState<{
+    siswa: SiswaRow;
+    status: 'success' | 'warning' | 'error';
+    message: string;
+    time: string;
+    isAlreadyRecorded?: boolean;
+    waInfo?: { type: 'sent' | 'no_phone' | 'disabled'; phone?: string };
+  } | null>(null);
   const [cameraMode, setCameraMode] = useState<"user" | "environment">(isMobile ? "environment" : "user");
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastScannedNisRef = useRef<{ nis: string; time: number } | null>(null);
+  const resetTimerRef = useRef<any>(null);
 
   // Keep focus on hidden input for physical scanner
   useEffect(() => {
@@ -33,6 +42,12 @@ function ScanTab() {
     return () => window.removeEventListener("click", focusInput);
   }, []);
 
+  const handleNextScan = () => {
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    setLastScanned(null);
+    lastScannedNisRef.current = null;
+  };
+
   // Ref agar camera callback selalu pakai processScan terbaru (hindari stale closure)
   const processScanRef = useRef<(text: string) => void>(() => {});
 
@@ -43,6 +58,13 @@ function ScanTab() {
       nis = nis.split("|")[1].trim();
     }
     
+    // Cooldown per NIS: jika NIS yang sama baru saja di-scan dalam 8 detik, abaikan agar tidak loop berulang
+    const nowMs = Date.now();
+    if (lastScannedNisRef.current && lastScannedNisRef.current.nis === nis && nowMs - lastScannedNisRef.current.time < 8000) {
+      return;
+    }
+    lastScannedNisRef.current = { nis, time: nowMs };
+
     const siswa = siswaList.find(s => s.nis === nis);
     const now = new Date();
     const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -51,13 +73,16 @@ function ScanTab() {
       if (siswa.status === "Nonaktif") {
         setLastScanned({ siswa, status: 'error', message: "Siswa berstatus Nonaktif", time: timeStr });
       } else if (absensiSiswaHariIni[nis]) {
-        // Mencegah double tap
+        // Siswa sudah terdata sebelumnya — kunci status & cegah scan ulang
+        const existing = absensiSiswaHariIni[nis];
         setLastScanned({
           siswa,
           status: 'warning',
-          message: `Sudah Tercatat: ${absensiSiswaHariIni[nis]?.status}`,
-          time: timeStr
+          message: `Sudah Tercatat: ${existing?.status}`,
+          time: existing?.jam || timeStr,
+          isAlreadyRecorded: true,
         });
+        toast.info(`${siswa.nama} sudah tercatat ${existing?.status} pada ${existing?.jam || timeStr}`);
       } else {
         const [jH, jM] = (appSettings.jamMasukSiswa ?? appSettings.jamMasukGuru ?? "07:00").split(":").map(Number);
         const batasMasuk = new Date();
@@ -67,40 +92,58 @@ function ScanTab() {
         const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
 
         setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: { status: statusAbsen, jam: timeStr } }));
+
+        let waInfo: { type: 'sent' | 'no_phone' | 'disabled'; phone?: string } | undefined = undefined;
+
+        if (isTerlambat) {
+          if (!siswa.waliHp) {
+            waInfo = { type: 'no_phone' };
+            toast.warning(`Siswa terlambat. Nomor WA wali murid belum terdaftar.`);
+          } else if (!appSettings.wahaEnabled) {
+            waInfo = { type: 'disabled', phone: siswa.waliHp };
+            toast.info(`Siswa terlambat. Notifikasi WA otomatis belum diaktifkan di Pengaturan.`);
+          } else {
+            waInfo = { type: 'sent', phone: siswa.waliHp };
+            enqueue({
+              phone: siswa.waliHp,
+              nama_penerima: siswa.waliNama || `Wali dari ${siswa.nama}`,
+              pesan: renderTemplate(
+                appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat,
+                { nama_siswa: siswa.nama, kelas: siswa.kelas, jam_masuk: timeStr },
+              ),
+              jenis: "absensi",
+              ref_id: siswa.nis,
+              priority: 1,
+            });
+            toast.success(`Notifikasi WA keterlambatan dikirim ke wali murid (${siswa.waliHp}).`);
+          }
+        } else {
+          toast.success(`Absensi ${siswa.nama} tercatat: Hadir pukul ${timeStr}`);
+        }
+
         setLastScanned({
           siswa,
           status: isTerlambat ? 'warning' : 'success',
           message: isTerlambat ? "Terlambat" : "Berhasil Hadir",
-          time: timeStr
+          time: timeStr,
+          waInfo,
         });
-
-        if (isTerlambat && siswa.waliHp && appSettings.wahaEnabled) {
-          enqueue({
-            phone: siswa.waliHp,
-            nama_penerima: siswa.waliNama || `Wali dari ${siswa.nama}`,
-            pesan: renderTemplate(
-              appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat,
-              { nama_siswa: siswa.nama, kelas: siswa.kelas, jam_masuk: timeStr },
-            ),
-            jenis: "absensi",
-            ref_id: siswa.nis,
-            priority: 1,
-          });
-        }
       }
     } else {
       setLastScanned({
         siswa: { id: 0, nis: nis, nisn: "", nama: "Tidak Ditemukan", jk: "L", kelas: "-", waliNama: "", waliHp: "", statusTagihan: "Lunas", status: "Aktif", inits: "-", tempatLahir: "", tanggalLahir: "", namaAyah: "", namaIbu: "", alamat: "", kelurahan: "", kecamatan: "" },
         status: 'error', message: "NIS tidak terdaftar", time: timeStr
       });
+      toast.error(`NIS "${nis}" tidak ditemukan dalam sistem`);
     }
 
-    setTimeout(() => {
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(() => {
       setLastScanned(prev => {
         if (prev?.siswa.nis === nis) return null;
         return prev;
       });
-    }, 4000);
+    }, 6000);
   };
 
   const handleScan = (e: React.FormEvent) => {
@@ -210,11 +253,82 @@ function ScanTab() {
             </div>
             
             <h2 className="text-4xl font-bold text-[#1C2517] mb-2">{lastScanned.siswa.nama}</h2>
-            <p className="text-xl font-medium text-[#6B7769] mb-6">NIS: {lastScanned.siswa.nis} • Kelas {lastScanned.siswa.kelas}</p>
+            <p className="text-xl font-medium text-[#6B7769] mb-4">NIS: {lastScanned.siswa.nis} • Kelas {lastScanned.siswa.kelas}</p>
             
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-2xl"
+            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-2xl mb-4"
               style={{ background: statusBg, color: statusText }}>
               {lastScanned.message} • {lastScanned.time}
+            </div>
+
+            {/* Peringatan Status Sudah Terkunci jika scan berulang */}
+            {lastScanned.isAlreadyRecorded && (
+              <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 text-center">
+                <p className="text-amber-900 font-bold text-base mb-1 flex items-center justify-center gap-2">
+                  <Lock size={16} className="text-amber-700" /> Status Absensi Sudah Terkunci
+                </p>
+                <p className="text-amber-800 text-xs">
+                  Siswa ini sudah melakukan presensi hari ini. Absensi ganda dicegah otomatis oleh sistem.
+                </p>
+                <p className="text-xs text-amber-700 mt-1.5">
+                  Jika ada kesalahan atau perlu perubahan status, silakan ubah melalui tab <strong>Rekap Manual</strong>.
+                </p>
+              </div>
+            )}
+
+            {/* Banner Status Notifikasi WhatsApp */}
+            {lastScanned.waInfo && (
+              <div className="w-full mb-4">
+                {lastScanned.waInfo.type === 'sent' && (
+                  <div className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium">
+                    <MessageCircle size={15} className="text-emerald-600 shrink-0" />
+                    <span>Notifikasi WA keterlambatan dikirim ke wali ({lastScanned.waInfo.phone})</span>
+                  </div>
+                )}
+                {lastScanned.waInfo.type === 'no_phone' && (
+                  <div className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium">
+                    <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                    <span>Nomor WhatsApp wali belum terdaftar di data siswa</span>
+                  </div>
+                )}
+                {lastScanned.waInfo.type === 'disabled' && (
+                  <div className="flex flex-col items-center gap-2 px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-600 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <Info size={14} className="text-neutral-500 shrink-0" />
+                      <span>Notifikasi WA otomatis belum diaktifkan di menu <strong>Pengaturan</strong></span>
+                    </div>
+                    {lastScanned.siswa.waliHp && (
+                      <a
+                        href={`https://wa.me/${lastScanned.siswa.waliHp.replace(/^0/, '62').replace(/\D/g, '')}?text=${encodeURIComponent(
+                          renderTemplate(appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat, {
+                            nama_siswa: lastScanned.siswa.nama,
+                            kelas: lastScanned.siswa.kelas,
+                            jam_masuk: lastScanned.time,
+                          })
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 font-bold text-[#166534] bg-emerald-100/70 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <MessageCircle size={14} />
+                        Kirim WA Konfirmasi Manual ({lastScanned.siswa.waliHp})
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Tombol Lanjut Scan Kartu Berikutnya */}
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={handleNextScan}
+                className="px-5 py-2.5 rounded-xl bg-[#1C2517] text-white text-sm font-semibold hover:bg-black transition-all shadow flex items-center gap-2"
+              >
+                <QrCode size={16} />
+                Scan Siswa Berikutnya
+              </button>
             </div>
           </div>
         )}
@@ -243,9 +357,47 @@ function ManualTab() {
     return activeSiswa.filter(s => s.kelas === targetKelas);
   }, [activeSiswa, kelasFilter]);
 
-  const setStatus = (nis: string, v: string) => {
-    const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: { status: v, jam: prev[nis]?.jam ?? now } }));
+  const [confirmEdit, setConfirmEdit] = useState<{
+    siswa: SiswaRow;
+    oldStatus: string;
+    newStatus: string;
+    currentJam: string;
+  } | null>(null);
+
+  const handleRequestStatusChange = (siswa: SiswaRow, targetStatus: string) => {
+    const existing = absensiSiswaHariIni[siswa.nis];
+    const currentStatus = existing?.status;
+    const currentJam = existing?.jam || new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+    // Jika belum ada status sama sekali (Belum Absen), langsung set tanpa dialog
+    if (!currentStatus) {
+      const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      setAbsensiSiswaHariIni(prev => ({ ...prev, [siswa.nis]: { status: targetStatus, jam: now } }));
+      toast.success(`${siswa.nama}: Status diatur ke ${targetStatus}`);
+      return;
+    }
+
+    // Jika status yang diklik sama persis dengan yang ada, abaikan
+    if (currentStatus === targetStatus) return;
+
+    // Siswa SUDAH punya status tercatat/terkunci -> tampilkan dialog konfirmasi Ya/Tidak
+    setConfirmEdit({
+      siswa,
+      oldStatus: currentStatus,
+      newStatus: targetStatus,
+      currentJam,
+    });
+  };
+
+  const handleConfirmEdit = () => {
+    if (!confirmEdit) return;
+    const { siswa, newStatus, currentJam } = confirmEdit;
+    setAbsensiSiswaHariIni(prev => ({
+      ...prev,
+      [siswa.nis]: { status: newStatus, jam: prev[siswa.nis]?.jam ?? currentJam }
+    }));
+    toast.success(`Status absensi ${siswa.nama} berhasil diubah ke ${newStatus}`);
+    setConfirmEdit(null);
   };
 
   const markAllTargetHadir = () => {
@@ -465,9 +617,12 @@ function ManualTab() {
                   </td>
                   <td className="py-3.5 pr-4 text-sm font-medium">
                     {jam ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm tabular-nums font-medium" style={{ color: late ? "#92400E" : "#6B7769" }}>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm tabular-nums font-semibold" style={{ color: late ? "#92400E" : "#166534" }}>
                           {jam}
+                        </span>
+                        <span title="Status kehadiran telah tercatat dan terkunci" className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          <Lock size={10} className="shrink-0" /> Terkunci
                         </span>
                       </div>
                     ) : (
@@ -475,7 +630,7 @@ function ManualTab() {
                     )}
                   </td>
                   <td className="py-3.5 pr-6 w-[420px]">
-                    <AbsensiStatusControl value={status} onChange={(v) => setStatus(row.nis, v)} />
+                    <AbsensiStatusControl value={status} onChange={(v) => handleRequestStatusChange(row, v)} />
                   </td>
                 </tr>
               );
@@ -510,7 +665,73 @@ function ManualTab() {
         </button>
       </div>
 
-      {/* Modal Konfirmasi */}
+      {/* Modal Pertanyaan Konfirmasi Ubah Status Absensi Terkunci */}
+      {confirmEdit && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E2E8DE] animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
+                <AlertCircle size={22} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-[#1C2517]">Ubah Status Absensi?</h3>
+                <p className="text-xs text-[#6B7769]">Status siswa ini sebelumnya sudah tercatat/terkunci.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#FAFBF9] rounded-xl p-4 border border-[#E2E8DE] mb-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-full bg-[#3E8A2F] text-white flex items-center justify-center font-bold text-xs overflow-hidden shrink-0">
+                  <img src={confirmEdit.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt="Foto" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#1C2517]">{confirmEdit.siswa.nama}</p>
+                  <p className="text-xs text-[#6B7769]">NIS: {confirmEdit.siswa.nis} • Kelas {confirmEdit.siswa.kelas}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs pt-2.5 border-t border-[#E2E8DE]">
+                <div className="flex flex-col">
+                  <span className="text-[#6B7769] mb-1">Status Saat Ini:</span>
+                  <span className="font-bold px-2.5 py-1 rounded-md bg-neutral-100 text-neutral-800 border border-neutral-200">
+                    {confirmEdit.oldStatus} ({confirmEdit.currentJam})
+                  </span>
+                </div>
+                <div className="text-neutral-400 font-bold text-base px-2">➔</div>
+                <div className="flex flex-col items-end">
+                  <span className="text-[#6B7769] mb-1">Ubah Menjadi:</span>
+                  <span className="font-bold px-2.5 py-1 rounded-md bg-[#3E8A2F] text-white shadow-sm">
+                    {confirmEdit.newStatus}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#6B7769] mb-6">
+              Apakah Anda yakin ingin mengubah status absensi siswa ini? Perubahan akan langsung disinkronkan ke server.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setConfirmEdit(null)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-[#6B7769] hover:bg-neutral-100 transition-colors"
+              >
+                Batal (Tidak)
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmEdit}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#3E8A2F] hover:bg-[#2E6B22] shadow-sm transition-colors"
+              >
+                Ya, Ubah Status
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Simpan dengan Siswa Belum Absen */}
       <KonfirmasiAbsensiSiswaModal
         open={showModal}
         onClose={() => setShowModal(false)}

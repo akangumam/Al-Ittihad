@@ -3,7 +3,7 @@ import type { Role, AppSettings, ActivityLogEntry, MutasiRecord, ManualTransaksi
 import { WA_TEMPLATE_DEFAULTS } from "@/lib/waTemplates";
 import { RABRow, RAB_DATA, mutasiData } from "@/data/keuangan";
 import { useAuth } from "@/context/AuthContext";
-import { fmt } from "@/lib/formatters";
+import { fmt, getTodayDateString } from "@/lib/formatters";
 import { isGhostEmail } from "@/lib/ghost";
 import { supabase } from "@/lib/supabase";
 import {
@@ -11,6 +11,59 @@ import {
   insertSiswaDB, updateSiswaDB, deleteSiswaDB, bulkDeleteSiswaDB, bulkUpdateSiswaDB, graduateSiswaDB,
   insertAlumniDB, updateAlumniDB, deleteAlumniDB,
 } from "@/lib/supabase-siswa";
+import {
+  loadGuruFromDB,
+  insertGuruDB,
+  updateGuruDB,
+  deleteGuruDB,
+  bulkInsertGuruDB,
+} from "@/lib/supabase-guru";
+import {
+  loadAbsensiSiswaHariIniDB,
+  loadAbsensiSiswaHistoryDB,
+  bulkUpsertAbsensiSiswaDB,
+  loadAbsensiGuruHariIniDB,
+  loadAbsensiGuruHistoryDB,
+  bulkUpsertAbsensiGuruDB,
+} from "@/lib/supabase-absensi";
+import {
+  loadTagihanFromDB,
+  loadTransaksiFromDB,
+  bulkUpsertTagihanDB,
+  updateTagihanNominalDB,
+  deleteTagihanSiswaDB,
+  insertTransaksiDB,
+  transaksiToPayload,
+} from "@/lib/supabase-pembayaran";
+import {
+  loadManualTransaksiFromDB,
+  insertManualTransaksiDB,
+  manualTransaksiToPayload,
+  loadBankTransferFromDB,
+  insertBankTransferDB,
+  bankTransferToPayload,
+  loadRabFromDB,
+  insertRabDB,
+  updateRabDB,
+  deleteRabDB,
+  bulkInsertRabDB,
+} from "@/lib/supabase-keuangan";
+import {
+  loadAppSettingsFromDB,
+  saveAppSettingsDB,
+  loadKelasFromDB,
+  bulkInsertKelasDB,
+  insertKelasDB,
+  updateKelasDB,
+  deleteKelasDB,
+  loadJadwalFromDB,
+  bulkInsertJadwalDB,
+  insertJadwalDB,
+  updateJadwalDB,
+  deleteJadwalDB,
+  loadLogAktivitasFromDB,
+  insertLogAktivitasDB,
+} from "@/lib/supabase-akademik";
 import { toast } from "sonner";
 import {
   initialTagihanSiswa,
@@ -21,7 +74,7 @@ import {
 import { absensiGuruList } from "@/data/absensi";
 import { siswaData, type SiswaRow } from "@/data/siswa";
 import { alumniData, type AlumniRow } from "@/data/alumni";
-import { guruData, type GuruRow } from "@/data/guru";
+import { guruData, type GuruRow, SEED_GURU } from "@/data/guru";
 import { type JadwalRow, type KelasRow, kelasData, type JadwalOverride, jadwalData, type WaktuProfile, defaultWaktuProfile } from "@/data/kelas";
 
 interface AppContextValue {
@@ -45,7 +98,8 @@ interface AppContextValue {
   updateAlumni: (id: number, data: Partial<AlumniRow>) => void;
   deleteAlumni: (id: number) => void;
   guruList: GuruRow[];
-  addGuru: (guru: GuruRow) => void;
+  guruLoading: boolean;
+  addGuru: (guru: GuruRow | Omit<GuruRow, "id">) => void;
   updateGuru: (id: number, data: Partial<GuruRow>) => void;
   deleteGuru: (id: number) => void;
 
@@ -117,7 +171,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [siswaList, setSiswaList] = useState<SiswaRow[]>([]);
   const [siswaLoading, setSiswaLoading] = useState(true);
   const [alumniList, setAlumniList] = useState<AlumniRow[]>([]);
-  const [guruList, setGuruList] = useState<GuruRow[]>(guruData);
+  const [guruList, setGuruList] = useState<GuruRow[]>([]);
+  const [guruLoading, setGuruLoading] = useState(true);
+  const isLoadedFromDB = useRef(false);
   const [kelasList, setKelasList] = useState<KelasRow[]>(kelasData);
   const [jadwalList, setJadwalList] = useState<JadwalRow[]>(jadwalData);
   const [jadwalOverridesList, setJadwalOverridesList] = useState<JadwalOverride[]>([]);
@@ -290,7 +346,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         if (savedGuru) setGuruList(savedGuru);
         if (savedAbsensi) {
-          const today = new Date().toISOString().split("T")[0];
+          const today = getTodayDateString();
           if (savedAbsensi.date === today) {
             const rawSiswa = savedAbsensi.data || {};
             const normalizedSiswa: Record<string, { status: string; jam: string }> = {};
@@ -339,15 +395,311 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
+  // ─── Cloud Data Initial Load (Siswa, Alumni, Guru, Absensi) ───────────────
   useEffect(() => {
     setSiswaLoading(true);
-    Promise.all([loadSiswaFromDB(), loadAlumniFromDB()])
-      .then(([siswa, alumni]) => {
+    setGuruLoading(true);
+
+    const initCloudData = async () => {
+      // 1. Siswa & Alumni
+      try {
+        const [siswa, alumni] = await Promise.all([
+          loadSiswaFromDB(),
+          loadAlumniFromDB(),
+        ]);
         setSiswaList(siswa);
         setAlumniList(alumni);
-      })
-      .catch(e => console.error("Failed to load siswa/alumni from Supabase", e))
-      .finally(() => setSiswaLoading(false));
+      } catch (e) {
+        console.error("Gagal load siswa/alumni dari Supabase", e);
+      } finally {
+        setSiswaLoading(false);
+      }
+
+      // 2. Guru
+      try {
+        let gurus = await loadGuruFromDB();
+        if (gurus.length === 0) {
+          const localGuruStr = localStorage.getItem("alittihad_guru");
+          let toSeed = SEED_GURU;
+          if (localGuruStr) {
+            try {
+              const parsed = JSON.parse(localGuruStr);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                toSeed = parsed.map(({ id, ...rest }: any) => rest);
+              }
+            } catch {}
+          }
+          try {
+            gurus = await bulkInsertGuruDB(toSeed);
+          } catch (seedErr) {
+            console.error("Gagal seed guru ke Supabase", seedErr);
+            gurus = toSeed.map((g, idx) => ({ ...g, id: idx + 1 } as GuruRow));
+          }
+        }
+        setGuruList(gurus);
+      } catch (e) {
+        console.error("Gagal load guru dari Supabase", e);
+      } finally {
+        setGuruLoading(false);
+      }
+
+      // 3. Absensi (Hari Ini & History)
+      try {
+        const today = getTodayDateString();
+        const [absSiswaToday, absGuruToday, absSiswaHist, absGuruHist] = await Promise.all([
+          loadAbsensiSiswaHariIniDB(today),
+          loadAbsensiGuruHariIniDB(today),
+          loadAbsensiSiswaHistoryDB(),
+          loadAbsensiGuruHistoryDB(),
+        ]);
+
+        if (Object.keys(absSiswaToday).length > 0) {
+          setAbsensiSiswaHariIni(absSiswaToday);
+        }
+        if (Object.keys(absGuruToday).length > 0) {
+          setAbsensiGuruHariIni(absGuruToday);
+        }
+        if (Object.keys(absSiswaHist).length > 0) {
+          setAbsensiSiswaHistory(absSiswaHist);
+        }
+        if (Object.keys(absGuruHist).length > 0) {
+          setAbsensiGuruHistory(absGuruHist);
+        }
+      } catch (e) {
+        console.error("Gagal load absensi dari Supabase", e);
+      }
+
+      // 4. Tagihan & Transaksi Pembayaran
+      try {
+        const [dbTagihan, dbTransaksi] = await Promise.all([
+          loadTagihanFromDB(),
+          loadTransaksiFromDB(),
+        ]);
+
+        if (dbTagihan.length > 0) {
+          setTagihanList(dbTagihan);
+        } else {
+          const localTagihanStr = localStorage.getItem("alittihad_tagihan");
+          if (localTagihanStr) {
+            try {
+              const parsed = JSON.parse(localTagihanStr);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setTagihanList(parsed);
+                bulkUpsertTagihanDB(parsed).catch(console.error);
+              }
+            } catch {}
+          }
+        }
+
+        if (dbTransaksi.length > 0) {
+          setTransaksiList(dbTransaksi);
+        } else {
+          const localTrxStr = localStorage.getItem("alittihad_transaksi");
+          if (localTrxStr) {
+            try {
+              const parsed = JSON.parse(localTrxStr);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setTransaksiList(parsed);
+                supabase
+                  .from("transaksi_pembayaran")
+                  .insert(parsed.map(transaksiToPayload))
+                  .then(({ error }) => {
+                    if (error) console.error(error);
+                  });
+              }
+            } catch {}
+          }
+        }
+      } catch (e) {
+        console.error("Gagal load tagihan/transaksi dari Supabase", e);
+      }
+
+      // 5. Kas & Bank (Buku Kas Umum), Bank Transfer, dan RAB
+      try {
+        const [dbManualTrx, dbBankTransfer, dbRab] = await Promise.all([
+          loadManualTransaksiFromDB(),
+          loadBankTransferFromDB(),
+          loadRabFromDB(),
+        ]);
+
+        if (dbManualTrx.length > 0) {
+          setManualTransaksiList(dbManualTrx);
+        } else {
+          const localManualStr = localStorage.getItem("alittihad_manual_transaksi");
+          if (localManualStr) {
+            try {
+              const parsed = JSON.parse(localManualStr);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setManualTransaksiList(parsed);
+                supabase
+                  .from("manual_transaksi")
+                  .insert(parsed.map(manualTransaksiToPayload))
+                  .then(({ error }) => {
+                    if (error) console.error(error);
+                  });
+              }
+            } catch {}
+          }
+        }
+
+        if (dbBankTransfer.length > 0) {
+          setBankTransferList(dbBankTransfer);
+        } else {
+          const localBtStr = localStorage.getItem("alittihad_bank_transfer");
+          if (localBtStr) {
+            try {
+              const parsed = JSON.parse(localBtStr);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setBankTransferList(parsed);
+                supabase
+                  .from("bank_transfer")
+                  .insert(parsed.map(bankTransferToPayload))
+                  .then(({ error }) => {
+                    if (error) console.error(error);
+                  });
+              }
+            } catch {}
+          }
+        }
+
+        if (dbRab.length > 0) {
+          setRabList(dbRab);
+        } else {
+          try {
+            const seeded = await bulkInsertRabDB(RAB_DATA);
+            setRabList(seeded);
+          } catch (seedErr) {
+            console.error("Gagal seed RAB ke Supabase", seedErr);
+            setRabList(RAB_DATA);
+          }
+        }
+      } catch (e) {
+        console.error("Gagal load kas/bank/rab dari Supabase", e);
+      }
+
+      // 6. Pengaturan Madrasah, Kelas, Jadwal Pelajaran, dan Log Aktivitas
+      try {
+        const [dbSettings, dbKelas, dbJadwal, dbLogs] = await Promise.all([
+          loadAppSettingsFromDB(),
+          loadKelasFromDB(),
+          loadJadwalFromDB(),
+          loadLogAktivitasFromDB(),
+        ]);
+
+        if (dbSettings) {
+          setAppSettings(s => ({ ...s, ...dbSettings }));
+        } else {
+          saveAppSettingsDB(defaultAppSettings).catch(console.error);
+        }
+
+        if (dbKelas.length > 0) {
+          setKelasList(dbKelas);
+        } else {
+          try {
+            const seededKelas = await bulkInsertKelasDB(kelasData);
+            setKelasList(seededKelas);
+          } catch (seedErr) {
+            console.error("Gagal seed kelas ke Supabase", seedErr);
+          }
+        }
+
+        if (dbJadwal.length > 0) {
+          setJadwalList(dbJadwal);
+        } else {
+          try {
+            const seededJadwal = await bulkInsertJadwalDB(jadwalData);
+            setJadwalList(seededJadwal);
+          } catch (seedErr) {
+            console.error("Gagal seed jadwal ke Supabase", seedErr);
+          }
+        }
+
+        if (dbLogs.length > 0) {
+          setActivityLogs(dbLogs);
+        }
+      } catch (e) {
+        console.error("Gagal load settings/kelas/jadwal/log dari Supabase", e);
+      }
+
+      isLoadedFromDB.current = true;
+    };
+
+    initCloudData();
+  }, []);
+
+  // ─── Realtime Subscription for Absensi (Siswa & Guru) ────────────────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel("alittihad_absensi_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "absensi_siswa" },
+        (payload) => {
+          const today = getTodayDateString();
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const row = payload.new as any;
+            if (row && (row.tanggal === today || String(row.tanggal).startsWith(today))) {
+              setAbsensiSiswaHariIni(prev => {
+                if (prev[row.nis]?.status === row.status && prev[row.nis]?.jam === (row.jam || "—")) {
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  [row.nis]: { status: row.status, jam: row.jam || "—" }
+                };
+              });
+            }
+          } else if (payload.eventType === "DELETE") {
+            const row = payload.old as any;
+            if (row?.nis) {
+              setAbsensiSiswaHariIni(prev => {
+                if (!prev[row.nis]) return prev;
+                const next = { ...prev };
+                delete next[row.nis];
+                return next;
+              });
+            }
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "absensi_guru" },
+        (payload) => {
+          const today = getTodayDateString();
+          if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+            const row = payload.new as any;
+            if (row && (row.tanggal === today || String(row.tanggal).startsWith(today))) {
+              const guruId = Number(row.guru_id);
+              setAbsensiGuruHariIni(prev => {
+                if (prev[guruId]?.status === row.status && prev[guruId]?.jam === (row.jam || "—")) {
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  [guruId]: { status: row.status, jam: row.jam || "—" }
+                };
+              });
+            }
+          } else if (payload.eventType === "DELETE") {
+            const row = payload.old as any;
+            if (row?.guru_id) {
+              const guruId = Number(row.guru_id);
+              setAbsensiGuruHariIni(prev => {
+                if (!prev[guruId]) return prev;
+                const next = { ...prev };
+                delete next[guruId];
+                return next;
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -388,8 +740,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [kelasList, isElectron]);
 
+  // Sync current day Siswa attendance to history & Supabase
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayDateString();
     const payload = { date: today, data: absensiSiswaHariIni, dataGuru: absensiGuruHariIni };
     if (isElectron) {
       (window as any).electronAPI.setStoreValue("alittihad_absensi_siswa", payload);
@@ -397,28 +750,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("alittihad_absensi_siswa", JSON.stringify(payload));
     }
 
-    // Sync current day guru attendance to history
-    if (Object.keys(absensiGuruHariIni).length > 0) {
-      setAbsensiGuruHistory(prev => {
-        const currentDay = prev[today] || {};
-        const mergedDay = { ...currentDay, ...absensiGuruHariIni };
-        
-        if (JSON.stringify(currentDay) === JSON.stringify(mergedDay)) return prev;
-        return { ...prev, [today]: mergedDay };
-      });
-    }
+    if (!isLoadedFromDB.current) return;
+    const entries = Object.entries(absensiSiswaHariIni);
+    if (entries.length === 0) return;
 
-    // Sync current day siswa attendance to history
-    if (Object.keys(absensiSiswaHariIni).length > 0) {
-      setAbsensiSiswaHistory(prev => {
-        const currentDay = prev[today] || {};
-        const mergedDay = { ...currentDay, ...absensiSiswaHariIni };
+    setAbsensiSiswaHistory(prev => {
+      const currentDay = prev[today] || {};
+      const mergedDay = { ...currentDay, ...absensiSiswaHariIni };
+      if (JSON.stringify(currentDay) === JSON.stringify(mergedDay)) return prev;
+      return { ...prev, [today]: mergedDay };
+    });
 
-        if (JSON.stringify(currentDay) === JSON.stringify(mergedDay)) return prev;
-        return { ...prev, [today]: mergedDay };
-      });
-    }
-  }, [absensiSiswaHariIni, absensiGuruHariIni, isElectron]);
+    const records = entries.map(([nis, v]) => ({
+      tanggal: today,
+      nis,
+      status: v.status,
+      jam: v.jam,
+    }));
+    bulkUpsertAbsensiSiswaDB(records).catch(err => {
+      console.error("Gagal sync absensi siswa ke Supabase:", err);
+    });
+  }, [absensiSiswaHariIni, isElectron]);
+
+  // Sync current day Guru attendance to history & Supabase
+  useEffect(() => {
+    if (!isLoadedFromDB.current) return;
+    const today = getTodayDateString();
+    const entries = Object.entries(absensiGuruHariIni);
+    if (entries.length === 0) return;
+
+    setAbsensiGuruHistory(prev => {
+      const currentDay = prev[today] || {};
+      const mergedDay = { ...currentDay, ...absensiGuruHariIni };
+      if (JSON.stringify(currentDay) === JSON.stringify(mergedDay)) return prev;
+      return { ...prev, [today]: mergedDay };
+    });
+
+    const records = entries.map(([guruIdStr, v]) => ({
+      tanggal: today,
+      guruId: Number(guruIdStr),
+      status: v.status,
+      jam: v.jam,
+    }));
+    bulkUpsertAbsensiGuruDB(records).catch(err => {
+      console.error("Gagal sync absensi guru ke Supabase:", err);
+    });
+  }, [absensiGuruHariIni]);
 
   useEffect(() => {
     if (Object.keys(absensiGuruHistory).length === 0) return;
@@ -444,6 +821,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } else {
       localStorage.setItem("alittihad_app_settings", JSON.stringify(appSettings));
     }
+
+    if (!isLoadedFromDB.current) return;
+    saveAppSettingsDB(appSettings).catch(err => {
+      console.error("Gagal sync appSettings ke Supabase:", err);
+    });
   }, [appSettings, isElectron]);
 
   useEffect(() => {
@@ -473,12 +855,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ─── Activity log helper ───────────────────────────────────────────────────
   const logActivity = (entry: Omit<ActivityLogEntry, "id" | "waktu" | "pelaku">) => {
     if (isGhostEmail(authUser?.email)) return;
-    setActivityLogs(prev => [{
+    const newEntry: ActivityLogEntry = {
       id: crypto.randomUUID(),
       waktu: new Date().toISOString(),
       pelaku: authUser?.nama ?? "Sistem",
       ...entry,
-    }, ...prev]);
+    };
+    setActivityLogs(prev => [newEntry, ...prev]);
+    insertLogAktivitasDB(newEntry).catch(err => {
+      console.error("Gagal simpan log aktivitas ke Supabase:", err);
+    });
   };
 
   useEffect(() => {
@@ -522,20 +908,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addBankTransfer = (row: Omit<BankTransferRow, "id" | "dicatatOleh" | "waktuCatat">) => {
     const id = `BT-${Date.now()}`;
-    setBankTransferList(prev => [{ ...row, id, dicatatOleh: authUser?.nama ?? "Admin", waktuCatat: new Date().toISOString() }, ...prev]);
+    const newRow: BankTransferRow = {
+      ...row,
+      id,
+      dicatatOleh: authUser?.nama ?? "Admin",
+      waktuCatat: new Date().toISOString(),
+    };
+    setBankTransferList(prev => [newRow, ...prev]);
+    insertBankTransferDB(newRow).catch(err => {
+      console.error("Gagal simpan bank transfer ke Supabase:", err);
+      toast.error("Gagal menyimpan mutasi transfer ke server");
+    });
   };
 
   const addRab = (row: Omit<RABRow, "id">) => {
-    const id = rabList.length > 0 ? Math.max(...rabList.map(r => r.id)) + 1 : 1;
-    setRabList(prev => [...prev, { ...row, id }]);
+    const tempId = rabList.length > 0 ? Math.max(...rabList.map(r => r.id)) + 1 : 1;
+    const optimistic: RABRow = { ...row, id: tempId };
+    setRabList(prev => [...prev, optimistic]);
+    insertRabDB(row)
+      .then(saved => {
+        setRabList(prev => prev.map(r => (r.id === tempId ? saved : r)));
+        toast.success("Item anggaran berhasil ditambahkan");
+      })
+      .catch(err => {
+        console.error("Gagal simpan RAB ke Supabase:", err);
+        setRabList(prev => prev.filter(r => r.id !== tempId));
+        toast.error("Gagal menyimpan item anggaran ke server");
+      });
   };
-  const updateRab = (id: number, data: Partial<RABRow>) =>
-    setRabList(prev => prev.map(r => r.id === id ? { ...r, ...data } : r));
-  const deleteRab = (id: number) =>
+  const updateRab = (id: number, data: Partial<RABRow>) => {
+    setRabList(prev => prev.map(r => (r.id === id ? { ...r, ...data } : r)));
+    updateRabDB(id, data).catch(err => {
+      console.error("Gagal update RAB di Supabase:", err);
+      toast.error("Gagal memperbarui anggaran di server");
+    });
+  };
+  const deleteRab = (id: number) => {
     setRabList(prev => prev.filter(r => r.id !== id));
+    deleteRabDB(id).catch(err => {
+      console.error("Gagal delete RAB di Supabase:", err);
+      toast.error("Gagal menghapus anggaran di server");
+    });
+  };
 
   const addManualTransaksi = (t: ManualTransaksiRow) => {
     setManualTransaksiList(prev => [t, ...prev]);
+    insertManualTransaksiDB(t).catch(err => {
+      console.error("Gagal simpan manual transaksi ke Supabase:", err);
+      toast.error("Gagal menyimpan transaksi ke server");
+    });
     logActivity({
       tipe: t.tipe === "masuk" ? "Pembayaran" : "Pembatalan",
       deskripsi: `[${t.tipe === "masuk" ? "Pemasukan" : "Pengeluaran"} Manual] ${t.keterangan} — ${fmt(t.jumlah)}`,
@@ -592,14 +1013,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     supabase.from("alumni").delete().gt("id", 0).then(({ error }) => {
       if (error) console.error("resetToCleanData: gagal hapus alumni dari Supabase", error.message);
     });
+    supabase.from("guru").delete().gt("id", 0).then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus guru dari Supabase", error.message);
+    });
+    supabase.from("absensi_siswa").delete().gt("id", 0).then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus absensi siswa dari Supabase", error.message);
+    });
+    supabase.from("absensi_guru").delete().gt("id", 0).then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus absensi guru dari Supabase", error.message);
+    });
+    supabase.from("tagihan_siswa").delete().neq("id", "").then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus tagihan_siswa dari Supabase", error.message);
+    });
+    supabase.from("transaksi_pembayaran").delete().neq("id", "").then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus transaksi_pembayaran dari Supabase", error.message);
+    });
+    supabase.from("manual_transaksi").delete().neq("id", "").then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus manual_transaksi dari Supabase", error.message);
+    });
+    supabase.from("bank_transfer").delete().neq("id", "").then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus bank_transfer dari Supabase", error.message);
+    });
+    supabase.from("rab_anggaran").delete().gt("id", 0).then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus rab_anggaran dari Supabase", error.message);
+    });
+    supabase.from("log_aktivitas").delete().neq("id", "00000000-0000-0000-0000-000000000000").then(({ error }) => {
+      if (error) console.error("resetToCleanData: gagal hapus log_aktivitas dari Supabase", error.message);
+    });
   };
 
-  const addKelas = (kelas: KelasRow) => setKelasList(prev => [...prev, kelas]);
+  const addKelas = (kelas: KelasRow) => {
+    setKelasList(prev => [...prev, kelas]);
+    insertKelasDB(kelas).catch(err => {
+      console.error("Gagal insert kelas ke Supabase:", err);
+      toast.error("Gagal menyimpan kelas ke server");
+    });
+  };
   const updateKelas = (id: string, data: Partial<KelasRow>) => {
-    setKelasList(prev => prev.map(k => k.id === id ? { ...k, ...data } : k));
+    setKelasList(prev => prev.map(k => (k.id === id ? { ...k, ...data } : k)));
+    updateKelasDB(id, data).catch(err => {
+      console.error("Gagal update kelas di Supabase:", err);
+    });
   };
   const deleteKelas = (id: string) => {
     setKelasList(prev => prev.filter(k => k.id !== id));
+    deleteKelasDB(id).catch(err => {
+      console.error("Gagal delete kelas di Supabase:", err);
+    });
   };
 
   const addSiswa = (siswa: Omit<SiswaRow, "id">) => {
@@ -683,13 +1143,65 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const addGuru = (guru: GuruRow) => setGuruList(prev => [guru, ...prev]);
-  const updateGuru = (id: number, data: Partial<GuruRow>) => setGuruList(prev => prev.map(a => (a.id === id ? { ...a, ...data } : a)));
-  const deleteGuru = (id: number) => setGuruList(prev => prev.filter(a => a.id !== id));
+  const addGuru = (guru: GuruRow | Omit<GuruRow, "id">) => {
+    const tempId = Date.now();
+    const optimistic: GuruRow = { ...guru, id: ("id" in guru && guru.id ? guru.id : tempId) } as GuruRow;
+    setGuruList(prev => [optimistic, ...prev]);
+    insertGuruDB(guru).then(saved => {
+      setGuruList(prev => prev.map(g => g.id === optimistic.id ? saved : g));
+      toast.success("Data guru berhasil disimpan");
+    }).catch(err => {
+      setGuruList(prev => prev.filter(g => g.id !== optimistic.id));
+      toast.error("Gagal menyimpan data guru");
+      console.error(err);
+    });
+  };
 
-  const addJadwal = (jadwal: JadwalRow) => setJadwalList(prev => [...prev, jadwal]);
-  const updateJadwal = (id: number, data: Partial<JadwalRow>) => setJadwalList(prev => prev.map(a => (a.id === id ? { ...a, ...data } : a)));
-  const deleteJadwal = (id: number) => setJadwalList(prev => prev.filter(a => a.id !== id));
+  const updateGuru = (id: number, data: Partial<GuruRow>) => {
+    setGuruList(prev => prev.map(a => (a.id === id ? { ...a, ...data } : a)));
+    updateGuruDB(id, data).catch(err => {
+      toast.error("Gagal memperbarui data guru");
+      console.error(err);
+      loadGuruFromDB().then(setGuruList).catch(() => {});
+    });
+  };
+
+  const deleteGuru = (id: number) => {
+    setGuruList(prev => prev.filter(a => a.id !== id));
+    deleteGuruDB(id).catch(err => {
+      toast.error("Gagal menghapus data guru");
+      console.error(err);
+      loadGuruFromDB().then(setGuruList).catch(() => {});
+    });
+  };
+
+  const addJadwal = (jadwal: JadwalRow) => {
+    const tempId = Date.now();
+    const optimistic: JadwalRow = { ...jadwal, id: tempId };
+    setJadwalList(prev => [...prev, optimistic]);
+    insertJadwalDB(jadwal)
+      .then(saved => {
+        setJadwalList(prev => prev.map(j => (j.id === tempId ? saved : j)));
+        toast.success("Jadwal pelajaran berhasil ditambahkan");
+      })
+      .catch(err => {
+        console.error("Gagal simpan jadwal ke Supabase:", err);
+        setJadwalList(prev => prev.filter(j => j.id !== tempId));
+        toast.error("Gagal menyimpan jadwal ke server");
+      });
+  };
+  const updateJadwal = (id: number, data: Partial<JadwalRow>) => {
+    setJadwalList(prev => prev.map(a => (a.id === id ? { ...a, ...data } : a)));
+    updateJadwalDB(id, data).catch(err => {
+      console.error("Gagal update jadwal di Supabase:", err);
+    });
+  };
+  const deleteJadwal = (id: number) => {
+    setJadwalList(prev => prev.filter(a => a.id !== id));
+    deleteJadwalDB(id).catch(err => {
+      console.error("Gagal delete jadwal di Supabase:", err);
+    });
+  };
 
   const setJadwalOverride = (override: JadwalOverride) => {
     setJadwalOverridesList(prev => {
@@ -713,6 +1225,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const newOnes = tagihan.filter(t => !existingIds.has(t.id));
       return [...newOnes, ...prev];
     });
+    bulkUpsertTagihanDB(tagihan).catch(err => {
+      console.error("Gagal sync penetapan tagihan ke Supabase:", err);
+      toast.error("Gagal menyimpan penetapan tagihan ke server");
+    });
     if (tagihan.length > 0) {
       const uniqueNis = new Set(tagihan.map(t => t.nis));
       const kategori = tagihan[0].kategori;
@@ -727,12 +1243,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateTagihanSiswa = (id: string, newNominal: number, keterangan?: string) => {
     const tagihan = tagihanList.find(t => t.id === id);
+    const isLunas = tagihan ? tagihan.terbayar >= newNominal && newNominal > 0 : undefined;
     setTagihanList(prev => prev.map(t => {
       if (t.id === id) {
         return { ...t, nominal: newNominal, keterangan, isLunas: t.terbayar >= newNominal && newNominal > 0 };
       }
       return t;
     }));
+    updateTagihanNominalDB(id, newNominal, keterangan, isLunas).catch(err => {
+      console.error("Gagal update tagihan di Supabase:", err);
+      toast.error("Gagal memperbarui tagihan di server");
+    });
     if (tagihan) {
       const siswa = siswaList.find(s => s.nis === tagihan.nis);
       logActivity({
@@ -746,6 +1267,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const deleteTagihanSiswa = (id: string) => {
     const tagihan = tagihanList.find(t => t.id === id);
     setTagihanList(prev => prev.filter(t => t.id !== id));
+    deleteTagihanSiswaDB(id).catch(err => {
+      console.error("Gagal delete tagihan di Supabase:", err);
+      toast.error("Gagal menghapus tagihan di server");
+    });
     if (tagihan) {
       const siswa = siswaList.find(s => s.nis === tagihan.nis);
       logActivity({
@@ -770,12 +1295,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       prioritas: 99
     };
     setTagihanList(prev => [newTagihan, ...prev]);
+    bulkUpsertTagihanDB([newTagihan]).catch(err => {
+      console.error("Gagal simpan tagihan manual ke Supabase:", err);
+      toast.error("Gagal menyimpan penyesuaian tagihan ke server");
+    });
   };
 
   const addTransaksi = (transaksi: TransaksiPembayaran, updatedTagihan: TagihanSiswa[]) => {
     setTransaksiList(prev => [transaksi, ...prev]);
     const updatedMap = new Map(updatedTagihan.map(t => [t.id, t]));
     setTagihanList(prev => prev.map(t => updatedMap.has(t.id) ? updatedMap.get(t.id)! : t));
+
+    insertTransaksiDB(transaksi, updatedTagihan).catch(err => {
+      console.error("Gagal simpan transaksi pembayaran ke Supabase:", err);
+      toast.error("Gagal menyimpan transaksi pembayaran ke server");
+    });
+
     const siswa = siswaList.find(s => s.nis === transaksi.nis);
     logActivity({
       tipe: "Pembayaran",
@@ -848,7 +1383,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         tunggakanCount, absensiCount,
         siswaList, siswaLoading, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa,
         alumniList, addAlumni, updateAlumni, deleteAlumni,
-        guruList, addGuru, updateGuru, deleteGuru,
+        guruList, guruLoading, addGuru, updateGuru, deleteGuru,
         kelasList, addKelas, updateKelas, deleteKelas,
         jadwalList, addJadwal, updateJadwal, deleteJadwal,
         jadwalOverridesList, setJadwalOverride, clearJadwalOverride,

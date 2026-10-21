@@ -32,3 +32,11 @@ export const fmtDate = (date: Date): string => {
   const y = date.getFullYear();
   return `${d}/${m}/${y}`;
 };
+
+/** Format tanggal ke "YYYY-MM-DD" sesuai waktu lokal perangkat (WIB) */
+export const getTodayDateString = (d = new Date()): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
