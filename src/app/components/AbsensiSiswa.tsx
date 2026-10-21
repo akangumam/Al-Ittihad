@@ -629,8 +629,36 @@ function ManualTab() {
                       <span className="text-sm text-[#D1D5DB]">—</span>
                     )}
                   </td>
-                  <td className="py-3.5 pr-6 w-[420px]">
-                    <AbsensiStatusControl value={status} onChange={(v) => handleRequestStatusChange(row, v)} />
+                  <td className="py-3.5 pr-6 w-[450px]">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-[280px]">
+                        <AbsensiStatusControl value={status} onChange={(v) => handleRequestStatusChange(row, v)} />
+                      </div>
+                      {(status === "Terlambat" || status === "Alpa") && row.waliHp && (
+                        <a
+                          href={`https://wa.me/${row.waliHp.replace(/^0/, '62').replace(/\D/g, '')}?text=${encodeURIComponent(
+                            status === "Terlambat"
+                              ? renderTemplate(appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat, {
+                                  nama_siswa: row.nama,
+                                  kelas: row.kelas,
+                                  jam_masuk: jam || '—',
+                                })
+                              : renderTemplate(appSettings.waTemplates?.absensiAlpa ?? WA_TEMPLATE_DEFAULTS.absensiAlpa, {
+                                  nama_siswa: row.nama,
+                                  kelas: row.kelas,
+                                  tanggal: todayStr,
+                                })
+                          )}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`Kirim WA pemberitahuan ke wali ${row.nama} (${row.waliHp})`}
+                          className="shrink-0 px-2.5 py-1.5 rounded-lg bg-[#25D366]/15 text-[#128C7E] hover:bg-[#25D366]/25 transition-colors flex items-center gap-1.5 text-xs font-semibold whitespace-nowrap"
+                        >
+                          <MessageCircle size={14} className="text-[#25D366]" />
+                          <span>Kirim WA</span>
+                        </a>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
