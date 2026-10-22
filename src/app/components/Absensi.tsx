@@ -166,89 +166,86 @@ export function ScanTabGuru() {
   useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
     let isComponentMounted = true;
-    let isStarting = false;
     setCameraError(null);
 
     const startScanner = async () => {
       const container = document.getElementById("reader-guru");
       if (!container || !isComponentMounted) return;
 
-      try {
-        container.innerHTML = "";
-        html5QrCode = new Html5Qrcode("reader-guru");
-
-        const qrConfig = {
-          fps: 10,
-          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const edge = Math.max(Math.floor(minEdge * 0.72), 150);
-            return { width: edge, height: edge };
-          },
-          disableFlip: false,
-        };
-
-        const onDecoded = (decodedText: string) => {
-          if (isComponentMounted) {
-            processScanRef.current(decodedText);
-          }
-        };
-
-        isStarting = true;
-        let started = false;
-
-        try {
-          await html5QrCode.start(
-            { facingMode: cameraMode },
-            qrConfig,
-            onDecoded,
-            () => {}
+      const qrConfig = {
+        fps: 10,
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          // Aman di semua resolusi: 72% dari minEdge, dijamin tidak pernah melebihi container
+          const edge = Math.min(
+            Math.max(Math.floor(minEdge * 0.72), 100),
+            Math.max(minEdge - 12, 80)
           );
-          started = true;
-        } catch (e1) {
-          console.warn("Kamera mode spesifik guru gagal, mencoba mode alternatif:", e1);
-        }
+          return { width: edge, height: edge };
+        },
+        disableFlip: false,
+      };
 
-        if (!started && isComponentMounted) {
-          try {
-            const altMode = cameraMode === "environment" ? "user" : "environment";
-            await html5QrCode.start(
-              { facingMode: altMode },
-              qrConfig,
-              onDecoded,
-              () => {}
-            );
-            started = true;
-          } catch (e2) {
-            console.warn("Kamera mode alternatif guru gagal, mencoba getCameras():", e2);
-          }
+      const onDecoded = (decodedText: string) => {
+        if (isComponentMounted) {
+          processScanRef.current(decodedText);
         }
+      };
 
-        if (!started && isComponentMounted) {
+      // Helper untuk mencoba target kamera dengan membuat instance bersih
+      const tryStart = async (target: string | MediaTrackConstraints): Promise<boolean> => {
+        if (!isComponentMounted) return false;
+        try {
+          try { container.innerHTML = ""; } catch {}
+          const instance = new Html5Qrcode("reader-guru");
+          html5QrCode = instance;
+          await instance.start(target, qrConfig, onDecoded, () => {});
+          return true;
+        } catch (err) {
+          console.warn("Percobaan kamera guru gagal untuk:", target, err);
+          try { html5QrCode?.clear(); } catch {}
+          html5QrCode = null;
+          return false;
+        }
+      };
+
+      // Tier 1: Coba mode kamera yang dipilih (user / environment)
+      let started = await tryStart({ facingMode: cameraMode });
+
+      // Tier 2: Coba mode sebaliknya jika kamera utama gagal
+      if (!started && isComponentMounted) {
+        const altMode = cameraMode === "environment" ? "user" : "environment";
+        started = await tryStart({ facingMode: altMode });
+      }
+
+      // Tier 3: Query daftar kamera fisik perangkat via getCameras
+      if (!started && isComponentMounted) {
+        try {
           const cameras = await Html5Qrcode.getCameras().catch(() => []);
           if (cameras && cameras.length > 0) {
             const camId = (cameraMode === "environment" && cameras.length > 1)
               ? cameras[cameras.length - 1].id
               : cameras[0].id;
-            await html5QrCode.start(camId, qrConfig, onDecoded, () => {});
-            started = true;
+            started = await tryStart(camId);
           }
+        } catch (e) {
+          console.warn("Html5Qrcode.getCameras guru gagal:", e);
         }
+      }
 
-        isStarting = false;
+      // Jika komponen keburu unmount saat async start berjalan
+      if (!isComponentMounted && html5QrCode) {
+        if (html5QrCode.isScanning) {
+          await html5QrCode.stop().catch(() => {});
+        }
+        try { html5QrCode.clear(); } catch {}
+      }
 
-        if (!isComponentMounted && html5QrCode) {
-          if (html5QrCode.isScanning) {
-            await html5QrCode.stop().catch(() => {});
-          }
-          try { html5QrCode.clear(); } catch {}
-        }
-      } catch (err: any) {
-        console.error("Camera scanner guru error:", err);
-        if (isComponentMounted) {
-          setCameraError("Kamera tidak dapat diakses. Pastikan izin kamera aktif di browser Anda, atau gunakan input manual di bawah.");
-        }
-      } finally {
-        isStarting = false;
+      // Jika semua percobaan gagal, tampilkan pesan instruktif ke pengguna
+      if (!started && isComponentMounted) {
+        setCameraError(
+          "Kamera tidak dapat diakses. Pastikan izin kamera aktif di browser Anda dan situs dibuka melalui HTTPS, atau gunakan input manual / barcode scanner di bawah."
+        );
       }
     };
 
@@ -268,7 +265,7 @@ export function ScanTabGuru() {
           }).catch(() => {
             try { html5QrCode?.clear(); } catch {}
           });
-        } else if (!isStarting) {
+        } else {
           try { html5QrCode.clear(); } catch {}
         }
       }
