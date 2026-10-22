@@ -77,6 +77,14 @@ import { alumniData, type AlumniRow } from "@/data/alumni";
 import { type GuruRow } from "@/data/guru";
 import { type JadwalRow, type KelasRow, kelasData, type JadwalOverride, jadwalData, type WaktuProfile, defaultWaktuProfile } from "@/data/kelas";
 
+const DUMMY_GURU_NAMES = new Set([
+  "Ust. Ahmad Zaki, S.Pd", "Hj. Siti Nurlaela, S.Pd.I", "Ust. Farid Hasan, S.Pd",
+  "Ibu Dewi Rahmawati, S.Pd", "Ust. Ridwan Maulana, S.Pd.I", "Ibu Nining Suparni, S.Pd",
+  "Ust. Budi Santoso, S.Pd", "Ibu Rina Mariana, M.Pd", "Ust. Lukman Hakim, Lc",
+  "Ibu Kartini, S.Pd", "Ust. Salman Al-Farisi, S.Pd.I", "Ibu Dian Sastro, S.Sn",
+  "Ust. Kevin Sanjaya, S.Pd"
+]);
+
 interface AppContextValue {
   tahunAjaran: string;
   setTahunAjaran: (ta: string) => void;
@@ -184,12 +192,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!s) return [];
       const parsed = JSON.parse(s);
       if (Array.isArray(parsed)) {
-        const isDummy = parsed.some((g: any) => g.nama === "Ust. Ahmad Zaki, S.Pd");
-        if (isDummy) {
-          localStorage.removeItem("alittihad_guru");
-          return [];
+        const clean = parsed.filter((g: any) => !DUMMY_GURU_NAMES.has(g.nama));
+        if (clean.length !== parsed.length) {
+          if (clean.length > 0) {
+            localStorage.setItem("alittihad_guru", JSON.stringify(clean));
+          } else {
+            localStorage.removeItem("alittihad_guru");
+          }
         }
-        return parsed;
+        return clean;
       }
       return [];
     } catch { return []; }
@@ -346,11 +357,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
             try {
               const parsed = JSON.parse(s8);
               if (Array.isArray(parsed)) {
-                const isDummy = parsed.some((g: any) => g.nama === "Ust. Ahmad Zaki, S.Pd");
-                if (isDummy) {
-                  localStorage.removeItem("alittihad_guru");
+                const clean = parsed.filter((g: any) => !DUMMY_GURU_NAMES.has(g.nama));
+                if (clean.length > 0) {
+                  savedGuru = clean;
+                  localStorage.setItem("alittihad_guru", JSON.stringify(clean));
                 } else {
-                  savedGuru = parsed;
+                  localStorage.removeItem("alittihad_guru");
                 }
               }
             } catch {}
@@ -499,7 +511,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // 2. Guru
       try {
-        const gurus = await loadGuruFromDB();
+        let gurus = await loadGuruFromDB();
+        const hasDummy = gurus.some(g => DUMMY_GURU_NAMES.has(g.nama));
+        if (hasDummy) {
+          supabase.from("guru").delete().in("nama", Array.from(DUMMY_GURU_NAMES)).then(() => {});
+          gurus = gurus.filter(g => !DUMMY_GURU_NAMES.has(g.nama));
+        }
         setGuruList(gurus);
         if (gurus.length > 0) {
           try {
@@ -862,18 +879,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         if (cloudGuru && Array.isArray(cloudGuru)) {
+          const cleanGuru = cloudGuru.filter(g => !DUMMY_GURU_NAMES.has(g.nama));
+          if (cloudGuru.length !== cleanGuru.length) {
+            supabase.from("guru").delete().in("nama", Array.from(DUMMY_GURU_NAMES)).then(() => {});
+          }
           setGuruList(prev => {
-            if (prev.length !== cloudGuru.length) {
-              if (cloudGuru.length > 0) {
+            if (prev.length !== cleanGuru.length) {
+              if (cleanGuru.length > 0) {
                 try {
-                  localStorage.setItem("alittihad_guru", JSON.stringify(cloudGuru));
+                  localStorage.setItem("alittihad_guru", JSON.stringify(cleanGuru));
                 } catch {}
               } else {
                 try {
                   localStorage.removeItem("alittihad_guru");
                 } catch {}
               }
-              return cloudGuru;
+              return cleanGuru;
             }
             return prev;
           });
@@ -1613,10 +1634,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAlumniList(alumniRes.value);
       }
       if (guruRes.status === "fulfilled") {
-        setGuruList(guruRes.value);
-        if (guruRes.value.length > 0) {
-          try { localStorage.setItem("alittihad_guru", JSON.stringify(guruRes.value)); } catch {}
-          summary.push(`${guruRes.value.length} Guru`);
+        const cleanGuru = guruRes.value.filter(g => !DUMMY_GURU_NAMES.has(g.nama));
+        if (cleanGuru.length !== guruRes.value.length) {
+          supabase.from("guru").delete().in("nama", Array.from(DUMMY_GURU_NAMES)).then(() => {});
+        }
+        setGuruList(cleanGuru);
+        if (cleanGuru.length > 0) {
+          try { localStorage.setItem("alittihad_guru", JSON.stringify(cleanGuru)); } catch {}
+          summary.push(`${cleanGuru.length} Guru`);
         } else {
           try { localStorage.removeItem("alittihad_guru"); } catch {}
         }

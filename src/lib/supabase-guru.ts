@@ -62,13 +62,29 @@ export function partialGuruToUpdate(data: Partial<GuruRow>): Record<string, unkn
 
 // ─── Guru CRUD ────────────────────────────────────────────────────────────────
 
+const DUMMY_TEACHER_NAMES = new Set([
+  "Ust. Ahmad Zaki, S.Pd", "Hj. Siti Nurlaela, S.Pd.I", "Ust. Farid Hasan, S.Pd",
+  "Ibu Dewi Rahmawati, S.Pd", "Ust. Ridwan Maulana, S.Pd.I", "Ibu Nining Suparni, S.Pd",
+  "Ust. Budi Santoso, S.Pd", "Ibu Rina Mariana, M.Pd", "Ust. Lukman Hakim, Lc",
+  "Ibu Kartini, S.Pd", "Ust. Salman Al-Farisi, S.Pd.I", "Ibu Dian Sastro, S.Sn",
+  "Ust. Kevin Sanjaya, S.Pd"
+]);
+
 export async function loadGuruFromDB(): Promise<GuruRow[]> {
   const { data, error } = await supabase.from("guru").select("*").order("id");
   if (error) throw error;
-  return (data ?? []).map(rowToGuru);
+  const list = (data ?? []).map(rowToGuru);
+  const clean = list.filter(g => !DUMMY_TEACHER_NAMES.has(g.nama));
+  if (clean.length !== list.length) {
+    supabase.from("guru").delete().in("nama", Array.from(DUMMY_TEACHER_NAMES)).then(() => {});
+  }
+  return clean;
 }
 
 export async function insertGuruDB(g: Omit<GuruRow, "id">): Promise<GuruRow> {
+  if (DUMMY_TEACHER_NAMES.has(g.nama)) {
+    throw new Error("Data dummy tidak dapat disimpan");
+  }
   const { data, error } = await supabase
     .from("guru")
     .insert(guruToInsert(g))
@@ -92,9 +108,11 @@ export async function deleteGuruDB(id: number): Promise<void> {
 }
 
 export async function bulkInsertGuruDB(gurus: Omit<GuruRow, "id">[]): Promise<GuruRow[]> {
+  const realGurus = gurus.filter(g => !DUMMY_TEACHER_NAMES.has(g.nama));
+  if (realGurus.length === 0) return [];
   const { data, error } = await supabase
     .from("guru")
-    .insert(gurus.map(guruToInsert))
+    .insert(realGurus.map(guruToInsert))
     .select();
   if (error) throw error;
   return (data ?? []).map(rowToGuru);
