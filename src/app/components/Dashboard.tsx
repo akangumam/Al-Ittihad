@@ -192,7 +192,7 @@ function IncomeExpenseChart({ chartData, ayStart }: { chartData: ChartEntry[]; a
 }
 
 function PiutangDonut() {
-  const { siswaList } = useAppContext();
+  const { siswaList, siswaLoading } = useAppContext();
   const piutangData = useMemo(() => {
     const aktif = siswaList.filter(s => s.status === "Aktif");
     const lunas    = aktif.filter(s => s.statusTagihan === "Lunas").length;
@@ -221,8 +221,14 @@ function PiutangDonut() {
             </Pie>
           </PieChart>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-xl font-bold text-[#1C2517] tabular-nums">{total}</span>
-            <span className="text-[10px] text-[#6B7769]">Siswa</span>
+            {siswaLoading && siswaList.length === 0 ? (
+              <span className="text-xs text-[#9CA3A0] animate-pulse">Memuat...</span>
+            ) : (
+              <>
+                <span className="text-xl font-bold text-[#1C2517] tabular-nums">{total}</span>
+                <span className="text-[10px] text-[#6B7769]">Siswa</span>
+              </>
+            )}
           </div>
         </div>
         <div className="flex-1 space-y-3">
@@ -244,59 +250,189 @@ function PiutangDonut() {
   );
 }
 
-function AbsensiGuru() {
-  const { guruList, absensiGuruHariIni } = useAppContext();
-  const safeMap = absensiGuruHariIni ?? {};
-  const totalGuru = guruList.length;
-  const recorded = Object.values(safeMap);
-  const hadirCount  = recorded.filter(v => v.status === "Hadir").length;
-  const izinCount   = recorded.filter(v => v.status === "Izin").length;
-  const alpaCount   = recorded.filter(v => v.status === "Alpa").length;
-  const belumCount  = totalGuru - Object.keys(safeMap).length;
-  const pctHadir    = totalGuru > 0 ? Math.round((hadirCount / totalGuru) * 100) : 0;
-  const belumAbsen  = guruList.filter(g => !safeMap[g.id]);
-  const todayStr    = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+function AbsensiWidget() {
+  const navigate = useNavigate();
+  const { guruList, absensiGuruHariIni, siswaList, absensiSiswaHariIni } = useAppContext();
+  const [tab, setTab] = useState<"siswa" | "guru">("siswa");
 
-  const chips = [
-    { label: "Hadir", value: hadirCount, bg: "#DCFCE7", text: "#166534" },
-    { label: "Izin",  value: izinCount,  bg: "#FEF3C7", text: "#92400E" },
-    { label: "Alpa",  value: alpaCount,  bg: "#FEE2E2", text: "#991B1B" },
-    { label: "Belum", value: belumCount, bg: "#F3F4F6", text: "#374151" },
+  const todayStr = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+
+  // Siswa calculations
+  const activeSiswa = useMemo(() => siswaList.filter(s => s.status === "Aktif"), [siswaList]);
+  const totalSiswa = activeSiswa.length;
+  const safeMapSiswa = absensiSiswaHariIni ?? {};
+  const recordedSiswa = Object.entries(safeMapSiswa);
+  const hadirSiswa = recordedSiswa.filter(([_, v]) => v.status === "Hadir").length;
+  const terlambatSiswa = recordedSiswa.filter(([_, v]) => v.status === "Terlambat").length;
+  const izinSiswa = recordedSiswa.filter(([_, v]) => v.status === "Izin" || v.status === "Sakit").length;
+  const belumSiswa = Math.max(0, totalSiswa - Object.keys(safeMapSiswa).length);
+  const totalMasukSiswa = hadirSiswa + terlambatSiswa;
+  const pctSiswa = totalSiswa > 0 ? Math.round((totalMasukSiswa / totalSiswa) * 100) : 0;
+
+  const chipsSiswa = [
+    { label: "Hadir",     value: hadirSiswa,     bg: "#DCFCE7", text: "#166534" },
+    { label: "Terlambat", value: terlambatSiswa, bg: "#FEF3C7", text: "#92400E" },
+    { label: "Izin/Sakit", value: izinSiswa,     bg: "#EFF6FF", text: "#1D4ED8" },
+    { label: "Belum",     value: belumSiswa,     bg: "#F3F4F6", text: "#374151" },
+  ];
+
+  const belumAbsenSiswa = activeSiswa.filter(s => !safeMapSiswa[s.nis]);
+  const sudahAbsenSiswa = activeSiswa
+    .filter(s => safeMapSiswa[s.nis])
+    .map(s => ({ ...s, record: safeMapSiswa[s.nis] }));
+
+  // Guru calculations
+  const safeMapGuru = absensiGuruHariIni ?? {};
+  const totalGuru = guruList.length;
+  const recordedGuru = Object.values(safeMapGuru);
+  const hadirGuru  = recordedGuru.filter(v => v.status === "Hadir").length;
+  const izinGuru   = recordedGuru.filter(v => v.status === "Izin").length;
+  const alpaGuru   = recordedGuru.filter(v => v.status === "Alpa").length;
+  const belumGuru  = Math.max(0, totalGuru - Object.keys(safeMapGuru).length);
+  const pctGuru    = totalGuru > 0 ? Math.round((hadirGuru / totalGuru) * 100) : 0;
+  const belumAbsenGuru = guruList.filter(g => !safeMapGuru[g.id]);
+
+  const chipsGuru = [
+    { label: "Hadir", value: hadirGuru, bg: "#DCFCE7", text: "#166534" },
+    { label: "Izin",  value: izinGuru,  bg: "#FEF3C7", text: "#92400E" },
+    { label: "Alpa",  value: alpaGuru,  bg: "#FEE2E2", text: "#991B1B" },
+    { label: "Belum", value: belumGuru, bg: "#F3F4F6", text: "#374151" },
   ];
 
   return (
     <div className="bg-white rounded-xl p-6" style={{ border: "1px solid #E2E8DE" }}>
-      <p className="text-sm font-semibold text-[#1C2517] mb-1">Absensi Guru Hari Ini</p>
-      <p className="text-xs text-[#6B7769] mb-5">{todayStr}</p>
-      <div className="flex items-center gap-6">
-        <CircularProgress value={pctHadir} size={110} />
-        <div className="flex-1 grid grid-cols-2 gap-2">
-          {chips.map((c, i) => (
-            <div key={i} className="flex flex-col items-center justify-center rounded-xl py-3 px-2" style={{ background: c.bg }}>
-              <span className="tabular-nums font-bold text-xl" style={{ color: c.text }}>{c.value}</span>
-              <span className="text-[10px] font-medium mt-0.5" style={{ color: c.text }}>{c.label}</span>
-            </div>
-          ))}
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-sm font-semibold text-[#1C2517]">
+          Absensi Hari Ini
+        </p>
+        <div className="flex items-center p-0.5 rounded-lg bg-[#F5F9F4] border border-[#E2E8DE]">
+          <button
+            onClick={() => setTab("siswa")}
+            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+              tab === "siswa"
+                ? "bg-[#3E8A2F] text-white shadow-sm"
+                : "text-[#6B7769] hover:text-[#1C2517]"
+            }`}
+          >
+            Siswa ({totalSiswa})
+          </button>
+          <button
+            onClick={() => setTab("guru")}
+            className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+              tab === "guru"
+                ? "bg-[#3E8A2F] text-white shadow-sm"
+                : "text-[#6B7769] hover:text-[#1C2517]"
+            }`}
+          >
+            Guru ({totalGuru})
+          </button>
         </div>
       </div>
-      <div className="mt-4 pt-4" style={{ borderTop: "1px solid #E2E8DE" }}>
-        <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide mb-2">Belum Absen</p>
-        {belumAbsen.length === 0 ? (
-          <p className="text-sm text-[#6B7769]">Semua guru sudah tercatat.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {belumAbsen.slice(0, 2).map(g => (
-              <div key={g.id} className="flex items-center justify-between">
-                <p className="text-sm font-medium text-[#1C2517]">{g.nama}</p>
-                <button className="text-xs font-semibold text-[#3E8A2F] hover:underline">Input absensi →</button>
+      <p className="text-xs text-[#6B7769] mb-5">{todayStr}</p>
+
+      {tab === "siswa" ? (
+        <>
+          <div className="flex items-center gap-6">
+            <CircularProgress value={pctSiswa} size={110} />
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              {chipsSiswa.map((c, i) => (
+                <div key={i} className="flex flex-col items-center justify-center rounded-xl py-3 px-2" style={{ background: c.bg }}>
+                  <span className="tabular-nums font-bold text-xl" style={{ color: c.text }}>{c.value}</span>
+                  <span className="text-[10px] font-medium mt-0.5" style={{ color: c.text }}>{c.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 pt-4" style={{ borderTop: "1px solid #E2E8DE" }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide">
+                {sudahAbsenSiswa.length > 0 ? "Catatan Kehadiran" : "Belum Absen"}
+              </p>
+              <button
+                onClick={() => navigate("/akademik/absensi-siswa")}
+                className="text-xs font-semibold text-[#3E8A2F] hover:underline"
+              >
+                Buka Absensi Siswa →
+              </button>
+            </div>
+            {totalSiswa === 0 ? (
+              <p className="text-sm text-[#6B7769] py-1">Belum ada data siswa terdaftar.</p>
+            ) : sudahAbsenSiswa.length > 0 ? (
+              <div className="space-y-1.5">
+                {sudahAbsenSiswa.slice(0, 3).map(s => (
+                  <div key={s.id} className="flex items-center justify-between text-xs py-1">
+                    <span className="font-medium text-[#1C2517] truncate max-w-[200px]">{s.nama} ({s.kelas})</span>
+                    <span className="tabular-nums font-semibold text-[#3E8A2F]">
+                      {s.record.status} • {s.record.jam}
+                    </span>
+                  </div>
+                ))}
+                {belumAbsenSiswa.length > 0 && (
+                  <p className="text-[11px] text-[#9CA3A0] pt-1">
+                    +{belumAbsenSiswa.length} siswa belum absen
+                  </p>
+                )}
               </div>
-            ))}
-            {belumAbsen.length > 2 && (
-              <p className="text-xs text-[#9CA3A0]">+{belumAbsen.length - 2} lainnya</p>
+            ) : (
+              <div className="space-y-1.5">
+                {belumAbsenSiswa.slice(0, 2).map(s => (
+                  <div key={s.id} className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-[#1C2517]">{s.nama} ({s.kelas})</p>
+                    <button onClick={() => navigate("/akademik/absensi-siswa")} className="text-xs font-semibold text-[#3E8A2F] hover:underline">
+                      Input absensi →
+                    </button>
+                  </div>
+                ))}
+                {belumAbsenSiswa.length > 2 && (
+                  <p className="text-xs text-[#9CA3A0]">+{belumAbsenSiswa.length - 2} lainnya</p>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-6">
+            <CircularProgress value={pctGuru} size={110} />
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              {chipsGuru.map((c, i) => (
+                <div key={i} className="flex flex-col items-center justify-center rounded-xl py-3 px-2" style={{ background: c.bg }}>
+                  <span className="tabular-nums font-bold text-xl" style={{ color: c.text }}>{c.value}</span>
+                  <span className="text-[10px] font-medium mt-0.5" style={{ color: c.text }}>{c.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-4 pt-4" style={{ borderTop: "1px solid #E2E8DE" }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide">Belum Absen</p>
+              <button
+                onClick={() => navigate("/akademik/absensi")}
+                className="text-xs font-semibold text-[#3E8A2F] hover:underline"
+              >
+                Buka Absensi Guru →
+              </button>
+            </div>
+            {belumAbsenGuru.length === 0 ? (
+              <p className="text-sm text-[#6B7769]">Semua guru sudah tercatat.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {belumAbsenGuru.slice(0, 2).map(g => (
+                  <div key={g.id} className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-[#1C2517]">{g.nama}</p>
+                    <button onClick={() => navigate("/akademik/absensi")} className="text-xs font-semibold text-[#3E8A2F] hover:underline">
+                      Input absensi →
+                    </button>
+                  </div>
+                ))}
+                {belumAbsenGuru.length > 2 && (
+                  <p className="text-xs text-[#9CA3A0]">+{belumAbsenGuru.length - 2} lainnya</p>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -657,7 +793,23 @@ export function Dashboard() {
   }, [tagihanList, siswaList]);
 
   // Mobile: absensi chips
-  const { absensiGuruHariIni, guruList } = useAppContext();
+  const { absensiGuruHariIni, guruList, absensiSiswaHariIni } = useAppContext();
+  const [mobileAbsensiTab, setMobileAbsensiTab] = useState<"siswa" | "guru">("siswa");
+
+  const mobileActiveSiswa = useMemo(() => siswaList.filter(s => s.status === "Aktif"), [siswaList]);
+  const mobileSafeMapSiswa = absensiSiswaHariIni ?? {};
+  const mobileHadirSiswa = Object.values(mobileSafeMapSiswa).filter(v => v.status === "Hadir").length;
+  const mobileTerlambatSiswa = Object.values(mobileSafeMapSiswa).filter(v => v.status === "Terlambat").length;
+  const mobileIzinSiswa = Object.values(mobileSafeMapSiswa).filter(v => v.status === "Izin" || v.status === "Sakit").length;
+  const mobileBelumSiswa = Math.max(0, mobileActiveSiswa.length - Object.keys(mobileSafeMapSiswa).length);
+  const mobilePctSiswa = mobileActiveSiswa.length > 0 ? Math.round(((mobileHadirSiswa + mobileTerlambatSiswa) / mobileActiveSiswa.length) * 100) : 0;
+  const mobileChipsSiswa = [
+    { label: "Hadir", value: mobileHadirSiswa, bg: "#DCFCE7", text: "#166534" },
+    { label: "Terlambat", value: mobileTerlambatSiswa, bg: "#FEF3C7", text: "#92400E" },
+    { label: "Izin/Skt", value: mobileIzinSiswa, bg: "#EFF6FF", text: "#1D4ED8" },
+    { label: "Belum", value: mobileBelumSiswa, bg: "#F3F4F6", text: "#374151" },
+  ];
+
   const safeMap = absensiGuruHariIni ?? {};
   const mobileHadir  = Object.values(safeMap).filter(v => v.status === "Hadir").length;
   const mobileIzin   = Object.values(safeMap).filter(v => v.status === "Izin").length;
@@ -755,12 +907,38 @@ export function Dashboard() {
 
         {/* Absensi Hari Ini */}
         <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
-          <p className="text-[13px] font-semibold text-[#1C2517]">Absensi Hari Ini</p>
-          <p className="text-[11px] text-[#6B7769]" style={{ marginBottom: 14 }}>{todayStr}</p>
-          <div className="flex items-center gap-3.5">
-            <CircularProgress value={mobilePct} size={88} />
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-[13px] font-semibold text-[#1C2517]">Absensi Hari Ini</p>
+              <p className="text-[11px] text-[#6B7769]">{todayStr}</p>
+            </div>
+            <div className="flex items-center p-0.5 rounded-lg bg-[#F5F9F4] border border-[#E2E8DE]">
+              <button
+                onClick={() => setMobileAbsensiTab("siswa")}
+                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
+                  mobileAbsensiTab === "siswa"
+                    ? "bg-[#3E8A2F] text-white shadow-sm"
+                    : "text-[#6B7769]"
+                }`}
+              >
+                Siswa ({mobileActiveSiswa.length})
+              </button>
+              <button
+                onClick={() => setMobileAbsensiTab("guru")}
+                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
+                  mobileAbsensiTab === "guru"
+                    ? "bg-[#3E8A2F] text-white shadow-sm"
+                    : "text-[#6B7769]"
+                }`}
+              >
+                Guru ({guruList.length})
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-3.5 mt-3">
+            <CircularProgress value={mobileAbsensiTab === "siswa" ? mobilePctSiswa : mobilePct} size={88} />
             <div className="flex-1 grid grid-cols-2 gap-2">
-              {mobileChips.map((chip, i) => (
+              {(mobileAbsensiTab === "siswa" ? mobileChipsSiswa : mobileChips).map((chip, i) => (
                 <div key={i} className="flex flex-col items-center justify-center rounded-[10px] text-center" style={{ background: chip.bg, padding: "10px 6px", minHeight: 56 }}>
                   <span className="font-bold tabular-nums" style={{ fontSize: 18, color: chip.text }}>{chip.value}</span>
                   <span className="font-medium leading-tight" style={{ fontSize: 9, color: chip.text, marginTop: 3 }}>{chip.label}</span>
@@ -795,7 +973,7 @@ export function Dashboard() {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <AbsensiGuru />
+          <AbsensiWidget />
           <TunggakanTable />
         </div>
 

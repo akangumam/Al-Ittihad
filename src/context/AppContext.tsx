@@ -158,6 +158,8 @@ interface AppContextValue {
   bankTransferList: BankTransferRow[];
   addBankTransfer: (row: Omit<BankTransferRow, "id" | "dicatatOleh" | "waktuCatat">) => void;
   resetToCleanData: () => void;
+  refreshAllCloudData: () => Promise<void>;
+  isSyncing: boolean;
 }
 
 const MANUAL_TRANSAKSI_SEED: ManualTransaksiRow[] = [];
@@ -168,11 +170,22 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   // tahunAjaran is derived from appSettings — see below
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [siswaList, setSiswaList] = useState<SiswaRow[]>([]);
+  const [siswaList, setSiswaList] = useState<SiswaRow[]>(() => {
+    try {
+      const s = localStorage.getItem("alittihad_siswa");
+      return s ? JSON.parse(s) : [];
+    } catch { return []; }
+  });
   const [siswaLoading, setSiswaLoading] = useState(true);
   const [alumniList, setAlumniList] = useState<AlumniRow[]>([]);
-  const [guruList, setGuruList] = useState<GuruRow[]>([]);
+  const [guruList, setGuruList] = useState<GuruRow[]>(() => {
+    try {
+      const s = localStorage.getItem("alittihad_guru");
+      return s ? JSON.parse(s) : guruData;
+    } catch { return guruData; }
+  });
   const [guruLoading, setGuruLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const isLoadedFromDB = useRef(false);
   const [kelasList, setKelasList] = useState<KelasRow[]>(kelasData);
   const [jadwalList, setJadwalList] = useState<JadwalRow[]>(jadwalData);
@@ -278,6 +291,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             localStorage.setItem("alittihad_db_v", CLEAN_VERSION);
           }
 
+          const sSiswa = localStorage.getItem("alittihad_siswa");
           const s3 = localStorage.getItem("alittihad_absensi_siswa");
           const s4 = localStorage.getItem("alittihad_tagihan");
           const s5 = localStorage.getItem("alittihad_transaksi");
@@ -285,6 +299,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const s8 = localStorage.getItem("alittihad_guru");
           const s9 = localStorage.getItem("alittihad_kelas");
           const s10 = localStorage.getItem("alittihad_jadwal_overrides");
+          if (sSiswa) {
+            try {
+              const parsed = JSON.parse(sSiswa);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setSiswaList(prev => prev.length === 0 ? parsed : prev);
+              }
+            } catch {}
+          }
           if (s3) savedAbsensi = JSON.parse(s3);
           if (s4) {
             try {
@@ -403,34 +425,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const initCloudData = async () => {
       // 1. Siswa & Alumni
       try {
-        let [siswa, alumni] = await Promise.all([
+        const [siswaRes, alumniRes] = await Promise.allSettled([
           loadSiswaFromDB(),
           loadAlumniFromDB(),
         ]);
 
-        // Fallback jika Supabase masih kosong, cek localStorage (misal dari HP yang sudah ada datanya)
-        if (siswa.length === 0) {
+        let siswa: SiswaRow[] = [];
+        if (siswaRes.status === "fulfilled") {
+          siswa = siswaRes.value;
+        } else {
+          console.error("Gagal load siswa dari Supabase", siswaRes.reason);
+        }
+
+        let alumni: AlumniRow[] = [];
+        if (alumniRes.status === "fulfilled") {
+          alumni = alumniRes.value;
+          setAlumniList(alumni);
+        } else {
+          console.error("Gagal load alumni dari Supabase", alumniRes.reason);
+        }
+
+        if (siswa.length > 0) {
+          setSiswaList(siswa);
+          try {
+            localStorage.setItem("alittihad_siswa", JSON.stringify(siswa));
+          } catch {}
+        } else {
+          // Fallback ke localStorage jika Supabase kosong atau fetch gagal
           const localSiswaStr = localStorage.getItem("alittihad_siswa");
           if (localSiswaStr) {
             try {
               const parsed = JSON.parse(localSiswaStr);
               if (Array.isArray(parsed) && parsed.length > 0) {
-                try {
-                  const toSeed = parsed.map(({ id, ...rest }: any) => rest);
-                  siswa = await bulkInsertSiswaDB(toSeed);
-                } catch (seedErr) {
-                  console.error("Gagal seed siswa ke Supabase", seedErr);
+                // Jika Supabase sukses tapi 0 baris, coba seed ke Supabase
+                if (siswaRes.status === "fulfilled" && siswaRes.value.length === 0) {
+                  try {
+                    const toSeed = parsed.map(({ id, ...rest }: any) => rest);
+                    siswa = await bulkInsertSiswaDB(toSeed);
+                  } catch (seedErr) {
+                    console.error("Gagal seed siswa ke Supabase", seedErr);
+                    siswa = parsed;
+                  }
+                } else {
                   siswa = parsed;
                 }
+                setSiswaList(siswa);
               }
             } catch {}
           }
         }
-
-        setSiswaList(siswa);
-        setAlumniList(alumni);
       } catch (e) {
-        console.error("Gagal load siswa/alumni dari Supabase", e);
+        console.error("Gagal init siswa/alumni", e);
       } finally {
         setSiswaLoading(false);
       }
@@ -746,15 +791,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ─── Auto-Polling & Visibility Sync (Sinkronisasi Laptop & HP Tanpa Refresh) ───
   useEffect(() => {
     let isMounted = true;
+    let pollCount = 0;
 
-    const syncAttendanceFromCloud = async () => {
+    const syncCloudData = async () => {
       if (!isLoadedFromDB.current) return;
+      pollCount++;
+      const shouldSyncSiswa = (siswaList.length === 0) || (pollCount % 4 === 0);
+
       try {
         const today = getTodayDateString();
-        const [absSiswa, absGuru] = await Promise.all([
+        const promises: Promise<any>[] = [
           loadAbsensiSiswaHariIniDB(today).catch(() => null),
           loadAbsensiGuruHariIniDB(today).catch(() => null),
-        ]);
+        ];
+        if (shouldSyncSiswa) {
+          promises.push(loadSiswaFromDB().catch(() => null));
+        }
+
+        const [absSiswa, absGuru, cloudSiswa] = await Promise.all(promises);
 
         if (!isMounted) return;
 
@@ -786,18 +840,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return changed ? next : prev;
           });
         }
+
+        if (cloudSiswa && Array.isArray(cloudSiswa) && cloudSiswa.length > 0) {
+          setSiswaList(prev => {
+            if (prev.length === 0 || prev.length !== cloudSiswa.length) {
+              try {
+                localStorage.setItem("alittihad_siswa", JSON.stringify(cloudSiswa));
+              } catch {}
+              return cloudSiswa;
+            }
+            return prev;
+          });
+        }
       } catch {
         // silent fallback
       }
     };
 
     // Polling setiap 3.5 detik agar antar device (Laptop & HP) selalu up-to-date otomatis
-    const interval = setInterval(syncAttendanceFromCloud, 3500);
+    const interval = setInterval(syncCloudData, 3500);
 
     // Sync instan ketika window mendapatkan fokus atau tab dibuka kembali
     const onFocusOrVisible = () => {
       if (document.visibilityState === "visible") {
-        syncAttendanceFromCloud();
+        pollCount = 3; // force siswa sync pada tick berikutnya
+        syncCloudData();
       }
     };
 
@@ -810,7 +877,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", onFocusOrVisible);
       document.removeEventListener("visibilitychange", onFocusOrVisible);
     };
-  }, []);
+  }, [siswaList.length]);
 
   // Simpan siswaList ke localStorage sebagai offline fallback
   useEffect(() => {
@@ -1495,6 +1562,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [authUser]);
 
+  const refreshAllCloudData = async () => {
+    setIsSyncing(true);
+    try {
+      const today = getTodayDateString();
+      const [siswaRes, alumniRes, guruRes, absSiswaRes, absGuruRes, tagihanRes, trxRes] = await Promise.allSettled([
+        loadSiswaFromDB(),
+        loadAlumniFromDB(),
+        loadGuruFromDB(),
+        loadAbsensiSiswaHariIniDB(today),
+        loadAbsensiGuruHariIniDB(today),
+        loadTagihanFromDB(),
+        loadTransaksiFromDB(),
+      ]);
+
+      const summary: string[] = [];
+
+      if (siswaRes.status === "fulfilled" && siswaRes.value.length > 0) {
+        setSiswaList(siswaRes.value);
+        localStorage.setItem("alittihad_siswa", JSON.stringify(siswaRes.value));
+        summary.push(`${siswaRes.value.length} Siswa`);
+      }
+      if (alumniRes.status === "fulfilled" && alumniRes.value.length > 0) {
+        setAlumniList(alumniRes.value);
+      }
+      if (guruRes.status === "fulfilled" && guruRes.value.length > 0) {
+        setGuruList(guruRes.value);
+        localStorage.setItem("alittihad_guru", JSON.stringify(guruRes.value));
+        summary.push(`${guruRes.value.length} Guru`);
+      }
+      if (absSiswaRes.status === "fulfilled" && absSiswaRes.value) {
+        setAbsensiSiswaHariIni(absSiswaRes.value);
+      }
+      if (absGuruRes.status === "fulfilled" && absGuruRes.value) {
+        setAbsensiGuruHariIni(absGuruRes.value);
+      }
+      if (tagihanRes.status === "fulfilled" && tagihanRes.value.length > 0) {
+        setTagihanList(tagihanRes.value);
+      }
+      if (trxRes.status === "fulfilled" && trxRes.value.length > 0) {
+        setTransaksiList(trxRes.value);
+      }
+
+      toast.success(`Data server berhasil disinkronkan (${summary.join(", ") || "Terbaru"})`);
+    } catch (e) {
+      console.error("Gagal refresh cloud data", e);
+      toast.error("Gagal sinkronisasi data dari server");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{ 
@@ -1524,6 +1642,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         rabList, addRab, updateRab, deleteRab,
         bankTransferList, addBankTransfer,
         resetToCleanData,
+        refreshAllCloudData,
+        isSyncing,
       }}
     >
       {children}

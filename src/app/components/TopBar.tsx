@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
   Search, Bell, ChevronDown, LogOut, KeyRound, Eye, EyeOff,
-  X, AlertTriangle, UserX, Calendar, Wallet, CheckCircle,
+  X, AlertTriangle, UserX, Calendar, Wallet, CheckCircle, RefreshCw,
 } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -243,7 +243,7 @@ function NotifPanel({ onClose }: { onClose: () => void }) {
 // ─── TopBar ───────────────────────────────────────────────────────────────────
 
 export function TopBar() {
-  const { tahunAjaran, setTahunAjaran } = useAppContext();
+  const { tahunAjaran, setTahunAjaran, refreshAllCloudData, isSyncing } = useAppContext();
   const { user, signOut, updatePassword } = useAuth();
   const alerts = useAlerts();
 
@@ -328,6 +328,17 @@ export function TopBar() {
       </div>
 
       <div className="flex items-center gap-3 ml-auto">
+        {/* Tombol Sinkronisasi Cloud */}
+        <button
+          onClick={() => refreshAllCloudData()}
+          disabled={isSyncing}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors hover:bg-[#EDF7EC] text-[#3E8A2F] border border-[#3E8A2F]/30 disabled:opacity-50"
+          title="Sinkronkan data dengan server Supabase"
+        >
+          <RefreshCw size={13} className={isSyncing ? "animate-spin text-[#3E8A2F]" : "text-[#3E8A2F]"} />
+          <span className="hidden sm:inline">{isSyncing ? "Menyinkronkan..." : "Sinkron Server"}</span>
+        </button>
+
         {/* Academic year selector */}
         <div className="relative" ref={dropdownRef}>
           <button

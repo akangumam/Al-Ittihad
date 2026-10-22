@@ -1360,7 +1360,8 @@ export function Siswa() {
     return () => clearTimeout(timer);
   }, [search, kelasFilter, statusFilter, sortBy]);
 
-  const { siswaList, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa, tahunAjaran, addMutasi, role } = useAppContext();
+  const { siswaList, siswaLoading, addSiswa, updateSiswa, deleteSiswa, bulkUpdateSiswa, bulkDeleteSiswa, graduateSiswa, tahunAjaran, addMutasi, role } = useAppContext();
+  const isDataLoading = isLoading || (siswaLoading && siswaList.length === 0);
   const [mutasiKeluarSiswa, setMutasiKeluarSiswa] = useState<{ id: number; nama: string; nis: string; kelas: string; jk: "L" | "P" } | null>(null);
   const [showMutasiMasuk, setShowMutasiMasuk] = useState(false);
 
@@ -1693,7 +1694,7 @@ export function Siswa() {
 
       {/* ── Mobile student cards ── */}
       <div className="md:hidden flex flex-col gap-2.5">
-        {isLoading ? (
+        {isDataLoading ? (
           Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="w-full bg-white rounded-xl flex items-start gap-3 animate-pulse" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
               <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
@@ -1769,7 +1770,7 @@ export function Siswa() {
             </div>
           );
         })}
-        {filteredRows.length === 0 && !isLoading && (
+        {filteredRows.length === 0 && !isDataLoading && (
           <div className="bg-white rounded-xl p-8 text-center flex flex-col items-center justify-center gap-2" style={{ border: "1px solid #E2E8DE" }}>
             <Users size={32} className="text-[#9CA3A0]" />
             <p className="text-sm font-semibold text-[#1C2517]">Belum ada data siswa</p>
@@ -1800,7 +1801,7 @@ export function Siswa() {
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
+              {isDataLoading ? (
                 Array.from({ length: ITEMS_PER_PAGE }).map((_, i) => (
                   <tr key={`skeleton-${i}`} className="animate-pulse" style={{ borderBottom: i < ITEMS_PER_PAGE - 1 ? "1px solid #F0F7EE" : "none" }}>
                     <td className="pl-6 pr-3 py-3.5"><div className="w-4 h-4 bg-gray-200 rounded" /></td>
@@ -1902,7 +1903,7 @@ export function Siswa() {
                   </tr>
                 );
               })}
-              {rows.length === 0 && !isLoading && (
+              {rows.length === 0 && !isDataLoading && (
                 <tr>
                   <td colSpan={8} className="py-12 text-center">
                     <div className="flex flex-col items-center justify-center gap-2">
