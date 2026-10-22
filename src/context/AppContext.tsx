@@ -74,7 +74,7 @@ import {
 import { absensiGuruList } from "@/data/absensi";
 import { siswaData, type SiswaRow } from "@/data/siswa";
 import { alumniData, type AlumniRow } from "@/data/alumni";
-import { guruData, type GuruRow, SEED_GURU } from "@/data/guru";
+import { type GuruRow } from "@/data/guru";
 import { type JadwalRow, type KelasRow, kelasData, type JadwalOverride, jadwalData, type WaktuProfile, defaultWaktuProfile } from "@/data/kelas";
 
 interface AppContextValue {
@@ -181,8 +181,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [guruList, setGuruList] = useState<GuruRow[]>(() => {
     try {
       const s = localStorage.getItem("alittihad_guru");
-      return s ? JSON.parse(s) : guruData;
-    } catch { return guruData; }
+      if (!s) return [];
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) {
+        const isDummy = parsed.some((g: any) => g.nama === "Ust. Ahmad Zaki, S.Pd");
+        if (isDummy) {
+          localStorage.removeItem("alittihad_guru");
+          return [];
+        }
+        return parsed;
+      }
+      return [];
+    } catch { return []; }
   });
   const [guruLoading, setGuruLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -335,7 +345,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (s8) {
             try {
               const parsed = JSON.parse(s8);
-              if (Array.isArray(parsed)) savedGuru = parsed;
+              if (Array.isArray(parsed)) {
+                const isDummy = parsed.some((g: any) => g.nama === "Ust. Ahmad Zaki, S.Pd");
+                if (isDummy) {
+                  localStorage.removeItem("alittihad_guru");
+                } else {
+                  savedGuru = parsed;
+                }
+              }
             } catch {}
           }
           if (s9) {
@@ -482,26 +499,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       // 2. Guru
       try {
-        let gurus = await loadGuruFromDB();
-        if (gurus.length === 0) {
-          const localGuruStr = localStorage.getItem("alittihad_guru");
-          let toSeed = SEED_GURU;
-          if (localGuruStr) {
-            try {
-              const parsed = JSON.parse(localGuruStr);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                toSeed = parsed.map(({ id, ...rest }: any) => rest);
-              }
-            } catch {}
-          }
-          try {
-            gurus = await bulkInsertGuruDB(toSeed);
-          } catch (seedErr) {
-            console.error("Gagal seed guru ke Supabase", seedErr);
-            gurus = toSeed.map((g, idx) => ({ ...g, id: idx + 1 } as GuruRow));
-          }
-        }
+        const gurus = await loadGuruFromDB();
         setGuruList(gurus);
+        if (gurus.length > 0) {
+          try {
+            localStorage.setItem("alittihad_guru", JSON.stringify(gurus));
+          } catch {}
+        } else {
+          try {
+            localStorage.removeItem("alittihad_guru");
+          } catch {}
+        }
       } catch (e) {
         console.error("Gagal load guru dari Supabase", e);
       } finally {
@@ -797,18 +805,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!isLoadedFromDB.current) return;
       pollCount++;
       const shouldSyncSiswa = (siswaList.length === 0) || (pollCount % 4 === 0);
+      const shouldSyncGuru = (guruList.length === 0) || (pollCount % 4 === 0);
 
       try {
         const today = getTodayDateString();
         const promises: Promise<any>[] = [
           loadAbsensiSiswaHariIniDB(today).catch(() => null),
           loadAbsensiGuruHariIniDB(today).catch(() => null),
+          shouldSyncSiswa ? loadSiswaFromDB().catch(() => null) : Promise.resolve(null),
+          shouldSyncGuru ? loadGuruFromDB().catch(() => null) : Promise.resolve(null),
         ];
-        if (shouldSyncSiswa) {
-          promises.push(loadSiswaFromDB().catch(() => null));
-        }
 
-        const [absSiswa, absGuru, cloudSiswa] = await Promise.all(promises);
+        const [absSiswa, absGuru, cloudSiswa, cloudGuru] = await Promise.all(promises);
 
         if (!isMounted) return;
 
@@ -848,6 +856,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 localStorage.setItem("alittihad_siswa", JSON.stringify(cloudSiswa));
               } catch {}
               return cloudSiswa;
+            }
+            return prev;
+          });
+        }
+
+        if (cloudGuru && Array.isArray(cloudGuru)) {
+          setGuruList(prev => {
+            if (prev.length !== cloudGuru.length) {
+              if (cloudGuru.length > 0) {
+                try {
+                  localStorage.setItem("alittihad_guru", JSON.stringify(cloudGuru));
+                } catch {}
+              } else {
+                try {
+                  localStorage.removeItem("alittihad_guru");
+                } catch {}
+              }
+              return cloudGuru;
             }
             return prev;
           });
@@ -1586,10 +1612,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (alumniRes.status === "fulfilled" && alumniRes.value.length > 0) {
         setAlumniList(alumniRes.value);
       }
-      if (guruRes.status === "fulfilled" && guruRes.value.length > 0) {
+      if (guruRes.status === "fulfilled") {
         setGuruList(guruRes.value);
-        localStorage.setItem("alittihad_guru", JSON.stringify(guruRes.value));
-        summary.push(`${guruRes.value.length} Guru`);
+        if (guruRes.value.length > 0) {
+          try { localStorage.setItem("alittihad_guru", JSON.stringify(guruRes.value)); } catch {}
+          summary.push(`${guruRes.value.length} Guru`);
+        } else {
+          try { localStorage.removeItem("alittihad_guru"); } catch {}
+        }
       }
       if (absSiswaRes.status === "fulfilled" && absSiswaRes.value) {
         setAbsensiSiswaHariIni(absSiswaRes.value);
