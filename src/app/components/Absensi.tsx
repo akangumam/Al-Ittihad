@@ -50,12 +50,15 @@ export function ScanTabGuru() {
   const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, appSettings } = useAppContext();
   const isMobile = useIsMobile();
   const [scanValue, setScanValue] = useState("");
-  const [lastScanned, setLastScanned] = useState<{ guru: GuruRow; status: 'success' | 'warning' | 'error'; message: string; time: string } | null>(null);
+  const [lastScanned, setLastScanned] = useState<{ guru: GuruRow; status: 'success' | 'warning' | 'error'; message: string; time: string; isAlreadyRecorded?: boolean } | null>(null);
   const [cameraMode, setCameraMode] = useState<"user" | "environment">(isMobile ? "environment" : "user");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastScannedIdRef = useRef<{ id: string; time: number } | null>(null);
   const resetTimerRef = useRef<any>(null);
+  const [flashColor, setFlashColor] = useState<string | null>(null);
+  const [flashVisible, setFlashVisible] = useState(false);
+  const flashResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep focus on hidden input for physical scanner (desktop only, to avoid mobile keyboard popups)
   useEffect(() => {
@@ -72,6 +75,17 @@ export function ScanTabGuru() {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     setLastScanned(null);
     lastScannedIdRef.current = null;
+  };
+
+  const triggerFlash = (type: 'success' | 'warning' | 'error') => {
+    const colors = { success: '#22c55e', warning: '#f59e0b', error: '#ef4444' };
+    setFlashColor(colors[type]);
+    setFlashVisible(true);
+    if (flashResetRef.current) clearTimeout(flashResetRef.current);
+    flashResetRef.current = setTimeout(() => {
+      setFlashVisible(false);
+      setTimeout(() => setFlashColor(null), 500);
+    }, 300);
   };
 
   const processScanRef = useRef<(text: string) => void>(() => {});
@@ -101,16 +115,19 @@ export function ScanTabGuru() {
     if (guru) {
       if (guru.status === "Nonaktif") {
         playScannerBeep('error');
+        triggerFlash('error');
         setLastScanned({ guru, status: 'error', message: "Guru berstatus Nonaktif", time: timeStr });
         toast.error(`Presensi gagal: ${guru.nama} berstatus Nonaktif`);
       } else if ((absensiGuruHariIni || {})[guru.id]) {
         playScannerBeep('warning');
+        triggerFlash('warning');
         const recordedStatus = (absensiGuruHariIni || {})[guru.id].status;
-        setLastScanned({ 
-          guru, 
-          status: 'warning', 
-          message: `Sudah Tercatat: ${recordedStatus}`, 
-          time: (absensiGuruHariIni || {})[guru.id].jam || timeStr 
+        setLastScanned({
+          guru,
+          status: 'warning',
+          message: `Sudah Tercatat: ${recordedStatus}`,
+          time: (absensiGuruHariIni || {})[guru.id].jam || timeStr,
+          isAlreadyRecorded: true,
         });
         toast.info(`${guru.nama} sudah tercatat: ${recordedStatus}`);
       } else {
@@ -122,6 +139,7 @@ export function ScanTabGuru() {
         const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
 
         playScannerBeep(isTerlambat ? 'warning' : 'success');
+        triggerFlash(isTerlambat ? 'warning' : 'success');
         setAbsensiGuruHariIni(prev => ({ ...(prev || {}), [guru.id]: { status: statusAbsen, jam: timeStr } }));
         setLastScanned({ 
           guru, 
@@ -137,6 +155,7 @@ export function ScanTabGuru() {
       }
     } else {
       playScannerBeep('error');
+      triggerFlash('error');
       setLastScanned({
         guru: { id: 0, nuptk: identifier, nama: "Tidak Ditemukan", inits: "-", nip: "", mapel: [], statusKepeg: "GTY", waliKelas: null, kehadiran: 0, status: "Aktif", jk: "L", tanggalLahir: "", jabatan: "", pendidikan: "", hp: "", email: "", alamat: "" },
         status: 'error', message: "Data tidak terdaftar", time: timeStr
@@ -315,6 +334,12 @@ export function ScanTabGuru() {
 
         <div className="w-full relative mb-3">
           <div id="reader-guru" className="w-full rounded-2xl overflow-hidden shadow-sm bg-neutral-900" style={{ border: "2px solid #E2E8DE", minHeight: 220 }}></div>
+          {flashColor && (
+            <div
+              className="absolute inset-0 rounded-2xl pointer-events-none z-10 transition-opacity duration-500"
+              style={{ background: flashColor, opacity: flashVisible ? 0.35 : 0 }}
+            />
+          )}
           {isMobile && (
             <button
               type="button"
@@ -385,6 +410,17 @@ export function ScanTabGuru() {
             >
               {lastScanned.message} • {lastScanned.time}
             </div>
+
+            {lastScanned.isAlreadyRecorded && (
+              <div className="w-full bg-amber-50 border border-amber-200 rounded-xl p-2.5 mb-2.5 text-center">
+                <p className="text-amber-900 font-bold text-xs mb-0.5 flex items-center justify-center gap-1.5">
+                  <Lock size={13} className="text-amber-700" /> Status Sudah Terkunci
+                </p>
+                <p className="text-amber-800 text-[11px]">
+                  Guru sudah presensi hari ini. Ubah status lewat menu <strong>Rekap Manual</strong> jika perlu koreksi.
+                </p>
+              </div>
+            )}
 
             <div className="w-full pt-2 border-t border-[#E2E8DE] flex items-center justify-between text-xs text-[#6B7769]">
               <span className="flex items-center gap-1.5 text-[#3E8A2F] font-semibold text-[11px]">

@@ -65,6 +65,9 @@ function ScanTab() {
   const inputRef = useRef<HTMLInputElement>(null);
   const lastScannedNisRef = useRef<{ nis: string; time: number } | null>(null);
   const resetTimerRef = useRef<any>(null);
+  const [flashColor, setFlashColor] = useState<string | null>(null);
+  const [flashVisible, setFlashVisible] = useState(false);
+  const flashResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep focus on hidden input for physical scanner (desktop only, to avoid mobile keyboard popups)
   useEffect(() => {
@@ -81,6 +84,17 @@ function ScanTab() {
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     setLastScanned(null);
     lastScannedNisRef.current = null;
+  };
+
+  const triggerFlash = (type: 'success' | 'warning' | 'error') => {
+    const colors = { success: '#22c55e', warning: '#f59e0b', error: '#ef4444' };
+    setFlashColor(colors[type]);
+    setFlashVisible(true);
+    if (flashResetRef.current) clearTimeout(flashResetRef.current);
+    flashResetRef.current = setTimeout(() => {
+      setFlashVisible(false);
+      setTimeout(() => setFlashColor(null), 500);
+    }, 300);
   };
 
   // Ref agar camera callback selalu pakai processScan terbaru (hindari stale closure)
@@ -111,11 +125,13 @@ function ScanTab() {
     if (siswa) {
       if (siswa.status === "Nonaktif") {
         playScannerBeep('error');
+        triggerFlash('error');
         setLastScanned({ siswa, status: 'error', message: "Siswa berstatus Nonaktif", time: timeStr });
         toast.error(`Siswa ${siswa.nama} berstatus Nonaktif`);
       } else if (absensiSiswaHariIni[siswa.nis]) {
         // Siswa sudah terdata sebelumnya --- kunci status & cegah scan ulang
         playScannerBeep('warning');
+        triggerFlash('warning');
         const existing = absensiSiswaHariIni[nis];
         setLastScanned({
           siswa,
@@ -134,6 +150,7 @@ function ScanTab() {
         const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
 
         playScannerBeep(isTerlambat ? 'warning' : 'success');
+        triggerFlash(isTerlambat ? 'warning' : 'success');
         setAbsensiSiswaHariIni(prev => ({ ...prev, [nis]: { status: statusAbsen, jam: timeStr } }));
 
         let waInfo: { type: 'sent' | 'no_phone' | 'disabled'; phone?: string } | undefined = undefined;
@@ -174,6 +191,7 @@ function ScanTab() {
       }
     } else {
       playScannerBeep('error');
+      triggerFlash('error');
       setLastScanned({
         siswa: { id: 0, nis: nis, nisn: "", nama: "Tidak Ditemukan", jk: "L", kelas: "-", waliNama: "", waliHp: "", statusTagihan: "Lunas", status: "Aktif", inits: "-", tempatLahir: "", tanggalLahir: "", namaAyah: "", namaIbu: "", alamat: "", kelurahan: "", kecamatan: "" },
         status: 'error', message: "NIS tidak terdaftar", time: timeStr
@@ -354,6 +372,12 @@ function ScanTab() {
         {/* Video Box Kamera */}
         <div className="w-full relative mb-3">
           <div id="reader" className="w-full rounded-2xl overflow-hidden shadow-sm bg-neutral-900" style={{ border: "2px solid #E2E8DE", minHeight: 220 }}></div>
+          {flashColor && (
+            <div
+              className="absolute inset-0 rounded-2xl pointer-events-none z-10 transition-opacity duration-500"
+              style={{ background: flashColor, opacity: flashVisible ? 0.35 : 0 }}
+            />
+          )}
           {isMobile && (
             <button
               type="button"
