@@ -172,13 +172,24 @@ function BottomMenuSheet({ onClose, onExitClick }: { onClose: () => void; onExit
         );
       })}
 
-      {/* Divider + info user + tombol keluar */}
+      {/* Divider + info user + tombol panduan & keluar */}
       <div className="mx-5 mt-3" style={{ borderTop: "1px solid #F0F7EE" }}>
-        <div className="flex items-center justify-between py-3">
-          <div>
-            <p className="text-[13px] font-semibold text-[#1C2517]">{user?.nama ?? "—"}</p>
-            <p className="text-[11px] text-[#6B7769]">{user?.email ?? ""}</p>
-          </div>
+        <div className="py-2.5">
+          <p className="text-[13px] font-semibold text-[#1C2517]">{user?.nama ?? "—"}</p>
+          <p className="text-[11px] text-[#6B7769]">{user?.email ?? ""}</p>
+        </div>
+        <div className="flex items-center gap-2 pt-1 pb-2">
+          <a
+            href="/Petunjuk_Penggunaan_MTs_Al-Ittihad.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onClose}
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#374040]"
+            style={{ background: "#F5F9F4", border: "1px solid #E2E8DE" }}
+          >
+            <FileText size={14} className="text-[#6B7769]" />
+            Buku Panduan
+          </a>
           <button
             onClick={() => {
               onClose();
@@ -188,7 +199,7 @@ function BottomMenuSheet({ onClose, onExitClick }: { onClose: () => void; onExit
                 void signOut();
               }
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#DC2626] cursor-pointer"
+            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#DC2626] cursor-pointer"
             style={{ background: "#FEF2F2", border: "1px solid #FECACA" }}
           >
             <LogOut size={14} />

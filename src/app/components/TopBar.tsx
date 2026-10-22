@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
   Search, Bell, ChevronDown, LogOut, KeyRound, Eye, EyeOff,
-  X, AlertTriangle, UserX, Calendar, Wallet, CheckCircle, RefreshCw,
+  X, AlertTriangle, UserX, Calendar, Wallet, CheckCircle, RefreshCw, FileText,
 } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -435,6 +435,16 @@ export function TopBar() {
                 <KeyRound size={14} className="text-[#6B7769]" />
                 Ganti Password
               </button>
+              <a
+                href="/Petunjuk_Penggunaan_MTs_Al-Ittihad.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setUserOpen(false)}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#374040] hover:bg-[#F5F9F4] transition-colors"
+              >
+                <FileText size={14} className="text-[#6B7769]" />
+                Buku Petunjuk (PDF)
+              </a>
               <button
                 onClick={() => { setUserOpen(false); setExitDialogOpen(true); }}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors cursor-pointer"

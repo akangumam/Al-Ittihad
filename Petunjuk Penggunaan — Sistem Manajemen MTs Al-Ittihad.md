@@ -2,14 +2,14 @@
 
 ## Sistem Manajemen MTs Al-Ittihad
 
-Versi 1.0 · 19 Oktober 2026
+Versi 1.1 · 22 Oktober 2026
 
 ---
 
 ## Daftar Isi
 
 - [Bab 1 — Pendahuluan](#m9facynzpdk.96)
-  - Tentang Sistem · Peran Pengguna · Login · Navigasi · Konvensi
+  - Tentang Sistem · Peran Pengguna · Login & Logout · Sinkron Server · Navigasi · Konvensi
 - [Bab 2 — Setup Awal](#m9facynzpdk.3331) `[Admin]`
   - Identitas Madrasah · Tahun Ajaran · Operasional · Akun Kas & Bank
 - [Bab 3 — Manajemen Guru](#m9facynzpdk.6611) `[Admin]` `[TU]`
@@ -25,7 +25,7 @@ Versi 1.0 · 19 Oktober 2026
 - [Bab 8 — Tunggakan](#m9facynzpdk.24809) `[Bendahara]` `[Admin]`
   - Daftar · Aging · Filter · Notifikasi WhatsApp
 - [Bab 9 — Absensi](#m9facynzpdk.27605) `[TU]`
-  - Absensi Hari Ini · Terlambat Otomatis · Rekapitulasi · Absensi Guru
+  - Absensi Siswa & Guru · Terlambat Otomatis · Rekapitulasi · Scan QR Code · Mode Mobile
 - [Bab 10 — Kas & Bank](#m9facynzpdk.30807) `[Bendahara]` `[Admin]`
   - Daftar Transaksi · Input Manual · Akun · Mutasi
 - [Bab 11 — Anggaran](#m9facynzpdk.33618) `[Bendahara]` `[Admin]`
@@ -35,7 +35,7 @@ Versi 1.0 · 19 Oktober 2026
 - [Bab 13 — Kalender](#m9facynzpdk.38776)
   - Tampilan · Tambah Event · Edit & Hapus
 - [Bab 14 — Sistem](#m9facynzpdk.40875) `[Admin]`
-  - Manajemen Pengguna · Log Aktivitas · Pengaturan
+  - Manajemen Pengguna · Log Aktivitas · Pengaturan · WA Blast (WhatsApp Gateway)
 
 ---
 
@@ -77,10 +77,36 @@ Menu yang tidak termasuk hak akses peran Anda tidak akan ditampilkan di sidebar.
      - Masukkan alamat **Email** terdaftar (contoh: `admin@gmail.com`).
      - Masukkan **Password** (klik ikon mata untuk menampilkan/menyembunyikan karakter).
      - Klik tombol **Masuk**.
+     - Sistem akan menampilkan notifikasi *toast* hijau di pojok kanan atas: *"Berhasil masuk! Selamat datang di Sistem Madrasah Al-Ittihad."* Jika email/password tidak sesuai, muncul notifikasi peringatan merah.
    - **Metode Akun Google**:
      - Klik tombol **Masuk dengan Google** untuk autentikasi cepat menggunakan akun Google resmi madrasah.
 
 Jika lupa kata sandi, klik tautan **Lupa password?** di bawah tombol Masuk untuk menerima instruksi pemulihan ke email Anda.
+
+#### 1.3.1 Cara Keluar (Logout) & Konfirmasi Keamanan
+
+Untuk menjaga kerahasiaan dan keamanan data madrasah setelah selesai bertugas, pengguna disarankan selalu keluar dari sistem:
+
+- **Pada Komputer / Laptop (Desktop):**
+  1. Klik nama pengguna / avatar profil Anda di pojok kanan atas Topbar.
+  2. Klik menu **Keluar** (berwarna merah dengan ikon pintu keluar).
+  3. Dialog **Konfirmasi Keluar** akan muncul: *"Apakah Anda yakin ingin keluar dari sistem MTs Al-Ittihad? Anda perlu memasukkan email dan kata sandi kembali untuk mengakses data madrasah."*
+  4. Klik tombol merah **Ya, Keluar** untuk mengonfirmasi keluar, atau klik **Batal** jika Anda ingin tetap berada di dalam sistem.
+  5. Sistem akan menampilkan notifikasi konfirmasi bahwa Anda telah keluar dan mengarahkan kembali ke halaman Login.
+
+- **Pada Perangkat HP / Tablet (Mobile):**
+  1. Sentuh tombol inisial akun di header atas, atau sentuh tab **Menu** pada bar navigasi bawah.
+  2. Gulir ke bagian paling bawah panel menu, lalu tekan tombol **Keluar**.
+  3. Konfirmasi pada kotak dialog yang muncul dengan menekan **Ya, Keluar**.
+
+#### 1.3.2 Sinkronisasi Server Manual (TopBar)
+
+Aplikasi memiliki mekanisme penyimpanan ganda (cache lokal di browser dan basis data cloud Supabase). Apabila Anda baru saja melakukan perubahan data di komputer/perangkat lain dan ingin memastikan seluruh data (seperti data siswa, tagihan, atau presensi) langsung sinkron tanpa perlu me-refresh halaman browser (F5), gunakan fitur **Sinkron Server**:
+
+1. Perhatikan bilah navigasi atas (Topbar), di samping pemilih Tahun Ajaran.
+2. Klik tombol **Sinkron Server** (ikon panah melingkar).
+3. Tombol akan berputar dan menampilkan indikasi sinkronisasi data sedang berjalan.
+4. Setelah selesai, data terbaru akan langsung terpasang di layar dan tersimpan rapi.
 
 #### Ganti Password
 
@@ -764,7 +790,7 @@ Setelah transaksi berhasil, dialog sukses menampilkan dua opsi:
    - Sisa tagihan (jika masih ada)
 4. Klik **Kirim** di WhatsApp
 
-> **Catatan**: Fitur kirim WA tidak menggunakan API WhatsApp berbayar. Sistem hanya menyiapkan link `wa.me` dengan teks yang sudah diformat. Nomor wali diambil dari data siswa — pastikan nomor WA wali sudah diisi dengan benar di profil siswa.
+> **Catatan**: Sistem mendukung dua metode pengiriman WhatsApp: pengiriman langsung melalui tautan `wa.me` (dapat dikirim langsung tanpa konfigurasi tambahan) dan pengiriman otomatis melalui gateway server **WAHA** (*WhatsApp HTTP API*). Nomor wali diambil dari data profil siswa — pastikan nomor WA wali telah tercatat dengan benar.
 
 ### 7.5 Pembatalan Transaksi (Reversal)
 
@@ -863,7 +889,7 @@ Jumlah hasil mengikuti filter aktif. Badge angka di menu sidebar **Tunggakan** j
 4. Klik **Lanjutkan**
 5. Browser akan membuka tab WA satu per satu untuk setiap siswa (pastikan pop-up browser tidak diblokir)
 
-> **Catatan**: Fitur ini menggunakan link `wa.me` tanpa API berbayar. Setiap pengiriman memerlukan klik manual di WhatsApp — sistem tidak bisa mengirim otomatis tanpa tindakan pengguna.
+> **Catatan**: Sistem menyediakan dua cara pengiriman: metode standar melalui link `wa.me` (klik manual ke aplikasi/web WhatsApp) dan metode otomatis massal melalui gateway server **WAHA** (*WhatsApp HTTP API*) yang terhubung ke nomor resmi madrasah.
 
 ### 8.5 Tindak Lanjut Tunggakan
 
@@ -972,6 +998,30 @@ Field tambahan untuk guru:
 | **Keterangan** | Wajib diisi jika Izin |
 
 Rekap absensi guru tersedia di tab Rekapitulasi dengan filter **Tipe: Guru**.
+
+### 9.5 Fitur Scan QR Code / Kamera Presensi
+
+Untuk mempercepat proses pencatatan presensi di pintu gerbang madrasah atau di kelas, sistem menyediakan fitur pemindai QR Code / Barcode menggunakan kamera laptop atau smartphone:
+
+1. Buka menu **Absensi** atau klik tombol **Scan Presensi** pada widget Dashboard.
+2. Izinkan izin akses kamera pada peramban (browser).
+3. Arahkan kamera ke QR Code / Barcode yang tertera pada **Kartu Digital Siswa atau Guru**.
+4. **Fitur Pengendali Kamera:**
+   - **Ganti Kamera:** Berpindah antara kamera depan dan kamera belakang.
+   - **Flash / Senter:** Mengaktifkan lampu sorot kamera untuk pemindaian di area pencahayaan redup (pada smartphone yang mendukung).
+   - **Input Manual:** Jika fisik kartu siswa basah, tergores, atau tidak terbaca, staf dapat memilih opsi input manual dan mengetikkan NISN / NIP secara langsung.
+5. Saat kode berhasil terbaca, sistem langsung memvalidasi identitas, mencatat waktu kehadiran aktual, dan menampilkan pop-up konfirmasi nama beserta status presensinya.
+
+### 9.6 Presensi di Dashboard & Mode Mobile (HP)
+
+- **Widget Dashboard Utama:** Pada halaman muka Dashboard, terdapat kartu widget presensi harian yang dilengkapi tab ganda **[Siswa]** dan **[Guru]**. Staf TU dan pimpinan madrasah dapat memantau rasio kehadiran hari ini dan langsung melakukan input presensi tanpa harus berpindah halaman.
+- **Mode Mobile (Smartphone):** Saat dibuka melalui smartphone/tablet, modul absensi telah dioptimalkan khusus. Petugas piket madrasah dapat melakukan pencatatan kehadiran guru maupun siswa secara mobile di lapangan dengan praktis.
+
+### 9.7 Notifikasi Presensi WhatsApp Otomatis ke Orang Tua
+
+Sistem terhubung dengan gateway WhatsApp (WAHA) untuk menjaga transparansi kehadiran siswa dengan wali murid:
+- Ketika siswa dicatat **Terlambat** atau **Alpa**, sistem dapat meneruskan notifikasi otomatis ke nomor WhatsApp orang tua/wali siswa yang terdaftar.
+- Pesan otomatis mencantumkan nama siswa, kelas, waktu kedatangan, serta imbauan madrasah.
 
 ## Bab 10 — Kas & Bank `[Bendahara]` `[Admin]`
 
@@ -1423,6 +1473,16 @@ Lihat Bab 2 untuk panduan lengkap pengaturan sistem. Ringkasan submenu yang ters
 | **Akun Kas & Bank** | Daftar akun keuangan, saldo awal |
 
 Perubahan di halaman Pengaturan berlaku **segera** dan memengaruhi seluruh pengguna yang sedang aktif.
+
+### 14.4 WA Blast & Integrasi WhatsApp Gateway (WAHA) `[Admin]`
+
+Menu **Sistem → WA Blast** digunakan untuk mengelola integrasi pengiriman pesan otomatis melalui WhatsApp HTTP API (WAHA) serta menyiarkan pesan massal kepada wali murid.
+
+**Fungsi Utama WA Blast:**
+1. **Status Koneksi Gateway:** Menampilkan status server WAHA dan sesi WhatsApp madrasah (apakah berstatus *Connected* atau *Disconnected*).
+2. **Kirim Pesan Massal (Broadcast):** Mengirim pengumuman, surat pemberitahuan kegiatan madrasah, atau undangan rapat kepada seluruh wali murid atau per kelas tertentu secara serentak.
+3. **Template Pesan Dinamis:** Mendukung variabel personalisasi otomatis seperti `{nama_siswa}`, `{kelas}`, `{nama_wali}`, dan `{nominal_tunggakan}` yang akan digantikan secara otomatis sesuai data masing-masing siswa.
+4. **Monitoring Pengiriman:** Memantau riwayat pengiriman pesan, log pengiriman berhasil/gagal, serta antrean pesan guna menjaga reputasi nomor WhatsApp madrasah.
 
 ## Lampiran A — Glosarium
 
