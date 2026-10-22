@@ -1,0 +1,23 @@
+{
+  "name": "Sistem Informasi Manajemen MTs Al-Ittihad Pedaleman",
+  "short_name": "Al-Ittihad",
+  "description": "Portal terpadu administrasi madrasah, presensi digital QR code, keuangan SPP, dan akademik.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#062817",
+  "theme_color": "#0F4324",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
