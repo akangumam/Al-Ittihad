@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Eye, EyeOff, Mail, Lock, Users, QrCode, Sparkles, CheckCircle2, ArrowLeft, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { isSupabaseReady } from "@/lib/supabase";
+import { toast } from "sonner";
 import logoEmblem from "../../imports/aliet_logo.png";
 
 function GoogleIcon() {
@@ -42,7 +43,12 @@ export function LoginPage() {
     setError(""); setBusy(true);
     const err = await signInWithEmail(email.trim(), password);
     setBusy(false);
-    if (err) setError("Email atau password salah. Silakan coba lagi.");
+    if (err) {
+      setError("Email atau password salah. Silakan coba lagi.");
+      toast.error("Gagal masuk. Periksa kembali email dan password Anda.");
+    } else {
+      toast.success("Berhasil masuk! Selamat datang di Sistem Madrasah Al-Ittihad.");
+    }
   }
 
   async function handleForgot(e: React.FormEvent) {
@@ -50,8 +56,13 @@ export function LoginPage() {
     setError(""); setBusy(true);
     const err = await resetPassword(email.trim());
     setBusy(false);
-    if (err) { setError("Gagal mengirim email. Pastikan email terdaftar."); return; }
+    if (err) {
+      setError("Gagal mengirim email. Pastikan email terdaftar.");
+      toast.error("Gagal mengirim email reset password. Pastikan email terdaftar.");
+      return;
+    }
     setInfo("Tautan reset password telah dikirim ke alamat email Anda. Silakan periksa kotak masuk atau folder Spam.");
+    toast.success("Tautan reset password telah dikirim ke email Anda!");
   }
 
   return (

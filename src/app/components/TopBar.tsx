@@ -9,6 +9,8 @@ import { useAuth } from "@/context/AuthContext";
 import { tahunAjaranOptions } from "@/data/settings";
 import { akunData } from "@/data/keuangan";
 import type { AkunNama } from "@/types";
+import { ExitConfirmDialog } from "./ExitConfirmDialog";
+import { toast } from "sonner";
 
 function metodeToAkun(metode: string): AkunNama {
   return metode === "Tunai" ? "Kas Tunai" : "Bank BSI";
@@ -250,6 +252,7 @@ export function TopBar() {
   const [yearOpen, setYearOpen]   = useState(false);
   const [userOpen, setUserOpen]   = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [passModal, setPassModal] = useState(false);
   const [newPass, setNewPass]     = useState("");
   const [confirmPass, setConfirmPass] = useState("");
@@ -433,8 +436,8 @@ export function TopBar() {
                 Ganti Password
               </button>
               <button
-                onClick={() => { setUserOpen(false); signOut(); }}
-                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
+                onClick={() => { setUserOpen(false); setExitDialogOpen(true); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors cursor-pointer"
                 style={{ borderTop: "1px solid #F0F7EE" }}
               >
                 <LogOut size={14} />
@@ -506,6 +509,16 @@ export function TopBar() {
         </div>
       </div>
     )}
+
+    {/* Dialog Konfirmasi Keluar */}
+    <ExitConfirmDialog
+      open={exitDialogOpen}
+      onOpenChange={setExitDialogOpen}
+      onConfirm={async () => {
+        await signOut();
+        toast.info("Anda telah berhasil keluar dari sistem.");
+      }}
+    />
   </>
   );
 }

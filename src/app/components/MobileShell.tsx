@@ -12,6 +12,8 @@ import logoEmblem from "../../imports/aliet_logo.png";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import type { Role } from "@/types";
+import { ExitConfirmDialog } from "./ExitConfirmDialog";
+import { toast } from "sonner";
 
 // ─── bottom nav data ──────────────────────────────────────────────────────────
 
@@ -92,7 +94,7 @@ const MENU_GROUPS: Array<{
 
 // ─── bottom menu sheet ────────────────────────────────────────────────────────
 
-function BottomMenuSheet({ onClose }: { onClose: () => void }) {
+function BottomMenuSheet({ onClose, onExitClick }: { onClose: () => void; onExitClick?: () => void }) {
   const navigate = useNavigate();
   const { role } = useAppContext();
   const { user, signOut } = useAuth();
@@ -178,8 +180,15 @@ function BottomMenuSheet({ onClose }: { onClose: () => void }) {
             <p className="text-[11px] text-[#6B7769]">{user?.email ?? ""}</p>
           </div>
           <button
-            onClick={() => { onClose(); signOut(); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#DC2626]"
+            onClick={() => {
+              onClose();
+              if (onExitClick) {
+                onExitClick();
+              } else {
+                void signOut();
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#DC2626] cursor-pointer"
             style={{ background: "#FEF2F2", border: "1px solid #FECACA" }}
           >
             <LogOut size={14} />
@@ -202,6 +211,7 @@ export function MobileShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [exitDialogOpen, setExitDialogOpen] = useState(false);
 
   const initials = user?.nama
     ? user.nama.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
@@ -356,9 +366,25 @@ export function MobileShell({ children }: { children: ReactNode }) {
             style={{ background: "rgba(0,0,0,0.4)" }}
             onClick={() => setMenuOpen(false)}
           />
-          <BottomMenuSheet onClose={() => setMenuOpen(false)} />
+          <BottomMenuSheet
+            onClose={() => setMenuOpen(false)}
+            onExitClick={() => {
+              setMenuOpen(false);
+              setExitDialogOpen(true);
+            }}
+          />
         </>
       )}
+
+      {/* Dialog Konfirmasi Keluar */}
+      <ExitConfirmDialog
+        open={exitDialogOpen}
+        onOpenChange={setExitDialogOpen}
+        onConfirm={async () => {
+          await signOut();
+          toast.info("Anda telah berhasil keluar dari sistem.");
+        }}
+      />
     </div>
   );
 }
