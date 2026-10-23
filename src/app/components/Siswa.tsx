@@ -1474,11 +1474,30 @@ export function Siswa() {
   const startIndex = filteredRows.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
   const endIndex = Math.min(currentPage * ITEMS_PER_PAGE, filteredRows.length);
 
-  const allChecked  = rows.length > 0 && checked.size === rows.length;
-  const someChecked = checked.size > 0 && !allChecked;
+  const allPageChecked = rows.length > 0 && rows.every((r) => checked.has(r.id));
+  const somePageChecked = rows.some((r) => checked.has(r.id)) && !allPageChecked;
+  const allFilteredChecked = filteredRows.length > 0 && filteredRows.every((r) => checked.has(r.id));
 
-  const toggleAll = () =>
-    setChecked(allChecked ? new Set() : new Set(rows.map((r) => r.id)));
+  const toggleAllPage = () => {
+    const next = new Set(checked);
+    if (allPageChecked) {
+      rows.forEach((r) => next.delete(r.id));
+    } else {
+      rows.forEach((r) => next.add(r.id));
+    }
+    setChecked(next);
+  };
+
+  const selectAllFiltered = () => {
+    const next = new Set(checked);
+    filteredRows.forEach((r) => next.add(r.id));
+    setChecked(next);
+  };
+
+  const clearSelection = () => {
+    setChecked(new Set());
+  };
+
   const toggleRow = (id: number) => {
     const next = new Set(checked);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -1742,8 +1761,67 @@ export function Siswa() {
         </>
       )}
 
+      {/* ── Selection Info Banner (Desktop & Mobile) ── */}
+      {checked.size > 0 && (
+        <div className="bg-[#EDF7EC] border border-[#3E8A2F]/30 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-[#1C2517] animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-[#3E8A2F] bg-white px-2 py-0.5 rounded-md border border-[#3E8A2F]/20">
+              {checked.size} dipilih
+            </span>
+            <span>
+              {allFilteredChecked
+                ? `Seluruh ${filteredRows.length} siswa yang sesuai filter telah terpilih.`
+                : allPageChecked && filteredRows.length > rows.length
+                ? `Semua ${rows.length} siswa di halaman ini terpilih.`
+                : `${checked.size} dari ${filteredRows.length} siswa terpilih.`}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            {filteredRows.length > rows.length && !allFilteredChecked && (
+              <button
+                type="button"
+                onClick={selectAllFiltered}
+                className="text-[#3E8A2F] font-bold hover:underline cursor-pointer"
+              >
+                Pilih semua {filteredRows.length} siswa
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="text-[#6B7769] hover:text-[#DC2626] font-medium cursor-pointer"
+            >
+              Batalkan pilihan
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Mobile student cards ── */}
       <div className="md:hidden flex flex-col gap-2.5">
+        {/* Mobile select-all toggle */}
+        {!isDataLoading && filteredRows.length > 0 && (
+          <div className="flex items-center justify-between px-1 py-0.5 text-xs">
+            <label className="flex items-center gap-2 cursor-pointer font-medium text-[#374040]">
+              <Checkbox
+                checked={allFilteredChecked}
+                indeterminate={checked.size > 0 && !allFilteredChecked}
+                onChange={() => (allFilteredChecked ? clearSelection() : selectAllFiltered())}
+              />
+              <span>Pilih Semua Siswa ({filteredRows.length})</span>
+            </label>
+            {checked.size > 0 && (
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="text-xs text-[#DC2626] font-medium hover:underline cursor-pointer"
+              >
+                Batal ({checked.size})
+              </button>
+            )}
+          </div>
+        )}
+
         {isDataLoading ? (
           Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="w-full bg-white rounded-xl flex items-start gap-3 animate-pulse" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
@@ -1761,40 +1839,56 @@ export function Siswa() {
         ) : filteredRows.length === 0 ? (
           <p className="text-sm text-[#9CA3A0] text-center py-8">Belum ada data siswa</p>
         ) : filteredRows.map((row) => {
+          const isChecked = checked.has(row.id);
           const nonaktif = row.status === "Nonaktif";
           return (
             <div
               key={row.id}
-              className="w-full bg-white rounded-xl shadow-xs transition-colors hover:border-[#3E8A2F]/50 flex flex-col"
-              style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}
+              className={`w-full rounded-xl shadow-xs transition-all flex flex-col ${
+                isChecked
+                  ? "bg-[#F5FBF4] border-[#3E8A2F] ring-1 ring-[#3E8A2F]"
+                  : "bg-white border-[#E2E8DE] hover:border-[#3E8A2F]/50"
+              }`}
+              style={{ border: "1px solid", padding: "14px 16px" }}
             >
-              {/* Top row: Avatar, Info, Badges */}
-              <div
-                onClick={() => { setSheetMode("view"); setSelectedSiswa(row); }}
-                className="flex items-start gap-3 w-full cursor-pointer"
-              >
+              {/* Top row: Checkbox + Avatar, Info, Badges */}
+              <div className="flex items-start gap-2.5 w-full">
                 <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 overflow-hidden"
-                  style={{ background: nonaktif ? "#E2E8DE" : "#3E8A2F", color: nonaktif ? "#9CA3A0" : "#FFF" }}
+                  className="pt-1 pr-1 shrink-0 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRow(row.id);
+                  }}
                 >
-                  <img
-                    src={row.jk === 'L' ? '/foto_L.png' : '/foto_P.png'}
-                    alt={row.nama}
-                    className={`w-full h-full object-cover ${nonaktif ? 'grayscale opacity-50' : ''}`}
-                  />
+                  <Checkbox checked={isChecked} onChange={() => toggleRow(row.id)} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
-                    <span className="text-[11px] font-medium text-[#3E8A2F] shrink-0">Detail →</span>
+                <div
+                  onClick={() => { setSheetMode("view"); setSelectedSiswa(row); }}
+                  className="flex items-start gap-2.5 flex-1 min-w-0 cursor-pointer"
+                >
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 overflow-hidden"
+                    style={{ background: nonaktif ? "#E2E8DE" : "#3E8A2F", color: nonaktif ? "#9CA3A0" : "#FFF" }}
+                  >
+                    <img
+                      src={(row as any).foto || (row.jk === 'L' ? '/foto_L.png' : '/foto_P.png')}
+                      alt={row.nama}
+                      className={`w-full h-full object-cover ${nonaktif ? 'grayscale opacity-50' : ''}`}
+                    />
                   </div>
-                  <p className="text-[11px] text-[#6B7769] mt-0.5">{row.nis}{row.nisn ? ` · NISN: ${row.nisn}` : ""}</p>
-                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${KELAS_COLOR[row.kelas[0]] ?? "bg-[#F3F4F6] text-[#374040]"}`}>
-                      {row.kelas}
-                    </span>
-                    <StatusBadge status={row.statusTagihan} />
-                    <StatusBadge status={row.status as "Aktif" | "Nonaktif"} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
+                      <span className="text-[11px] font-medium text-[#3E8A2F] shrink-0">Detail →</span>
+                    </div>
+                    <p className="text-[11px] text-[#6B7769] mt-0.5">{row.nis}{row.nisn ? ` · NISN: ${row.nisn}` : ""}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${KELAS_COLOR[row.kelas[0]] ?? "bg-[#F3F4F6] text-[#374040]"}`}>
+                        {row.kelas}
+                      </span>
+                      <StatusBadge status={row.statusTagihan} />
+                      <StatusBadge status={row.status as "Aktif" | "Nonaktif"} />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1802,7 +1896,7 @@ export function Siswa() {
               {/* Bottom row: Wali & Actions */}
               <div
                 className="flex items-center justify-between w-full mt-3 pt-2.5"
-                style={{ borderTop: "1px solid #F0F7EE" }}
+                style={{ borderTop: isChecked ? "1px solid #D5E8D2" : "1px solid #F0F7EE" }}
               >
                 <div>
                   <p className="text-[11px] text-[#6B7769] leading-none">Wali: <span className="font-medium text-[#374040]">{row.waliNama || "—"}</span></p>
@@ -1857,7 +1951,7 @@ export function Siswa() {
             <thead>
               <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
                 <th className="w-10 pl-6 pr-3 py-3" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={allChecked} indeterminate={someChecked} onChange={toggleAll} />
+                  <Checkbox checked={allPageChecked} indeterminate={somePageChecked} onChange={toggleAllPage} />
                 </th>
                 <Th className="pr-4">Siswa</Th>
                 <Th className="pr-4">Kelas</Th>
@@ -2195,44 +2289,44 @@ export function Siswa() {
 
       {/* ── Bulk Actions Floating Bar ── */}
       {checked.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-in slide-in-from-bottom-10 fade-in duration-300">
-          <div className="bg-[#1C2517] text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-6" style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}>
-            <div className="flex items-center gap-3 pr-6 border-r border-white/20">
+        <div className="fixed bottom-[calc(76px+env(safe-area-inset-bottom,0px))] md:bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300 w-[calc(100%-24px)] md:w-auto max-w-xl">
+          <div className="bg-[#1C2517] text-white px-4 md:px-6 py-3 md:py-4 rounded-2xl shadow-2xl flex flex-wrap md:flex-nowrap items-center justify-between md:justify-start gap-2 md:gap-6 border border-white/10" style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.35)" }}>
+            <div className="flex items-center gap-2 md:gap-3 md:pr-4 md:border-r md:border-white/20">
               <div className="w-6 h-6 rounded-md bg-[#3E8A2F] flex items-center justify-center text-xs font-bold tabular-nums">
                 {checked.size}
               </div>
-              <span className="text-sm font-medium">siswa dipilih</span>
+              <span className="text-xs md:text-sm font-medium whitespace-nowrap">siswa dipilih</span>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
               <button 
                 onClick={() => setBulkAction("kelas")} 
                 disabled={!canChangeClass}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${!canChangeClass ? "opacity-40 cursor-not-allowed" : "hover:bg-white/10"}`}
+                className={`flex items-center gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-xl text-xs md:text-sm font-medium transition-colors ${!canChangeClass ? "opacity-40 cursor-not-allowed" : "hover:bg-white/10"}`}
                 title={!canChangeClass ? "Siswa nonaktif tidak dapat diubah kelasnya" : ""}
               >
-                <ArrowRightLeft size={16} /> Ubah Kelas
+                <ArrowRightLeft size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">Ubah </span>Kelas
               </button>
               <button 
                 onClick={() => setBulkAction("lulus")} 
                 disabled={!canGraduate}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${!canGraduate ? "opacity-40 cursor-not-allowed" : "hover:bg-white/10"}`}
+                className={`flex items-center gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-xl text-xs md:text-sm font-medium transition-colors ${!canGraduate ? "opacity-40 cursor-not-allowed" : "hover:bg-white/10"}`}
                 title={!canGraduate ? "Hanya siswa aktif kelas 9 yang dapat diluluskan" : ""}
               >
-                <GraduationCap size={16} /> Luluskan
+                <GraduationCap size={14} className="md:w-4 md:h-4" /> Luluskan
               </button>
-              <div className="w-px h-6 bg-white/20 mx-1"></div>
-              <button onClick={() => setBulkAction("hapus")} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-red-400/10 transition-colors">
-                <Trash2 size={16} /> Hapus
+              <div className="w-px h-5 bg-white/20 mx-0.5"></div>
+              <button onClick={() => setBulkAction("hapus")} className="flex items-center gap-1.5 px-2.5 md:px-4 py-1.5 md:py-2 rounded-xl text-xs md:text-sm font-medium text-red-400 hover:bg-red-400/10 transition-colors">
+                <Trash2 size={14} className="md:w-4 md:h-4" /> Hapus
               </button>
               
-              <div className="w-px h-6 bg-white/20 ml-2 mr-1"></div>
+              <div className="w-px h-5 bg-white/20 ml-1 mr-0.5"></div>
               <button 
-                onClick={() => setChecked(new Set())} 
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[#9CA3A0] hover:text-white hover:bg-white/10 transition-colors"
+                onClick={clearSelection} 
+                className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[#9CA3A0] hover:text-white hover:bg-white/10 transition-colors"
                 title="Batal / Tutup"
               >
-                <X size={16} />
+                <X size={15} />
               </button>
             </div>
           </div>

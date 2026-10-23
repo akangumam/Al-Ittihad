@@ -35,9 +35,12 @@ export function KonfirmasiAbsensiSiswaModal({
     return { hadir, terlambat, izin, sakit, alpa, belum };
   }, [targetSiswa, absensiSiswaHariIni]);
 
-  // Siswa yang secara eksplisit sudah ditandai Alpa di tabel
-  const alpaStudents = useMemo(() => {
-    return targetSiswa.filter(s => absensiSiswaHariIni[s.nis]?.status === "Alpa");
+  // Siswa yang perlu dikirim notifikasi WA (Alpa & Terlambat)
+  const notifStudents = useMemo(() => {
+    return targetSiswa.filter(s => {
+      const st = absensiSiswaHariIni[s.nis]?.status;
+      return st === "Alpa" || st === "Terlambat";
+    });
   }, [targetSiswa, absensiSiswaHariIni]);
 
   if (!open) return null;
@@ -59,13 +62,13 @@ export function KonfirmasiAbsensiSiswaModal({
     }
   };
 
-  const getDirectWALink = (hp: string, nama: string, kelas: string) => {
+  const getDirectWALink = (hp: string, nama: string, kelas: string, status: string, jam?: string) => {
     const digits = (hp || "").replace(/\D/g, "");
     const no = digits.startsWith("0") ? "62" + digits.slice(1) : digits;
-    const pesan = encodeURIComponent(
-      `Assalamu'alaikum Wr. Wb.\n\nYth. Orang Tua/Wali Murid *${nama}* (${kelas})\n\nKami informasikan bahwa putra/putri Bapak/Ibu *tidak hadir (Alpa)* pada:\n📅 ${todayStr}\n\nMohon konfirmasi ketidakhadiran kepada wali kelas atau hubungi madrasah.\n\nJazakumullah khairan.\n_MTs Al-Ittihad Pedaleman_`
-    );
-    return `https://wa.me/${no}?text=${pesan}`;
+    const pesanText = status === "Terlambat"
+      ? `Assalamu'alaikum Wr. Wb.\n\nYth. Orang Tua/Wali Murid *${nama}* (${kelas})\n\nKami informasikan bahwa putra/putri Bapak/Ibu *terlambat masuk* hari ini pukul *${jam || "---"} WIB*.\n\nJazakumullah khairan.\n_MTs Al-Ittihad Pedaleman_`
+      : `Assalamu'alaikum Wr. Wb.\n\nYth. Orang Tua/Wali Murid *${nama}* (${kelas})\n\nKami informasikan bahwa putra/putri Bapak/Ibu *tidak hadir (Alpa)* pada:\n📅 ${todayStr}\n\nMohon konfirmasi ketidakhadiran kepada wali kelas atau hubungi madrasah.\n\nJazakumullah khairan.\n_MTs Al-Ittihad Pedaleman_`;
+    return `https://wa.me/${no}?text=${encodeURIComponent(pesanText)}`;
   };
 
   const chipDefs = [
@@ -126,8 +129,8 @@ export function KonfirmasiAbsensiSiswaModal({
             </div>
           </div>
 
-          {/* Info WA otomatis untuk siswa Alpa */}
-          {alpaStudents.length > 0 && (
+          {/* Info WA otomatis untuk siswa Alpa & Terlambat */}
+          {notifStudents.length > 0 && (
             <div className="rounded-xl border border-[#D1FADF] bg-[#F5FBF7] p-3.5 space-y-2.5">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg bg-[#25D366] text-white flex items-center justify-center shrink-0">
@@ -136,42 +139,54 @@ export function KonfirmasiAbsensiSiswaModal({
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs font-semibold text-[#166534]">
-                      Notifikasi WA otomatis ke wali siswa Alpa
+                      Notifikasi WA otomatis ke wali siswa
                     </span>
                     <CheckCircle2 size={13} className="text-[#3E8A2F]" />
                   </div>
                   <p className="text-[11px] text-[#227244]">
-                    {alpaStudents.length} pesan akan diantrekan ke WAHA
+                    {notifStudents.length} pesan akan dikirim ke WAHA (Alpa & Terlambat)
                   </p>
                 </div>
               </div>
 
-              <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
-                {alpaStudents.map(s => (
-                  <div
-                    key={s.id}
-                    className="flex items-center justify-between p-1.5 rounded-lg bg-white border border-[#E2E8DE] text-[11px]"
-                  >
-                    <div>
-                      <span className="font-semibold text-[#1C2517]">{s.nama}</span>
-                      <span className="text-[#6B7769] ml-1">Kelas {s.kelas}</span>
+              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                {notifStudents.map(s => {
+                  const rec = absensiSiswaHariIni[s.nis];
+                  const st = rec?.status || "Alpa";
+                  const jam = rec?.jam;
+                  return (
+                    <div
+                      key={s.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-white border border-[#E2E8DE] text-[11px]"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-[#1C2517] truncate">{s.nama}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            st === "Alpa" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"
+                          }`}>
+                            {st}
+                          </span>
+                        </div>
+                        <span className="text-[#6B7769] block mt-0.5">Kelas {s.kelas} {jam ? `• Jam ${jam}` : ""}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[#6B7769] tabular-nums">{s.waliHp || "No HP Kosong"}</span>
+                        {s.waliHp && (
+                          <a
+                            href={getDirectWALink(s.waliHp, s.nama, s.kelas, st, jam)}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Buka WhatsApp langsung"
+                            className="p-1 rounded text-[#25D366] hover:bg-[#E7FBF0] transition-colors"
+                          >
+                            <ExternalLink size={12} />
+                          </a>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#6B7769] tabular-nums">{s.waliHp || "No HP Kosong"}</span>
-                      {s.waliHp && (
-                        <a
-                          href={getDirectWALink(s.waliHp, s.nama, s.kelas)}
-                          target="_blank"
-                          rel="noreferrer"
-                          title="Buka WhatsApp langsung"
-                          className="p-1 rounded text-[#25D366] hover:bg-[#E7FBF0] transition-colors"
-                        >
-                          <ExternalLink size={12} />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

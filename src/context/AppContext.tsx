@@ -1316,7 +1316,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
   const deleteSiswa = (id: number) => {
+    const toDelete = siswaList.find(s => s.id === id);
     setSiswaList(prev => prev.filter(s => s.id !== id));
+    if (toDelete?.nis) {
+      setTagihanList(prev => prev.filter(t => t.nis !== toDelete.nis));
+    }
     deleteSiswaDB(id).catch(() => {
       toast.error("Gagal menghapus data siswa");
       loadSiswaFromDB().then(setSiswaList).catch(() => {});
@@ -1332,7 +1336,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const bulkDeleteSiswa = (ids: number[]) => {
+    const toDeleteNis = new Set(siswaList.filter(s => ids.includes(s.id)).map(s => s.nis));
     setSiswaList(prev => prev.filter(s => !ids.includes(s.id)));
+    if (toDeleteNis.size > 0) {
+      setTagihanList(prev => prev.filter(t => !toDeleteNis.has(t.nis)));
+    }
     bulkDeleteSiswaDB(ids).catch(() => {
       toast.error("Gagal menghapus data siswa");
       loadSiswaFromDB().then(setSiswaList).catch(() => {});

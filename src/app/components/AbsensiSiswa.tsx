@@ -174,8 +174,13 @@ function ScanTab() {
               jenis: "absensi",
               ref_id: siswa.nis,
               priority: 1,
+            }).then(res => {
+              if (res.ok) {
+                toast.success(`Notifikasi WA keterlambatan dikirim ke wali murid (${siswa.waliHp}).`);
+              } else {
+                toast.error(`Gagal mengirim notifikasi WA: ${res.error}`);
+              }
             });
-            toast.success(`Notifikasi WA keterlambatan dikirim ke wali murid (${siswa.waliHp}).`);
           }
         } else {
           toast.success(`Absensi ${siswa.nama} tercatat: Hadir pukul ${timeStr}`);
@@ -645,32 +650,60 @@ function ManualTab() {
     { label: "Belum Absen", value: chips.Belum,     color: "#F3F4F6", text: "#374151" },
   ];
 
+  const notifCount = useMemo(() => {
+    return targetSiswa.filter(s => {
+      const st = absensiSiswaHariIni[s.nis]?.status;
+      return (st === "Alpa" || st === "Terlambat") && !!s.waliHp;
+    }).length;
+  }, [targetSiswa, absensiSiswaHariIni]);
+
   const todayStr = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
   const handleConfirm = async () => {
     try {
-      // Kirim WA otomatis ke wali siswa Alpa
+      // Kirim WA otomatis ke wali siswa Alpa & Terlambat
       let waCount = 0;
-      const alpaStudents = appSettings.wahaEnabled
-        ? targetSiswa.filter(s => absensiSiswaHariIni[s.nis]?.status === "Alpa" && s.waliHp)
-        : [];
-      if (alpaStudents.length > 0) {
-        const payloads = alpaStudents.map(s => ({
-          phone: s.waliHp,
-          nama_penerima: s.waliNama || `Wali dari ${s.nama}`,
-          pesan: renderTemplate(
-            appSettings.waTemplates?.absensiAlpa ?? WA_TEMPLATE_DEFAULTS.absensiAlpa,
-            { nama_siswa: s.nama, kelas: s.kelas, tanggal: todayStr },
-          ),
-          jenis: "absensi" as const,
-          ref_id: s.nis,
-          priority: 1,
-        }));
-        const res = await enqueueBulk(payloads);
-        if (res.ok) {
-          waCount = res.count;
-        } else {
-          toast.error(`Gagal kirim antrean WA: ${res.error ?? "unknown error"}`);
+      if (appSettings.wahaEnabled) {
+        const notifPayloads: any[] = [];
+        targetSiswa.forEach(s => {
+          if (!s.waliHp) return;
+          const status = absensiSiswaHariIni[s.nis]?.status;
+          const jam = absensiSiswaHariIni[s.nis]?.jam || new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+          if (status === "Alpa") {
+            notifPayloads.push({
+              phone: s.waliHp,
+              nama_penerima: s.waliNama || `Wali dari ${s.nama}`,
+              pesan: renderTemplate(
+                appSettings.waTemplates?.absensiAlpa ?? WA_TEMPLATE_DEFAULTS.absensiAlpa,
+                { nama_siswa: s.nama, kelas: s.kelas, tanggal: todayStr },
+              ),
+              jenis: "absensi",
+              ref_id: s.nis,
+              priority: 1,
+            });
+          } else if (status === "Terlambat") {
+            notifPayloads.push({
+              phone: s.waliHp,
+              nama_penerima: s.waliNama || `Wali dari ${s.nama}`,
+              pesan: renderTemplate(
+                appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat,
+                { nama_siswa: s.nama, kelas: s.kelas, jam_masuk: jam },
+              ),
+              jenis: "absensi",
+              ref_id: s.nis,
+              priority: 1,
+            });
+          }
+        });
+
+        if (notifPayloads.length > 0) {
+          const res = await enqueueBulk(notifPayloads);
+          if (res.ok) {
+            waCount = res.count;
+          } else {
+            toast.error(`Gagal kirim notifikasi WA: ${res.error ?? "koneksi bermasalah"}`);
+          }
         }
       }
 
@@ -687,12 +720,12 @@ function ManualTab() {
 
       logActivity({
         tipe: "Absensi Siswa",
-        deskripsi: `Simpan absensi ${kelasFilter}: ${hadir} Hadir, ${terlambat} Terlambat, ${izin} Izin, ${sakit} Sakit, ${alpa} Alpa${waCount > 0 ? ` (${waCount} WA diantrekan)` : ""}`,
+        deskripsi: `Simpan absensi ${kelasFilter}: ${hadir} Hadir, ${terlambat} Terlambat, ${izin} Izin, ${sakit} Sakit, ${alpa} Alpa${waCount > 0 ? ` (${waCount} WA dikirim)` : ""}`,
         ref: "---",
       });
 
       toast.success(
-        `Presensi siswa berhasil disimpan (${targetSiswa.length - chips.Belum} tercatat)${waCount > 0 ? ` Â· ${waCount} notifikasi WA diantrekan` : ""}.`
+        `Presensi siswa berhasil disimpan (${targetSiswa.length - chips.Belum} tercatat)${waCount > 0 ? ` · ${waCount} notifikasi WA terkirim/diantrekan` : ""}.`
       );
     } catch {
       toast.error("Gagal menyimpan absensi. Coba lagi.");
@@ -985,21 +1018,35 @@ function ManualTab() {
           <span className="text-xs sm:text-sm font-semibold text-[#1C2517] tabular-nums truncate">
             {tercatatCount} dari {targetSiswa.length} {kelasFilter === "Semua Kelas" ? "siswa" : `siswa ${kelasFilter}`}
           </span>
-          {chips.Belum > 0 ? (
-            <span className="text-[10px] sm:text-xs font-semibold text-[#92400E]">
-              {chips.Belum} siswa belum absen
-            </span>
-          ) : (
-            <span className="text-[10px] sm:text-xs font-semibold text-[#166534]">
-              Semua kehadiran tercatat
-            </span>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {chips.Belum > 0 ? (
+              <span className="text-[10px] sm:text-xs font-semibold text-[#92400E]">
+                {chips.Belum} siswa belum absen
+              </span>
+            ) : (
+              <span className="text-[10px] sm:text-xs font-semibold text-[#166534]">
+                Semua kehadiran tercatat
+              </span>
+            )}
+            {appSettings.wahaEnabled && notifCount > 0 && (
+              <span className="text-[10px] sm:text-xs font-semibold text-[#16A34A] flex items-center gap-1">
+                • <MessageCircle size={11} /> {notifCount} WA otomatis siap dikirim
+              </span>
+            )}
+          </div>
         </div>
         <button
           onClick={handleSaveClick}
-          className="px-4 sm:px-5 py-2.5 rounded-xl bg-[#3E8A2F] text-white text-xs sm:text-sm font-bold hover:bg-[#2E6B22] transition-colors shadow-sm shrink-0"
+          className="px-4 sm:px-5 py-2.5 rounded-xl bg-[#3E8A2F] text-white text-xs sm:text-sm font-bold hover:bg-[#2E6B22] transition-colors shadow-sm shrink-0 flex items-center gap-1.5"
         >
-          Simpan Presensi
+          {appSettings.wahaEnabled && notifCount > 0 ? (
+            <>
+              <MessageCircle size={15} />
+              <span>Simpan & Kirim WA ({notifCount})</span>
+            </>
+          ) : (
+            <span>Simpan Presensi</span>
+          )}
         </button>
       </div>
 
