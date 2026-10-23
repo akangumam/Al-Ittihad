@@ -81,7 +81,16 @@ function StatusDot({ status }: { status: string }) {
   );
 }
 
-function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatus, onMutasiKeluar }: { isActive: boolean; waNumber: string; onView: () => void; onEdit: () => void; onShowCard: () => void; onToggleStatus: () => void; onMutasiKeluar?: () => void }) {
+function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatus, onMutasiKeluar, onDelete }: {
+  isActive: boolean;
+  waNumber: string;
+  onView: () => void;
+  onEdit: () => void;
+  onShowCard: () => void;
+  onToggleStatus: () => void;
+  onMutasiKeluar?: () => void;
+  onDelete?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
 
@@ -169,6 +178,18 @@ function RowMenu({ isActive, waNumber, onView, onEdit, onShowCard, onToggleStatu
                 <LogIn size={13} />
                 Aktifkan Kembali
               </button>
+            )}
+            {onDelete && (
+              <>
+                <div className="h-px mx-2 my-1 bg-[#E2E8DE]" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(); setOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
+                >
+                  <Trash2 size={13} />
+                  Hapus Siswa
+                </button>
+              </>
             )}
           </div>
         </>,
@@ -1414,6 +1435,7 @@ export function Siswa() {
   const isDataLoading = isLoading || (siswaLoading && siswaList.length === 0);
   const [mutasiKeluarSiswa, setMutasiKeluarSiswa] = useState<{ id: number; nama: string; nis: string; kelas: string; jk: "L" | "P" } | null>(null);
   const [showMutasiMasuk, setShowMutasiMasuk] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<SiswaRow | null>(null);
 
   // Bulk actions state
   const [bulkAction, setBulkAction] = useState<"kelas" | "lulus" | "hapus" | null>(null);
@@ -1927,6 +1949,13 @@ export function Siswa() {
                   >
                     <IdCard size={15} />
                   </button>
+                  <button
+                    onClick={() => setStudentToDelete(row)}
+                    className="p-1.5 rounded-lg text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
+                    title="Hapus Siswa"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -2060,6 +2089,7 @@ export function Siswa() {
                           toast.success(`Status ${row.nama} berhasil diubah menjadi ${newStatus}`);
                         }}
                         onMutasiKeluar={() => setMutasiKeluarSiswa({ id: row.id, nama: row.nama, nis: row.nis, kelas: row.kelas, jk: row.jk })}
+                        onDelete={() => setStudentToDelete(row)}
                       />
                     </td>
                   </tr>
@@ -2386,6 +2416,35 @@ export function Siswa() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Single Student Delete Confirmation Modal ── */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setStudentToDelete(null)}>
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 relative animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setStudentToDelete(null)} className="absolute top-4 right-4 text-[#9CA3A0] hover:text-[#1C2517] transition-colors"><X size={20} /></button>
+            <h3 className="text-lg font-bold text-[#DC2626] mb-2 flex items-center gap-2"><Trash2 size={20}/> Hapus Data Siswa</h3>
+            <p className="text-sm text-[#6B7769] mb-4">
+              Apakah Anda yakin ingin menghapus data siswa <strong className="text-[#1C2517]">{studentToDelete.nama}</strong> ({studentToDelete.nis})?
+            </p>
+            <p className="text-xs text-[#DC2626] bg-[#FEF2F2] p-2.5 rounded-lg mb-6 border border-[#FCA5A5]/40">
+              Data yang dihapus tidak dapat dipulihkan. Seluruh tagihan terkait siswa ini juga akan dibersihkan.
+            </p>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setStudentToDelete(null)} className="flex-1 py-2.5 font-semibold text-[#374040] hover:bg-[#F5F9F4] rounded-xl transition-colors">Batal</button>
+              <button 
+                onClick={() => {
+                  deleteSiswa(studentToDelete.id);
+                  toast.success(`Data ${studentToDelete.nama} berhasil dihapus`);
+                  setStudentToDelete(null);
+                }} 
+                className="flex-1 py-2.5 bg-[#DC2626] text-white font-semibold rounded-xl hover:bg-[#B91C1C] transition-colors shadow-sm"
+              >
+                Hapus
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -474,31 +474,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
           console.error("Gagal load alumni dari Supabase", alumniRes.reason);
         }
 
-        if (siswa.length > 0) {
+        if (siswaRes.status === "fulfilled") {
           setSiswaList(siswa);
           try {
-            localStorage.setItem("alittihad_siswa", JSON.stringify(siswa));
+            if (siswa.length > 0) {
+              localStorage.setItem("alittihad_siswa", JSON.stringify(siswa));
+            } else {
+              localStorage.removeItem("alittihad_siswa");
+            }
           } catch {}
         } else {
-          // Fallback ke localStorage jika Supabase kosong atau fetch gagal
+          console.error("Gagal load siswa dari Supabase", siswaRes.reason);
+          // Fallback ke localStorage HANYA JIKA fetch Supabase gagal / offline
           const localSiswaStr = localStorage.getItem("alittihad_siswa");
           if (localSiswaStr) {
             try {
               const parsed = JSON.parse(localSiswaStr);
               if (Array.isArray(parsed) && parsed.length > 0) {
-                // Jika Supabase sukses tapi 0 baris, coba seed ke Supabase
-                if (siswaRes.status === "fulfilled" && siswaRes.value.length === 0) {
-                  try {
-                    const toSeed = parsed.map(({ id, ...rest }: any) => rest);
-                    siswa = await bulkInsertSiswaDB(toSeed);
-                  } catch (seedErr) {
-                    console.error("Gagal seed siswa ke Supabase", seedErr);
-                    siswa = parsed;
-                  }
-                } else {
-                  siswa = parsed;
-                }
-                setSiswaList(siswa);
+                setSiswaList(parsed);
               }
             } catch {}
           }
@@ -866,11 +859,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        if (cloudSiswa && Array.isArray(cloudSiswa) && cloudSiswa.length > 0) {
+        if (cloudSiswa && Array.isArray(cloudSiswa)) {
           setSiswaList(prev => {
-            if (prev.length === 0 || prev.length !== cloudSiswa.length) {
+            if (prev.length !== cloudSiswa.length) {
               try {
-                localStorage.setItem("alittihad_siswa", JSON.stringify(cloudSiswa));
+                if (cloudSiswa.length > 0) {
+                  localStorage.setItem("alittihad_siswa", JSON.stringify(cloudSiswa));
+                } else {
+                  localStorage.removeItem("alittihad_siswa");
+                }
               } catch {}
               return cloudSiswa;
             }
@@ -928,11 +925,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Simpan siswaList ke localStorage sebagai offline fallback
   useEffect(() => {
+    if (!isLoadedFromDB.current) return;
     if (siswaList.length > 0) {
       if (isElectron) {
         (window as any).electronAPI.setStoreValue("alittihad_siswa", siswaList);
       } else {
         localStorage.setItem("alittihad_siswa", JSON.stringify(siswaList));
+      }
+    } else {
+      if (isElectron) {
+        (window as any).electronAPI.setStoreValue("alittihad_siswa", []);
+      } else {
+        localStorage.removeItem("alittihad_siswa");
       }
     }
   }, [siswaList, isElectron]);
@@ -1317,7 +1321,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
   const deleteSiswa = (id: number) => {
     const toDelete = siswaList.find(s => s.id === id);
-    setSiswaList(prev => prev.filter(s => s.id !== id));
+    setSiswaList(prev => {
+      const next = prev.filter(s => s.id !== id);
+      try {
+        if (next.length > 0) {
+          localStorage.setItem("alittihad_siswa", JSON.stringify(next));
+        } else {
+          localStorage.removeItem("alittihad_siswa");
+        }
+      } catch {}
+      return next;
+    });
     if (toDelete?.nis) {
       setTagihanList(prev => prev.filter(t => t.nis !== toDelete.nis));
     }
@@ -1337,7 +1351,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const bulkDeleteSiswa = (ids: number[]) => {
     const toDeleteNis = new Set(siswaList.filter(s => ids.includes(s.id)).map(s => s.nis));
-    setSiswaList(prev => prev.filter(s => !ids.includes(s.id)));
+    setSiswaList(prev => {
+      const next = prev.filter(s => !ids.includes(s.id));
+      try {
+        if (next.length > 0) {
+          localStorage.setItem("alittihad_siswa", JSON.stringify(next));
+        } else {
+          localStorage.removeItem("alittihad_siswa");
+        }
+      } catch {}
+      return next;
+    });
     if (toDeleteNis.size > 0) {
       setTagihanList(prev => prev.filter(t => !toDeleteNis.has(t.nis)));
     }
@@ -1633,10 +1657,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const summary: string[] = [];
 
-      if (siswaRes.status === "fulfilled" && siswaRes.value.length > 0) {
+      if (siswaRes.status === "fulfilled") {
         setSiswaList(siswaRes.value);
-        localStorage.setItem("alittihad_siswa", JSON.stringify(siswaRes.value));
-        summary.push(`${siswaRes.value.length} Siswa`);
+        if (siswaRes.value.length > 0) {
+          try { localStorage.setItem("alittihad_siswa", JSON.stringify(siswaRes.value)); } catch {}
+          summary.push(`${siswaRes.value.length} Siswa`);
+        } else {
+          try { localStorage.removeItem("alittihad_siswa"); } catch {}
+        }
       }
       if (alumniRes.status === "fulfilled" && alumniRes.value.length > 0) {
         setAlumniList(alumniRes.value);
