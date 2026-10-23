@@ -359,7 +359,7 @@
       </p>
       <div class="cover-badges">
         <span class="cover-badge">Edisi Resmi & Cetak</span>
-        <span class="cover-badge">Versi 1.0</span>
+        <span class="cover-badge">Versi 1.2</span>
         <span class="cover-badge">Tahun Ajaran 2026/2027</span>
       </div>
     </div>
@@ -407,7 +407,7 @@
 </ul>
 </li>
 <li><a href="#m9facynzpdk.27605">Bab 9 — Absensi</a> <span class="role-badge role-tu">TU</span><ul>
-<li>Absensi Siswa &amp; Guru · Terlambat Otomatis · Rekapitulasi · Scan QR Code · Mode Mobile</li>
+<li>Absensi Siswa &amp; Guru · Terlambat Otomatis · Rekapitulasi · Scan QR Code · Smart Field Companion (Mobile) · Direktori Siswa Mobile</li>
 </ul>
 </li>
 <li><a href="#m9facynzpdk.30807">Bab 10 — Kas &amp; Bank</a> <span class="role-badge role-bendahara">Bendahara</span> <span class="role-badge role-admin">Admin</span><ul>
@@ -575,35 +575,43 @@
 <li>Log Aktivitas — riwayat semua tindakan di sistem</li>
 <li>Pengaturan — konfigurasi global madrasah</li>
 </ul>
-<h4>Mobile — Bottom Navigation</h4>
+<h4>Mobile — Bottom Navigation &amp; Filosofi Smart Field Companion</h4>
 <div style="text-align: center;"><img src="docs/screenshots/23-mobile-dashboard.png" alt="Navigasi Mobile" style="max-width: 320px; margin: 0 auto; display: block;" />
-*Gambar 1.3: Tampilan Aplikasi pada Layar Mobile dengan Bottom Navigation Bar*</div><p>Pada tampilan mobile, navigasi utama tersedia di bagian bawah layar:</p>
+*Gambar 1.3: Tampilan Aplikasi pada Layar Mobile dengan Bottom Navigation Bar*</div><p>Aplikasi versi mobile dirancang secara khusus dengan filosofi <strong>Smart Field Companion (Pendamping Cerdas Lapangan)</strong>. Antarmuka smartphone dioptimalkan untuk mobilitas tinggi di lingkungan madrasah: petugas piket di gerbang sekolah, guru di koridor atau ruang kelas, dan wali kelas yang memerlukan akses cepat.</p>
+<p>Oleh karena itu, navigasi mobile difokuskan pada kecepatan presensi (Scan QR instan dan checklist absensi kelas) serta pencarian data kontak siswa (<em>view-only</em>). Sementara operasional administrasi yang membutuhkan ketelitian tinggi (seperti pendaftaran PPDB siswa baru, edit/hapus data master, penetapan biaya, dan pembukuan kas) dipusatkan pada antarmuka Desktop.</p>
+<p>Navigasi utama mobile berada di bilah bawah (<em>bottom navigation bar</em>), dengan tombol aksi utama menonjol di tengah (<em>Floating Action Button / FAB</em>):</p>
 <table>
 <thead>
 <tr>
-<th>Tombol</th>
-<th>Tujuan</th>
+<th>Tombol Navigasi</th>
+<th>Posisi / Tipe</th>
+<th>Tujuan &amp; Fungsi Lapangan</th>
 </tr>
 </thead>
 <tbody><tr>
-<td>Dashboard</td>
-<td>Halaman utama</td>
+<td><strong>Beranda</strong></td>
+<td>Tab 1 (Kiri)</td>
+<td>Ringkasan metrik kehadiran hari ini, kalender agenda madrasah, dan pintasan aksi cepat</td>
 </tr>
 <tr>
-<td>Pembayaran</td>
-<td>Kasir langsung</td>
+<td><strong>Absensi</strong></td>
+<td>Tab 2</td>
+<td>Checklist presensi harian siswa dan guru dengan penyimpanan otomatis (<em>instant auto-save</em>)</td>
 </tr>
 <tr>
-<td>Tunggakan</td>
-<td>Daftar tunggakan</td>
+<td><strong>Scan QR</strong></td>
+<td>Tombol Tengah <em>(FAB)</em></td>
+<td>Pemindai QR Code / Barcode instan dengan kamera HP untuk presensi kilat di gerbang/kelas</td>
 </tr>
 <tr>
-<td>Absensi</td>
-<td>Input absensi hari ini</td>
+<td><strong>Siswa</strong></td>
+<td>Tab 3</td>
+<td>Direktori pencarian data siswa cepat (<em>View-Only</em>) dengan badge status kehadiran <em>live</em>, serta fitur 1-tap WhatsApp dan Telepon orang tua</td>
 </tr>
 <tr>
-<td>Menu</td>
-<td>Buka seluruh navigasi</td>
+<td><strong>Menu</strong></td>
+<td>Tab 4 (Kanan)</td>
+<td>Laci navigasi samping (<em>drawer</em>) untuk mengakses modul akademik, keuangan, dan pengaturan sesuai peran pengguna</td>
 </tr>
 </tbody></table>
 <h3>1.5 Konvensi dalam Buku Ini</h3>
@@ -1625,7 +1633,7 @@
 </ol>
 <p>Perubahan jatuh tempo hanya berlaku untuk siswa tersebut dan tidak memengaruhi template atau siswa lain. Jatuh tempo yang diubah ditandai dengan ikon ✕ kecil di sebelahnya — klik ikon tersebut untuk mengembalikan ke default template.</p>
 <h2>Bab 7 — Pembayaran <span class="role-badge role-bendahara">Bendahara</span></h2>
-<p>Buka melalui sidebar: <strong>Keuangan → Pembayaran</strong>, atau tombol <strong>Pembayaran</strong> di bottom nav mobile.</p>
+<p>Buka melalui sidebar: <strong>Keuangan → Pembayaran</strong>, atau melalui menu navigasi drawer / pintasan Dashboard pada perangkat mobile.</p>
 <p>Halaman ini adalah antarmuka kasir. Dirancang agar satu transaksi dapat diselesaikan dalam waktu kurang dari 30 detik.</p>
 <h3>7.1 Alur Pembayaran Standar</h3>
 <p>
@@ -1990,6 +1998,12 @@
 <li>Untuk status <strong>Izin</strong>, isi field <strong>Keterangan</strong> yang muncul (contoh: sakit, keperluan keluarga)</li>
 <li>Setelah semua siswa diisi, klik <strong>Simpan Absensi Kelas [Nama Kelas]</strong></li>
 </ol>
+<p><strong>Aksi Cepat &quot;Semua Hadir&quot; dengan Dialog Konfirmasi:</strong><br>Untuk mempercepat pengisian kehadiran pada kelas atau daftar guru yang mayoritas hadir penuh, tersedia tombol <strong>Semua Hadir</strong> di atas tabel:</p>
+<ul>
+<li>Ketika tombol <strong>Semua Hadir</strong> ditekan, sistem tidak langsung mengubah status secara sepihak, melainkan memunculkan <strong>Dialog Konfirmasi</strong> terlebih dahulu.</li>
+<li>Dialog konfirmasi merinci nama kelas dan jumlah siswa atau guru yang akan ditandai hadir.</li>
+<li>Pengguna harus menekan tombol konfirmasi <strong>&quot;Ya, Tandai Hadir&quot;</strong> untuk mengeksekusi perubahan. Langkah pengamanan ini mencegah kekeliruan klik yang tidak disengaja.</li>
+</ul>
 <p>Absensi bisa disimpan sebagian dan dilanjutkan nanti. Sistem menandai kelas yang absensinya sudah lengkap dengan centang hijau di dropdown pemilih kelas.</p>
 <p><strong>Mengedit absensi yang sudah disimpan:</strong></p>
 <p>Absensi hari yang sama masih bisa diubah sebelum pukul 23:59 hari tersebut. Setelah tengah malam, data terkunci dan hanya Admin yang dapat melakukan koreksi melalui Log Aktivitas.</p>
@@ -2121,8 +2135,8 @@
 <h3>9.5 Fitur Scan QR Code / Kamera Presensi</h3>
 <p>Untuk mempercepat proses pencatatan presensi di pintu gerbang madrasah atau di kelas, sistem menyediakan fitur pemindai QR Code / Barcode menggunakan kamera laptop atau smartphone:</p>
 <ol>
-<li>Buka menu <strong>Absensi</strong> atau klik tombol <strong>Scan Presensi</strong> pada widget Dashboard.</li>
-<li>Izinkan izin akses kamera pada peramban (browser).</li>
+<li>Buka menu <strong>Absensi</strong> atau ketuk tombol melayang <strong>Scan QR</strong> (tombol FAB tengah pada perangkat mobile).</li>
+<li>Izinkan izin akses kamera pada peramban (browser) saat pertama kali digunakan.</li>
 <li>Arahkan kamera ke QR Code / Barcode yang tertera pada <strong>Kartu Digital Siswa atau Guru</strong>.</li>
 <li><strong>Fitur Pengendali Kamera:</strong><ul>
 <li><strong>Ganti Kamera:</strong> Berpindah antara kamera depan dan kamera belakang.</li>
@@ -2130,18 +2144,36 @@
 <li><strong>Input Manual:</strong> Jika fisik kartu siswa basah, tergores, atau tidak terbaca, staf dapat memilih opsi input manual dan mengetikkan NISN / NIP secara langsung.</li>
 </ul>
 </li>
-<li>Saat kode berhasil terbaca, sistem langsung memvalidasi identitas, mencatat waktu kehadiran aktual, dan menampilkan pop-up konfirmasi nama beserta status presensinya.</li>
+<li><strong>Diferensiasi Respon Visual &amp; Audio Hasil Scan:</strong><ul>
+<li><strong>Tepat Waktu (Hadir):</strong> Kartu konfirmasi muncul dengan aksen <strong>hijau bercahaya (emerald green)</strong>, ikon centang sukses, dan animasi hadir tepat waktu. Jam kehadiran dicatat sesuai waktu kedatangan aktual.</li>
+<li><strong>Terlambat:</strong> Kartu konfirmasi muncul dengan aksen <strong>kuning/oranye tegas (amber warning)</strong>, ikon jam peringatan keterlambatan, dan animasi perhatian khusus, lengkap dengan pencatatan durasi menit keterlambatan dari jam masuk standar (07.00).</li>
+</ul>
+</li>
 </ol>
-<h3>9.6 Presensi di Dashboard &amp; Mode Mobile (HP)</h3>
+<h3>9.6 Smart Field Companion — Mode Mobile (HP / Tablet)</h3>
+<p>Pada perangkat smartphone dan tablet, modul presensi bertransformasi menjadi <strong>Smart Field Companion</strong> yang disederhanakan khusus untuk kenyamanan guru piket dan wali kelas saat bergerak di lapangan:</p>
 <ul>
-<li><strong>Widget Dashboard Utama:</strong> Pada halaman muka Dashboard, terdapat kartu widget presensi harian yang dilengkapi tab ganda <strong>[Siswa]</strong> dan <strong>[Guru]</strong>. Staf TU dan pimpinan madrasah dapat memantau rasio kehadiran hari ini dan langsung melakukan input presensi tanpa harus berpindah halaman.</li>
-<li><strong>Mode Mobile (Smartphone):</strong> Saat dibuka melalui smartphone/tablet, modul absensi telah dioptimalkan khusus. Petugas piket madrasah dapat melakukan pencatatan kehadiran guru maupun siswa secara mobile di lapangan dengan praktis.</li>
+<li><strong>Tanpa Floating Bar Simpan:</strong> Berbeda dengan antarmuka desktop, mode mobile tidak lagi menampilkan bilah tombol melayang (<em>floating action bar</em>) &quot;Simpan &amp; Kirim WA&quot; yang mempersempit ruang pandang layar.</li>
+<li><strong>Penyimpanan Otomatis Instan (Auto-Save):</strong> Setiap kali status kehadiran (<strong>Hadir</strong>, <strong>Terlambat</strong>, <strong>Izin</strong>, atau <strong>Alpa</strong>) disentuh pada kartu siswa atau guru, sistem langsung menyimpan perubahan tersebut ke database Supabase secara <em>real-time</em>.</li>
+<li><strong>Indikator Tersimpan pada Kartu:</strong> Setiap kartu siswa dilengkapi indikator visual tersinkronisasi (<em>auto-saved checkmark</em>) saat perubahan data berhasil diamankan di server, memberikan kepastian kepada petugas tanpa perlu menekan tombol simpan manual.</li>
+<li><strong>Navigasi Bersih &amp; Bebas Hambatan:</strong> Tata letak kartu dirancang lega, bebas dari elemen menumpuk, sehingga petugas dapat melakukan <em>scrolling</em> cepat dan menandai puluhan siswa dengan satu sentuhan jari.</li>
+<li><strong>Widget Presensi Dashboard:</strong> Pada halaman muka Dashboard mobile juga tersedia ringkasan rasio presensi hari ini untuk siswa dan guru yang dapat dipantau langsung tanpa harus berpindah halaman.</li>
 </ul>
 <h3>9.7 Notifikasi Presensi WhatsApp Otomatis ke Orang Tua</h3>
-<p>Sistem terhubung dengan gateway WhatsApp (WAHA) untuk menjaga transparansi kehadiran siswa dengan wali murid:</p>
+<p>Sistem terhubung langsung dengan gateway WhatsApp (WAHA) untuk menjaga transparansi kehadiran siswa dengan wali murid secara real-time tanpa membebani petugas:</p>
 <ul>
-<li>Ketika siswa dicatat <strong>Terlambat</strong> atau <strong>Alpa</strong>, sistem dapat meneruskan notifikasi otomatis ke nomor WhatsApp orang tua/wali siswa yang terdaftar.</li>
-<li>Pesan otomatis mencantumkan nama siswa, kelas, waktu kedatangan, serta imbauan madrasah.</li>
+<li><strong>Pengiriman Otomatis Tanpa Pemicu Manual:</strong> Saat siswa dicatat berstatus <strong>Terlambat</strong> atau <strong>Alpa</strong>, sistem <strong>langsung dan otomatis</strong> mengirimkan pesan WhatsApp ke nomor orang tua/wali murid yang terdaftar dalam profil siswa. Petugas tidak perlu lagi menekan tombol &quot;Kirim WA&quot; satu per satu.</li>
+<li><strong>Format Pesan Resmi:</strong> Pesan yang terkirim mencantumkan nama lengkap siswa, kelas, tanggal, status kehadiran (beserta rincian jam kedatangan jika terlambat), serta imbauan resmi dari pihak madrasah.</li>
+<li><strong>Pencatatan Audit Trail:</strong> Seluruh riwayat pesan WhatsApp yang terkirim terekam pada Log Aktivitas sistem untuk mempermudah verifikasi jika orang tua mengajukan pertanyaan.</li>
+</ul>
+<h3>9.8 Direktori Siswa di Perangkat Mobile (View-Only)</h3>
+<p>Melalui tab <strong>Siswa</strong> pada bilah navigasi bawah (<em>bottom bar</em>) mobile, pengguna dapat mengakses <strong>Direktori Kontak Siswa Cepat</strong> yang dirancang khusus untuk kebutuhan operasional di lapangan:</p>
+<ul>
+<li><strong>Pencarian Cepat:</strong> Kotak pencarian responsif untuk mencari siswa berdasarkan nama, NISN, atau kelas secara instan.</li>
+<li><strong>Badge Status Kehadiran Live:</strong> Setiap kartu siswa menampilkan lencana (<em>badge</em>) status kehadiran hari ini (misalnya: <em>Hadir</em>, <em>Terlambat</em>, <em>Izin</em>, <em>Alpa</em>, atau <em>Belum Presensi</em>), sehingga wali kelas atau guru piket dapat langsung mengetahui kondisi siswa tersebut saat ini.</li>
+<li><strong>1-Tap WhatsApp Orang Tua:</strong> Tombol pintasan WhatsApp sekali sentuh (<em>1-tap</em>) untuk langsung membuka percakapan dengan wali murid yang nomornya terdaftar, memudahkan konfirmasi cepat ketika siswa berhalangan hadir.</li>
+<li><strong>1-Tap Panggilan Telepon:</strong> Tombol panggilan langsung ke nomor telepon seluler orang tua siswa untuk situasi darurat yang membutuhkan penanganan segera di madrasah.</li>
+<li><strong>Proteksi Akses Non-Destruktif (Read-Only):</strong> Demi menjaga integritas dan keamanan basis data pokok madrasah, seluruh fitur manipulasi data siswa—seperti penambahan siswa baru (PPDB), pengubahan identitas, kenaikan kelas, maupun penghapusan data—ditiadakan pada versi mobile. Pengelolaan data master siswa tersebut tetap dipusatkan pada komputer Desktop oleh staf berwenang (Admin dan TU).</li>
 </ul>
 <h2>Bab 10 — Kas &amp; Bank <span class="role-badge role-bendahara">Bendahara</span> <span class="role-badge role-admin">Admin</span></h2>
 <p>Buka melalui sidebar: <strong>Keuangan → Kas &amp; Bank</strong>, lalu pilih tab <strong>Transaksi</strong>, <strong>Akun</strong>, atau <strong>Mutasi</strong>.</p>

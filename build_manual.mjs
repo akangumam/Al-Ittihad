@@ -587,7 +587,7 @@ const fullHtml = `<!DOCTYPE html>
       </p>
       <div class="cover-badges">
         <span class="cover-badge">Edisi Resmi & Cetak</span>
-        <span class="cover-badge">Versi 1.0</span>
+        <span class="cover-badge">Versi 1.2</span>
         <span class="cover-badge">Tahun Ajaran 2026/2027</span>
       </div>
     </div>
@@ -644,6 +644,19 @@ console.log('2. Memulai proses konversi PDF dengan Playwright...');
   });
 
   await browser.close();
+
+  // Salin PDF ke public/ dan dist/ untuk tautan unduhan dalam aplikasi
+  const publicPdf = path.join(ROOT, 'public', 'Petunjuk_Penggunaan_MTs_Al-Ittihad.pdf');
+  fs.copyFileSync(PDF_PATH, publicPdf);
+  console.log('✓ Berhasil disalin ke:', publicPdf);
+
+  const distDir = path.join(ROOT, 'dist');
+  if (fs.existsSync(distDir)) {
+    const distPdf = path.join(distDir, 'Petunjuk_Penggunaan_MTs_Al-Ittihad.pdf');
+    fs.copyFileSync(PDF_PATH, distPdf);
+    console.log('✓ Berhasil disalin ke:', distPdf);
+  }
+
   console.log('\n======================================================');
   console.log('🎉 PDF SELESAI DIBUAT DENGAN SEMPURNA:');
   console.log(PDF_PATH);
