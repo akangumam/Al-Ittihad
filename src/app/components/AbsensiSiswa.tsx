@@ -740,7 +740,7 @@ function ScanTab() {
 // --- Manual Tab ----------------------------------------------------------------
 function ManualTab() {
   const { siswaList, absensiSiswaHariIni, setAbsensiSiswaHariIni, logActivity, appSettings } = useAppContext();
-  const { enqueueBulk } = useWAQueue();
+  const { enqueue, enqueueBulk } = useWAQueue();
   const isMobile = useIsMobile();
 
   const [kelasFilter, setKelasFilter] = useState("Semua Kelas");
@@ -764,6 +764,49 @@ function ManualTab() {
     currentJam: string;
   } | null>(null);
 
+  const todayStr = useMemo(() => new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date()), []);
+
+  const sendAutoWANotification = (siswa: SiswaRow, status: string, jam: string) => {
+    if (status !== "Alpa" && status !== "Terlambat") return;
+
+    if (!siswa.waliHp) {
+      toast.warning(`${siswa.nama} (${status}): Nomor WA wali belum terdaftar di data siswa.`);
+      return;
+    }
+
+    if (!appSettings.wahaEnabled) {
+      toast.info(`${siswa.nama} (${status}): Notifikasi WA otomatis belum diaktifkan di Pengaturan.`);
+      return;
+    }
+
+    const pesan = status === "Alpa"
+      ? renderTemplate(appSettings.waTemplates?.absensiAlpa ?? WA_TEMPLATE_DEFAULTS.absensiAlpa, {
+          nama_siswa: siswa.nama,
+          kelas: siswa.kelas,
+          tanggal: todayStr,
+        })
+      : renderTemplate(appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat, {
+          nama_siswa: siswa.nama,
+          kelas: siswa.kelas,
+          jam_masuk: jam,
+        });
+
+    enqueue({
+      phone: siswa.waliHp,
+      nama_penerima: siswa.waliNama || `Wali dari ${siswa.nama}`,
+      pesan,
+      jenis: "absensi",
+      ref_id: siswa.nis,
+      priority: 1,
+    }).then(res => {
+      if (res.ok) {
+        toast.success(`Notifikasi WA ${status.toLowerCase()} terkirim ke wali ${siswa.nama} (${siswa.waliHp}).`);
+      } else {
+        toast.error(`Gagal mengirim WA ke wali ${siswa.nama}: ${res.error}`);
+      }
+    });
+  };
+
   const handleRequestStatusChange = (siswa: SiswaRow, targetStatus: string) => {
     const existing = absensiSiswaHariIni[siswa.nis];
     const currentStatus = existing?.status;
@@ -774,6 +817,9 @@ function ManualTab() {
       const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
       setAbsensiSiswaHariIni(prev => ({ ...prev, [siswa.nis]: { status: targetStatus, jam: now } }));
       toast.success(`${siswa.nama}: Status diatur ke ${targetStatus}`);
+      if (targetStatus === "Alpa" || targetStatus === "Terlambat") {
+        sendAutoWANotification(siswa, targetStatus, now);
+      }
       return;
     }
 
@@ -797,6 +843,9 @@ function ManualTab() {
       [siswa.nis]: { status: newStatus, jam: prev[siswa.nis]?.jam ?? currentJam }
     }));
     toast.success(`Status absensi ${siswa.nama} berhasil diubah ke ${newStatus}`);
+    if (newStatus === "Alpa" || newStatus === "Terlambat") {
+      sendAutoWANotification(siswa, newStatus, currentJam);
+    }
     setConfirmEdit(null);
   };
 
@@ -864,8 +913,6 @@ function ManualTab() {
       return (st === "Alpa" || st === "Terlambat") && !!s.waliHp;
     }).length;
   }, [targetSiswa, absensiSiswaHariIni]);
-
-  const todayStr = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
   const handleConfirm = async () => {
     try {
@@ -951,7 +998,7 @@ function ManualTab() {
   const tercatatCount = targetSiswa.length - chips.Belum;
 
   return (
-    <div className="bg-white rounded-xl pb-[76px] sm:pb-[72px]" style={{ border: "1px solid #E2E8DE" }}>
+    <div className="bg-white rounded-xl pb-6 md:pb-[72px]" style={{ border: "1px solid #E2E8DE" }}>
       <div className="p-4 sm:px-6 sm:py-5" style={{ borderBottom: "1px solid #E2E8DE" }}>
         {/* Top Header & Filters */}
         <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-5">
@@ -1025,10 +1072,31 @@ function ManualTab() {
             </div>
           ))}
         </div>
+
+        {/* Real-time status indicator */}
+        <div className="flex items-center justify-between text-xs text-[#6B7769] pt-3">
+          <div className="flex items-center gap-1.5 font-medium flex-wrap">
+            <span className="tabular-nums font-bold text-[#1C2517]">{tercatatCount}</span> dari{" "}
+            <span className="tabular-nums font-bold text-[#1C2517]">{targetSiswa.length}</span> siswa tercatat
+            {chips.Belum > 0 ? (
+              <span className="text-[#92400E] font-semibold bg-[#FEF3C7] px-2 py-0.5 rounded-full text-[10px]">
+                {chips.Belum} belum absen
+              </span>
+            ) : (
+              <span className="text-[#166534] font-semibold bg-[#DCFCE7] px-2 py-0.5 rounded-full text-[10px]">
+                Lengkap
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1 text-[11px] text-[#16A34A] font-semibold shrink-0">
+            <span className="w-2 h-2 rounded-full bg-[#16A34A] inline-block animate-pulse" />
+            <span>Tersimpan otomatis</span>
+          </div>
+        </div>
       </div>
 
       {/* ── MOBILE VIEW: Attendance Cards (md:hidden) ── */}
-      <div className="md:hidden flex flex-col gap-2.5 p-3">
+      <div className="md:hidden flex flex-col gap-2.5 p-3 pb-28">
         {filteredRows.length === 0 ? (
           <div className="text-center py-8 text-sm text-[#9CA3A0]">Tidak ada data siswa ditemukan</div>
         ) : (
@@ -1210,34 +1278,34 @@ function ManualTab() {
         </DataTable>
       </div>
 
-      {/* Save bar */}
+      {/* Save bar (Desktop only - mobile uses real-time auto-save & auto-send WA) */}
       <div
-        className="bg-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3 shadow-lg"
+        className="hidden md:flex bg-white px-6 py-3.5 items-center justify-between gap-3 shadow-lg"
         style={{
           position: "fixed",
-          bottom: isMobile ? "calc(60px + env(safe-area-inset-bottom, 0px))" : 0,
-          left: isMobile ? 0 : "var(--sidebar-w, 260px)",
+          bottom: 0,
+          left: "var(--sidebar-w, 260px)",
           right: 0,
           borderTop: "1px solid #E2E8DE",
           zIndex: 45,
         }}
       >
         <div className="flex flex-col min-w-0">
-          <span className="text-xs sm:text-sm font-semibold text-[#1C2517] tabular-nums truncate">
+          <span className="text-sm font-semibold text-[#1C2517] tabular-nums truncate">
             {tercatatCount} dari {targetSiswa.length} {kelasFilter === "Semua Kelas" ? "siswa" : `siswa ${kelasFilter}`}
           </span>
           <div className="flex items-center gap-2 flex-wrap">
             {chips.Belum > 0 ? (
-              <span className="text-[10px] sm:text-xs font-semibold text-[#92400E]">
+              <span className="text-xs font-semibold text-[#92400E]">
                 {chips.Belum} siswa belum absen
               </span>
             ) : (
-              <span className="text-[10px] sm:text-xs font-semibold text-[#166534]">
+              <span className="text-xs font-semibold text-[#166534]">
                 Semua kehadiran tercatat
               </span>
             )}
             {appSettings.wahaEnabled && notifCount > 0 && (
-              <span className="text-[10px] sm:text-xs font-semibold text-[#16A34A] flex items-center gap-1">
+              <span className="text-xs font-semibold text-[#16A34A] flex items-center gap-1">
                 • <MessageCircle size={11} /> {notifCount} WA otomatis siap dikirim
               </span>
             )}
@@ -1245,7 +1313,7 @@ function ManualTab() {
         </div>
         <button
           onClick={handleSaveClick}
-          className="px-4 sm:px-5 py-2.5 rounded-xl bg-[#3E8A2F] text-white text-xs sm:text-sm font-bold hover:bg-[#2E6B22] transition-colors shadow-sm shrink-0 flex items-center gap-1.5"
+          className="px-5 py-2.5 rounded-xl bg-[#3E8A2F] text-white text-sm font-bold hover:bg-[#2E6B22] transition-colors shadow-sm shrink-0 flex items-center gap-1.5"
         >
           {appSettings.wahaEnabled && notifCount > 0 ? (
             <>
