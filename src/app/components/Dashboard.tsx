@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import {
   ArrowUpRight, ArrowDownRight, Minus,
   TrendingUp, Wallet, AlertTriangle, MessageCircle, Banknote,
-  Send, CheckCircle2, XCircle, Clock, Zap,
+  Send, CheckCircle2, XCircle, Clock, Zap, QrCode, ClipboardCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { PieChart, Pie, Cell } from "recharts";
@@ -691,6 +691,7 @@ function WAHAWidget() {
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const { transaksiList, tagihanList, siswaList } = useAppContext();
   const { user } = useAuth();
   const todayStr = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
@@ -831,7 +832,69 @@ export function Dashboard() {
           {greeting}, <span className="font-semibold text-[#1C2517]">{displayName}</span> — {todayStr}
         </p>
 
-        {/* KPI 2×2 */}
+        {/* ── Presensi Hari Ini (Featured Top Widget on Mobile) ── */}
+        <div className="bg-white rounded-xl shadow-xs" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-[13px] font-bold text-[#1C2517]">Presensi Hari Ini</p>
+              <p className="text-[11px] text-[#6B7769]">{todayStr}</p>
+            </div>
+            <div className="flex items-center p-0.5 rounded-lg bg-[#F5F9F4] border border-[#E2E8DE]">
+              <button
+                onClick={() => setMobileAbsensiTab("siswa")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  mobileAbsensiTab === "siswa"
+                    ? "bg-[#3E8A2F] text-white shadow-xs"
+                    : "text-[#6B7769]"
+                }`}
+              >
+                Siswa ({mobileActiveSiswa.length})
+              </button>
+              <button
+                onClick={() => setMobileAbsensiTab("guru")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  mobileAbsensiTab === "guru"
+                    ? "bg-[#3E8A2F] text-white shadow-xs"
+                    : "text-[#6B7769]"
+                }`}
+              >
+                Guru ({guruList.length})
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3.5 mt-3">
+            <CircularProgress value={mobileAbsensiTab === "siswa" ? mobilePctSiswa : mobilePct} size={88} />
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              {(mobileAbsensiTab === "siswa" ? mobileChipsSiswa : mobileChips).map((chip, i) => (
+                <div key={i} className="flex flex-col items-center justify-center rounded-[10px] text-center" style={{ background: chip.bg, padding: "8px 6px", minHeight: 52 }}>
+                  <span className="font-bold tabular-nums" style={{ fontSize: 17, color: chip.text }}>{chip.value}</span>
+                  <span className="font-medium leading-tight" style={{ fontSize: 9, color: chip.text, marginTop: 2 }}>{chip.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Action Buttons for Attendance */}
+          <div className="grid grid-cols-2 gap-2 mt-3.5 pt-3 border-t border-[#F0F7EE]">
+            <button
+              onClick={() => navigate(mobileAbsensiTab === "siswa" ? "/akademik/absensi-siswa/scan" : "/akademik/absensi/scan")}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold bg-[#3E8A2F] text-white shadow-xs hover:bg-[#2E6B22] active:scale-98 transition-all"
+            >
+              <QrCode size={14} />
+              <span>Scan QR {mobileAbsensiTab === "siswa" ? "Siswa" : "Guru"}</span>
+            </button>
+            <button
+              onClick={() => navigate(mobileAbsensiTab === "siswa" ? "/akademik/absensi-siswa/manual" : "/akademik/absensi")}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold bg-[#F5F9F4] text-[#374040] border border-[#E2E8DE] hover:bg-[#EDF7EC] active:scale-98 transition-all"
+            >
+              <ClipboardCheck size={14} className="text-[#3E8A2F]" />
+              <span>Input Manual</span>
+            </button>
+          </div>
+        </div>
+
+        {/* KPI 2×2 Keuangan */}
         <div className="grid grid-cols-2 gap-2.5">
           {[
             { label: "Pemasukan",   value: fmtJt(totalPemasukan),  iconBg: "#EDF7EC", icon: <TrendingUp   size={16} color="#3E8A2F" /> },
@@ -858,17 +921,6 @@ export function Dashboard() {
               <span className="text-[13px] font-bold tabular-nums text-[#1C2517]">{fmt(akun.saldo)}</span>
             </div>
           ))}
-        </div>
-
-        {/* Chart */}
-        <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 14px 10px" }}>
-          <p className="text-[13px] font-semibold text-[#1C2517]">Pemasukan vs Pengeluaran</p>
-          <p className="text-[11px] text-[#6B7769]" style={{ marginBottom: 10 }}>Jul {ayStart} – Jun {ayStart + 1}</p>
-          <div className="flex gap-4" style={{ marginBottom: 10 }}>
-            <div className="flex items-center gap-1.5"><span className="inline-block rounded-full bg-[#3E8A2F]" style={{ width: 16, height: 2 }} /><span className="text-[10px] text-[#6B7769]">Pemasukan</span></div>
-            <div className="flex items-center gap-1.5"><span className="inline-block rounded-full bg-[#F6B31E]" style={{ width: 16, height: 2 }} /><span className="text-[10px] text-[#6B7769]">Pengeluaran</span></div>
-          </div>
-          <MobileChart chartData6={chartData.slice(-6)} />
         </div>
 
         {/* Tunggakan top 3 */}
@@ -905,53 +957,15 @@ export function Dashboard() {
           <button onClick={() => navigate("/keuangan/tunggakan")} className="text-[12px] font-semibold text-[#3E8A2F] mt-2.5 block hover:underline">Lihat semua →</button>
         </div>
 
-        {/* Absensi Hari Ini */}
-        <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="text-[13px] font-semibold text-[#1C2517]">Absensi Hari Ini</p>
-              <p className="text-[11px] text-[#6B7769]">{todayStr}</p>
-            </div>
-            <div className="flex items-center p-0.5 rounded-lg bg-[#F5F9F4] border border-[#E2E8DE]">
-              <button
-                onClick={() => setMobileAbsensiTab("siswa")}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
-                  mobileAbsensiTab === "siswa"
-                    ? "bg-[#3E8A2F] text-white shadow-sm"
-                    : "text-[#6B7769]"
-                }`}
-              >
-                Siswa ({mobileActiveSiswa.length})
-              </button>
-              <button
-                onClick={() => setMobileAbsensiTab("guru")}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all ${
-                  mobileAbsensiTab === "guru"
-                    ? "bg-[#3E8A2F] text-white shadow-sm"
-                    : "text-[#6B7769]"
-                }`}
-              >
-                Guru ({guruList.length})
-              </button>
-            </div>
+        {/* Chart */}
+        <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 14px 10px" }}>
+          <p className="text-[13px] font-semibold text-[#1C2517]">Pemasukan vs Pengeluaran</p>
+          <p className="text-[11px] text-[#6B7769]" style={{ marginBottom: 10 }}>Jul {ayStart} – Jun {ayStart + 1}</p>
+          <div className="flex gap-4" style={{ marginBottom: 10 }}>
+            <div className="flex items-center gap-1.5"><span className="inline-block rounded-full bg-[#3E8A2F]" style={{ width: 16, height: 2 }} /><span className="text-[10px] text-[#6B7769]">Pemasukan</span></div>
+            <div className="flex items-center gap-1.5"><span className="inline-block rounded-full bg-[#F6B31E]" style={{ width: 16, height: 2 }} /><span className="text-[10px] text-[#6B7769]">Pengeluaran</span></div>
           </div>
-          <div className="flex items-center gap-3.5 mt-3">
-            <CircularProgress value={mobileAbsensiTab === "siswa" ? mobilePctSiswa : mobilePct} size={88} />
-            <div className="flex-1 grid grid-cols-2 gap-2">
-              {(mobileAbsensiTab === "siswa" ? mobileChipsSiswa : mobileChips).map((chip, i) => (
-                <div key={i} className="flex flex-col items-center justify-center rounded-[10px] text-center" style={{ background: chip.bg, padding: "10px 6px", minHeight: 56 }}>
-                  <span className="font-bold tabular-nums" style={{ fontSize: 18, color: chip.text }}>{chip.value}</span>
-                  <span className="font-medium leading-tight" style={{ fontSize: 9, color: chip.text, marginTop: 3 }}>{chip.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <button
-            onClick={() => navigate(mobileAbsensiTab === "siswa" ? "/akademik/absensi-siswa" : "/akademik/absensi")}
-            className="text-[12px] font-semibold text-[#3E8A2F] mt-3 block hover:underline"
-          >
-            Buka absensi lengkap →
-          </button>
+          <MobileChart chartData6={chartData.slice(-6)} />
         </div>
       </div>
 

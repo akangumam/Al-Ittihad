@@ -5,7 +5,7 @@ import {
   LayoutDashboard, CreditCard, AlertTriangle, ClipboardList, MoreHorizontal,
   Calendar, Users, GraduationCap, BookOpen,
   FileText, Landmark, BarChart3, Calculator,
-  Shield, Activity, Settings, IdCard, Archive, UserCheck, Megaphone,
+  Shield, Activity, Settings, IdCard, Archive, UserCheck, Megaphone, QrCode,
 } from "lucide-react";
 import type { ElementType } from "react";
 import logoEmblem from "../../imports/aliet_logo.png";
@@ -25,13 +25,22 @@ interface BottomNavItem {
   label: string;
   badge?: number;
   roles?: Role[];
+  isCenterFab?: boolean;
 }
 
-const BOTTOM_NAV: BottomNavItem[] = [
-  { id: "dashboard",  path: "/",                    Icon: LayoutDashboard, label: "Dashboard" },
-  { id: "pembayaran", path: "/keuangan/pembayaran", Icon: CreditCard,      label: "Kasir",        roles: ["Admin", "Bendahara"] },
-  { id: "tunggakan",  path: "/keuangan/tunggakan",  Icon: AlertTriangle,   label: "Tunggakan",    roles: ["Admin", "Bendahara"] },
-  { id: "absensi",    path: "/akademik/absensi",    Icon: ClipboardList,   label: "Absensi Guru", roles: ["Admin", "TU"] },
+const ATTENDANCE_NAV: BottomNavItem[] = [
+  { id: "dashboard",     path: "/",                              Icon: LayoutDashboard, label: "Beranda" },
+  { id: "absensi-siswa", path: "/akademik/absensi-siswa/manual", Icon: UserCheck,       label: "Siswa" },
+  { id: "scan",          path: "/akademik/absensi-siswa/scan",   Icon: QrCode,          label: "Scan QR", isCenterFab: true },
+  { id: "absensi-guru",  path: "/akademik/absensi",              Icon: ClipboardList,   label: "Guru" },
+  { id: "menu",                                                  Icon: MoreHorizontal,  label: "Menu" },
+];
+
+const BENDAHARA_NAV: BottomNavItem[] = [
+  { id: "dashboard",  path: "/",                    Icon: LayoutDashboard, label: "Beranda" },
+  { id: "pembayaran", path: "/keuangan/pembayaran", Icon: CreditCard,      label: "Kasir" },
+  { id: "scan",       path: "/keuangan/pembayaran", Icon: QrCode,          label: "Bayar", isCenterFab: true },
+  { id: "tunggakan",  path: "/keuangan/tunggakan",  Icon: AlertTriangle,   label: "Tunggakan" },
   { id: "menu",                                     Icon: MoreHorizontal,  label: "Menu" },
 ];
 
@@ -55,15 +64,16 @@ const MENU_GROUPS: Array<{
     ],
   },
   {
-    group: "AKADEMIK",
+    group: "AKADEMIK & PRESENSI",
     items: [
-      { Icon: Users,         label: "Siswa",          path: "/akademik/siswa",         roles: ["Admin", "Bendahara"] },
-      { Icon: UserCheck,     label: "Absensi Siswa",  path: "/akademik/absensi-siswa", roles: ["Admin", "TU"] },
-{ Icon: Archive,       label: "Data Alumni",    path: "/akademik/alumni",        roles: ["Admin"] },
-      { Icon: GraduationCap, label: "Guru",           path: "/akademik/guru",          roles: ["Admin", "TU"] },
-      { Icon: ClipboardList, label: "Absensi Guru",   path: "/akademik/absensi",       roles: ["Admin", "TU"] },
-      { Icon: BookOpen,      label: "Kelas & Jadwal", path: "/akademik/kelas-jadwal",  roles: ["Admin", "TU"] },
-      { Icon: IdCard,        label: "Kartu Digital",  path: "/akademik/kartu-digital", roles: ["Admin", "TU"] },
+      { Icon: QrCode,        label: "Scan QR Kartu Siswa (Kamera)", path: "/akademik/absensi-siswa/scan",   roles: ["Admin", "TU", "Bendahara"] },
+      { Icon: UserCheck,     label: "Presensi Siswa Harian",        path: "/akademik/absensi-siswa/manual", roles: ["Admin", "TU", "Bendahara"] },
+      { Icon: ClipboardList, label: "Presensi Guru",                path: "/akademik/absensi",              roles: ["Admin", "TU", "Bendahara"] },
+      { Icon: Users,         label: "Data Siswa & Mutasi",          path: "/akademik/siswa",                roles: ["Admin", "Bendahara", "TU"] },
+      { Icon: GraduationCap, label: "Data Guru",                    path: "/akademik/guru",                 roles: ["Admin", "TU"] },
+      { Icon: BookOpen,      label: "Kelas & Jadwal Pelajaran",     path: "/akademik/kelas-jadwal",         roles: ["Admin", "TU"] },
+      { Icon: IdCard,        label: "Kartu Pelajar Digital",        path: "/akademik/kartu-digital",        roles: ["Admin", "TU"] },
+      { Icon: Archive,       label: "Data Alumni",                  path: "/akademik/alumni",               roles: ["Admin"] },
     ],
   },
   {
@@ -217,7 +227,7 @@ function BottomMenuSheet({ onClose, onExitClick }: { onClose: () => void; onExit
 
 export function MobileShell({ children }: { children: ReactNode }) {
   const { absensiCount, tunggakanCount, appSettings, role } = useAppContext();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const shortYear = appSettings.tahunAjaran.split("/").map(y => y.slice(-2)).join("/");
   const navigate = useNavigate();
   const location = useLocation();
@@ -230,11 +240,13 @@ export function MobileShell({ children }: { children: ReactNode }) {
     ? user.nama.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
     : "AU";
 
-  const visibleBottomNav = BOTTOM_NAV.filter(item => !item.roles || item.roles.includes(role));
+  const currentNav = role === "Bendahara" ? BENDAHARA_NAV : ATTENDANCE_NAV;
+  const visibleBottomNav = currentNav.filter(item => !item.roles || item.roles.includes(role));
 
   function isNavActive(item: BottomNavItem): boolean {
     if (!item.path) return false;
     if (item.path === "/") return location.pathname === "/";
+    if (item.id === "scan") return location.pathname.includes("/scan");
     return location.pathname.startsWith(item.path);
   }
 
@@ -316,6 +328,48 @@ export function MobileShell({ children }: { children: ReactNode }) {
         {visibleBottomNav.map((item) => {
           const isActive = item.id === "menu" ? menuOpen : isNavActive(item);
           const Icon = item.Icon;
+
+          if (item.isCenterFab) {
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (menuOpen) setMenuOpen(false);
+                  if (item.path) void navigate(item.path);
+                }}
+                className="flex-1 flex flex-col items-center justify-center relative -top-3.5 group cursor-pointer"
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  WebkitTapHighlightColor: "transparent",
+                  minHeight: 44,
+                }}
+                aria-label={item.label}
+              >
+                <div
+                  className="rounded-full flex items-center justify-center transition-all duration-200 active:scale-90"
+                  style={{
+                    width: 50,
+                    height: 50,
+                    background: "linear-gradient(135deg, #4AA038 0%, #2E6B22 100%)",
+                    border: "3.5px solid #fff",
+                    boxShadow: isActive
+                      ? "0 8px 20px rgba(46, 107, 34, 0.55), 0 0 0 2px #3E8A2F"
+                      : "0 6px 16px rgba(46, 107, 34, 0.38)",
+                  }}
+                >
+                  <Icon size={24} color="#ffffff" strokeWidth={2.4} />
+                </div>
+                <span
+                  className="text-[10px] font-bold leading-none mt-1"
+                  style={{ color: isActive ? "#2E6B22" : "#3E8A2F", fontFamily: "inherit" }}
+                >
+                  {item.label}
+                </span>
+              </button>
+            );
+          }
+
           return (
             <button
               key={item.id}
@@ -339,14 +393,14 @@ export function MobileShell({ children }: { children: ReactNode }) {
             >
               <div className="relative">
                 <Icon
-                  size={22}
+                  size={21}
                   color={isActive ? "#3E8A2F" : "#9CA3A0"}
                   strokeWidth={isActive ? 2.5 : 1.75}
                 />
                 {(() => {
                   let badgeVal = item.badge;
                   if (item.id === "tunggakan") badgeVal = tunggakanCount;
-                  if (item.id === "absensi") badgeVal = absensiCount;
+                  if (item.id === "absensi-guru" || item.id === "absensi") badgeVal = absensiCount;
 
                   if (badgeVal !== undefined && badgeVal > 0) {
                     return (

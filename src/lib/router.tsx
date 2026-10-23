@@ -111,12 +111,12 @@ export const router = createBrowserRouter([
       { path: "akademik/absensi", element: <Navigate to="/akademik/absensi/scan" replace /> },
       {
         path: "akademik/absensi/:tab",
-        element: <RequireRole roles={["Admin", "TU"]}><AbsensiRoute /></RequireRole>,
+        element: <RequireRole roles={["Admin", "TU", "Bendahara"]}><AbsensiRoute /></RequireRole>,
       },
       { path: "akademik/absensi-siswa", element: <Navigate to="/akademik/absensi-siswa/scan" replace /> },
       {
         path: "akademik/absensi-siswa/:tab",
-        element: <RequireRole roles={["Admin", "TU"]}><AbsensiSiswa /></RequireRole>,
+        element: <RequireRole roles={["Admin", "TU", "Bendahara"]}><AbsensiSiswa /></RequireRole>,
       },
 
       // Keuangan

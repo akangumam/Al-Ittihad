@@ -841,7 +841,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setAbsensiSiswaHariIni(prev => {
             let changed = false;
             const next = { ...prev };
-            for (const [nis, val] of Object.entries(absSiswa)) {
+            for (const [nis, val] of Object.entries(absSiswa as Record<string, { status: string; jam: string }>)) {
               if (prev[nis]?.status !== val.status || prev[nis]?.jam !== val.jam) {
                 next[nis] = val;
                 changed = true;
@@ -855,7 +855,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setAbsensiGuruHariIni(prev => {
             let changed = false;
             const next = { ...prev };
-            for (const [id, val] of Object.entries(absGuru)) {
+            for (const [id, val] of Object.entries(absGuru as Record<string, { status: string; jam: string }>)) {
               const numId = Number(id);
               if (prev[numId]?.status !== val.status || prev[numId]?.jam !== val.jam) {
                 next[numId] = val;
