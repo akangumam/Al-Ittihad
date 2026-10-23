@@ -530,7 +530,7 @@ async function run() {
           <div class="bottom-bar">
             <div class="footer-url">
               <span>🌐</span>
-              <span>al-ittihad.sch.id</span>
+              <span>mts.alittihadpedaleman.web.id</span>
             </div>
 
             <div class="footer-badges">
@@ -549,9 +549,14 @@ async function run() {
   await page.evaluateHandle('document.fonts.ready');
   await page.waitForTimeout(500);
 
-  const ogOutputPath = path.resolve(__dirname, '../public/og-image.png');
-  await page.screenshot({ path: ogOutputPath });
+  const ogPngPath = path.resolve(__dirname, '../public/og-image.png');
+  const ogJpgPath = path.resolve(__dirname, '../public/og-image.jpg');
+
+  await page.screenshot({ path: ogPngPath });
   console.log('  ✓ Created public/og-image.png (1200x630)');
+
+  await page.screenshot({ path: ogJpgPath, type: 'jpeg', quality: 86 });
+  console.log('  ✓ Created public/og-image.jpg (1200x630, optimized for WhatsApp < 300KB)');
 
   await browser.close();
   console.log('✨ All assets successfully generated!');
