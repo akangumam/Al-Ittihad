@@ -185,7 +185,7 @@ export function MobilePembayaran() {
       {/* ── Scrollable content ── */}
       <div
         className="px-4 py-3 flex flex-col gap-3"
-        style={{ paddingBottom: 84 }}
+        style={{ paddingBottom: "calc(140px + env(safe-area-inset-bottom, 0px))" }}
       >
 
         {/* ── 1 · Student search ── */}
@@ -642,12 +642,13 @@ export function MobilePembayaran() {
         <div
           style={{
             position: "fixed",
-            bottom: 64,
+            bottom: "calc(60px + env(safe-area-inset-bottom, 0px))",
             left: 0,
             right: 0,
             zIndex: 35,
             background: "#fff",
             borderTop: "1px solid #E2E8DE",
+            boxShadow: "0 -4px 12px rgba(0,0,0,0.05)",
             padding: "10px 16px",
           }}
         >

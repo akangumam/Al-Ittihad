@@ -256,7 +256,7 @@ export function WABlast() {
 
   if (blastId) {
     return (
-      <div className="space-y-5 max-w-[680px]">
+      <div className="space-y-5 max-w-[680px] mx-auto px-4 md:px-0">
         <div>
           <h2 className="text-[#1C2517] font-bold">WA Blast</h2>
           <p className="text-sm text-[#6B7769]">Pantau status pengiriman pesan massal</p>
@@ -267,7 +267,7 @@ export function WABlast() {
   }
 
   return (
-    <div className="space-y-5 max-w-[680px]">
+    <div className="space-y-5 max-w-[680px] mx-auto px-4 md:px-0">
       <div>
         <h2 className="text-[#1C2517] font-bold">WA Blast</h2>
         <p className="text-sm text-[#6B7769]">Kirim pesan massal ke wali murid dengan delay acak untuk menghindari pemblokiran</p>
@@ -404,7 +404,7 @@ export function WABlast() {
           <p className="text-sm font-semibold text-[#1C2517]">Delay Antar Pesan</p>
         </div>
         <div className="px-5 py-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-[#6B7769] mb-1.5">Delay Minimum (detik)</label>
               <div className="flex items-center gap-3">
@@ -427,15 +427,15 @@ export function WABlast() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {[
-              { label: "Penerima",      value: `${recipients.length} orang`, bg: "#EFF6FF", text: "#1E40AF" },
-              { label: "Rata-rata Delay", value: `${((minDelay + maxDelay) / 2).toFixed(0)}s`,  bg: "#F0FDF4", text: "#166534" },
-              { label: "Est. Selesai",  value: fmtEstTime(estSeconds),       bg: "#FEF3C7", text: "#92400E" },
+              { label: "Penerima",      value: `${recipients.length}`, sub: "orang", bg: "#EFF6FF", text: "#1E40AF" },
+              { label: "Rata-rata",     value: `${((minDelay + maxDelay) / 2).toFixed(0)}s`, sub: "delay", bg: "#F0FDF4", text: "#166534" },
+              { label: "Est. Selesai",  value: fmtEstTime(estSeconds), sub: "durasi", bg: "#FEF3C7", text: "#92400E" },
             ].map(c => (
-              <div key={c.label} className="rounded-xl p-3 text-center" style={{ background: c.bg }}>
-                <p className="text-base font-bold tabular-nums" style={{ color: c.text }}>{c.value}</p>
-                <p className="text-[11px] font-medium mt-0.5" style={{ color: c.text }}>{c.label}</p>
+              <div key={c.label} className="rounded-xl p-2.5 sm:p-3 text-center" style={{ background: c.bg }}>
+                <p className="text-sm sm:text-base font-bold tabular-nums leading-tight" style={{ color: c.text }}>{c.value}</p>
+                <p className="text-[10px] sm:text-[11px] font-medium mt-0.5 truncate" style={{ color: c.text }}>{c.label}</p>
               </div>
             ))}
           </div>
@@ -443,7 +443,7 @@ export function WABlast() {
       </div>
 
       {/* ── Tombol Blast ── */}
-      <div className="flex items-center justify-between p-5 bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
         <div>
           <p className="text-sm font-semibold text-[#1C2517]">
             Kirim ke {recipients.length} penerima
@@ -455,7 +455,7 @@ export function WABlast() {
         <button
           onClick={handleBlast}
           disabled={isSending || recipients.length === 0 || !pesan.trim()}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto shrink-0"
           style={{ background: "#3E8A2F", color: "#fff" }}
         >
           {isSending ? (

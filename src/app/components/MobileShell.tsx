@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router";
 import {
-  Bell, Search, X, LogOut,
+  Bell, X, LogOut,
   LayoutDashboard, CreditCard, AlertTriangle, ClipboardList, MoreHorizontal,
   Calendar, Users, GraduationCap, BookOpen,
   FileText, Landmark, BarChart3, Calculator,
@@ -13,6 +13,7 @@ import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import type { Role } from "@/types";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
+import { useAlerts, NotifPanel } from "./TopBar";
 import { toast } from "sonner";
 
 // ─── bottom nav data ──────────────────────────────────────────────────────────
@@ -220,9 +221,10 @@ export function MobileShell({ children }: { children: ReactNode }) {
   const shortYear = appSettings.tahunAjaran.split("/").map(y => y.slice(-2)).join("/");
   const navigate = useNavigate();
   const location = useLocation();
-  const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  const alerts = useAlerts();
 
   const initials = user?.nama
     ? user.nama.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
@@ -241,29 +243,48 @@ export function MobileShell({ children }: { children: ReactNode }) {
       className="flex flex-col relative overflow-hidden"
       style={{ height: "100dvh", background: "#FAFBF9", fontFamily: "'Space Grotesk', sans-serif" }}
     >
-      {/* ── Top App Bar · 56px ── */}
+      {/* ── Top App Bar · 56px + safe-area ── */}
       <div
         className="flex items-center justify-between px-4 shrink-0"
-        style={{ height: 56, background: "#fff", borderBottom: "1px solid #E2E8DE" }}
+        style={{
+          height: "calc(56px + env(safe-area-inset-top, 0px))",
+          paddingTop: "env(safe-area-inset-top, 0px)",
+          background: "#fff",
+          borderBottom: "1px solid #E2E8DE",
+        }}
       >
-        <img src={logoEmblem} alt="MTs Al-Ittihad" className="object-contain" style={{ width: 32, height: 32 }} />
+        <div className="flex items-center gap-2.5">
+          <img src={logoEmblem} alt="MTs Al-Ittihad" className="object-contain" style={{ width: 32, height: 32 }} />
+          <div className="flex flex-col leading-tight">
+            <span className="text-[13px] font-bold text-[#1C2517]">MTs Al-Ittihad</span>
+            <span className="text-[10px] text-[#6B7769]">Pedaleman</span>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <span
             className="text-[11px] font-semibold text-[#3E8A2F]"
-            style={{ background: "#EDF7EC", padding: "4px 10px", borderRadius: 99 }}
+            style={{ background: "#EDF7EC", padding: "3px 8px", borderRadius: 99 }}
           >
             {shortYear}
           </span>
           <button
-            className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{ background: "#F5F9F4", border: "none", cursor: "pointer" }}
+            onClick={() => setNotifOpen(true)}
+            className="w-8 h-8 rounded-full flex items-center justify-center relative transition-colors hover:bg-[#F5F9F4]"
+            style={{ background: notifOpen ? "#EDF7EC" : "#F5F9F4", border: "none", cursor: "pointer" }}
             aria-label="Notifikasi"
           >
-            <Bell size={17} color="#374040" />
+            <Bell size={16} color={notifOpen ? "#3E8A2F" : "#374040"} />
+            {alerts.length > 0 && (
+              <span
+                className="absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 px-0.5 rounded-full bg-[#DC2626] text-white text-[8px] font-bold flex items-center justify-center tabular-nums ring-1 ring-white"
+              >
+                {alerts.length > 9 ? "9+" : alerts.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setMenuOpen(true)}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 select-none"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 select-none shadow-sm"
             style={{ background: "#3E8A2F", border: "none", cursor: "pointer" }}
             aria-label="Profil & Keluar"
           >
@@ -272,36 +293,25 @@ export function MobileShell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      {/* ── Search bar · 44px ── */}
-      <div
-        className="shrink-0"
-        style={{ background: "#fff", borderBottom: "1px solid #E2E8DE", padding: "8px 16px" }}
-      >
-        <div
-          className="flex items-center gap-2.5 rounded-[10px]"
-          style={{ height: 44, background: "#F5F9F4", border: "1px solid #E2E8DE", padding: "0 14px" }}
-        >
-          <Search size={16} color="#9CA3A0" className="shrink-0" />
-          <input
-            type="text"
-            placeholder="Cari siswa, transaksi..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent outline-none text-sm text-[#1C2517]"
-            style={{ fontFamily: "inherit" }}
-          />
-        </div>
-      </div>
-
       {/* ── Scrollable content ── */}
-      <div className="flex-1 overflow-y-auto" style={{ paddingBottom: 64 }}>
+      <div
+        className="flex-1 overflow-y-auto min-h-0"
+        style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
+      >
         {children}
       </div>
 
-      {/* ── Bottom Navigation · 64px ── */}
-      <div
-        className="absolute bottom-0 left-0 right-0 flex z-40"
-        style={{ height: 64, background: "#fff", borderTop: "1px solid #E2E8DE" }}
+      {/* ── Bottom Navigation · 60px + safe-area ── */}
+      <nav
+        aria-label="Navigasi Bawah"
+        className="absolute bottom-0 left-0 right-0 flex z-40 items-center justify-around"
+        style={{
+          height: "calc(60px + env(safe-area-inset-bottom, 0px))",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          background: "#fff",
+          borderTop: "1px solid #E2E8DE",
+          boxShadow: "0 -2px 10px rgba(0,0,0,0.03)",
+        }}
       >
         {visibleBottomNav.map((item) => {
           const isActive = item.id === "menu" ? menuOpen : isNavActive(item);
@@ -367,7 +377,7 @@ export function MobileShell({ children }: { children: ReactNode }) {
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {/* ── Menu Bottom Sheet + dim overlay ── */}
       {menuOpen && (
@@ -386,6 +396,9 @@ export function MobileShell({ children }: { children: ReactNode }) {
           />
         </>
       )}
+
+      {/* ── Notification Panel ── */}
+      {notifOpen && <NotifPanel onClose={() => setNotifOpen(false)} />}
 
       {/* Dialog Konfirmasi Keluar */}
       <ExitConfirmDialog

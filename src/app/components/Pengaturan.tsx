@@ -718,10 +718,10 @@ function WATemplatesCard() {
 
 export function Pengaturan() {
   return (
-    <div className="space-y-5" style={{ maxWidth: 720 }}>
+    <div className="space-y-4 px-4 md:px-0 mx-auto" style={{ maxWidth: 720, paddingBottom: 88 }}>
       <div>
-        <h2 className="text-[#1C2517]">Pengaturan</h2>
-        <p className="text-sm text-[#6B7769]">Konfigurasi sistem, identitas, dan preferensi madrasah</p>
+        <h2 className="text-xl md:text-2xl font-bold text-[#1C2517]">Pengaturan</h2>
+        <p className="text-xs md:text-sm text-[#6B7769]">Konfigurasi sistem, identitas, dan preferensi madrasah</p>
       </div>
 
       <TahunAjaranCard />

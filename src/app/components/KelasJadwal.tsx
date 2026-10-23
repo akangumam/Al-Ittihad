@@ -220,13 +220,13 @@ function SlotRow({ seg, onClickSlot }: { seg: any; onClickSlot: () => void }) {
   
   if (isBreak) {
     return (
-      <div className="flex gap-3 items-center py-1 group cursor-pointer" onClick={onClickSlot}>
-        <div className="w-[112px] shrink-0">
-          <p className="text-[11px] text-[#9CA3A0] tabular-nums group-hover:text-[#3E8A2F] transition-colors">{seg.timeRange}</p>
+      <div className="flex gap-2 sm:gap-3 items-center py-1 group cursor-pointer" onClick={onClickSlot}>
+        <div className="w-16 sm:w-[112px] shrink-0">
+          <p className="text-[10px] sm:text-[11px] text-[#9CA3A0] tabular-nums group-hover:text-[#3E8A2F] transition-colors">{seg.timeRange}</p>
         </div>
-        <div className="flex-1 flex items-center gap-3">
+        <div className="flex-1 flex items-center gap-2 sm:gap-3">
           <div className="flex-1 h-px" style={{ background:"#E2E8DE" }} />
-          <p className="text-xs font-semibold text-[#D97706] bg-[#FFFBEB] px-3 py-1 rounded-full border border-[#FDE68A] group-hover:border-[#D97706] transition-colors">{seg.subject}</p>
+          <p className="text-[11px] sm:text-xs font-semibold text-[#D97706] bg-[#FFFBEB] px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full border border-[#FDE68A] group-hover:border-[#D97706] transition-colors">{seg.subject}</p>
           <div className="flex-1 h-px" style={{ background:"#E2E8DE" }} />
         </div>
       </div>
@@ -236,9 +236,9 @@ function SlotRow({ seg, onClickSlot }: { seg: any; onClickSlot: () => void }) {
   const style  = SUBJECT_STYLE[seg.subject] ?? { bg:"#F9FAFB", accent:"#6B7280", text:"#374151" };
 
   return (
-    <div className="flex gap-3 items-stretch">
-      <div className="w-[112px] shrink-0 flex flex-col justify-center py-0.5">
-        <p className="text-[11px] text-[#9CA3A0] tabular-nums">{seg.timeRange}</p>
+    <div className="flex gap-2 sm:gap-3 items-stretch">
+      <div className="w-16 sm:w-[112px] shrink-0 flex flex-col justify-center py-0.5">
+        <p className="text-[10px] sm:text-[11px] text-[#9CA3A0] tabular-nums font-medium leading-tight">{seg.timeRange}</p>
       </div>
       <div
         onClick={onClickSlot}
@@ -246,7 +246,7 @@ function SlotRow({ seg, onClickSlot }: { seg: any; onClickSlot: () => void }) {
         style={{
           background: style.bg,
           borderLeft: `3px solid ${style.accent}`,
-          padding: "12px 16px",
+          padding: "10px 14px",
         }}
       >
         {seg.conflict && (
@@ -659,24 +659,53 @@ function DataKelasTab({ kelasRows, onViewSiswa, onEdit, onDelete, onAdd }: { kel
   return (
     <div className="space-y-4">
       {/* Caption + button row */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm"
           style={{ background:"#FFFBEB", border:"1px solid #FDE68A" }}
         >
-          <Info size={13} className="text-[#D97706] shrink-0" />
+          <Info size={14} className="text-[#D97706] shrink-0" />
           <span className="text-[#92400E]">
             Data kelas dihitung otomatis dari data <span className="font-semibold">Siswa</span> dan <span className="font-semibold">Guru Wali Kelas</span>
           </span>
         </div>
         
-        <button onClick={onAdd} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shrink-0">
-          <Plus size={13} /> Tambah Kelas
+        <button onClick={onAdd} className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-xs sm:text-sm font-semibold hover:bg-[#2E6B22] transition-colors shrink-0 shadow-sm">
+          <Plus size={14} /> Tambah Kelas
         </button>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl" style={{ border:"1px solid #E2E8DE" }}>
+      {/* ── Mobile Class Cards (md:hidden) ── */}
+      <div className="md:hidden flex flex-col gap-2.5">
+        {kelasRows.length === 0 ? (
+          <div className="text-center py-8 text-sm text-[#9CA3A0] bg-white rounded-xl border border-[#E2E8DE]">
+            Belum ada data kelas (Tambahkan siswa atau atur wali kelas guru)
+          </div>
+        ) : (
+          kelasRows.map((row) => (
+            <div key={row.kelas} className="bg-white rounded-xl p-4 border border-[#E2E8DE] shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <KelasChipBadge kelas={row.kelas} />
+                  <span className="text-xs text-[#6B7769] font-medium">{row.tingkat}</span>
+                </div>
+                <KelasRowMenu onViewSiswa={() => onViewSiswa(row.kelas)} onEdit={() => onEdit(row.raw)} onDelete={() => onDelete(row.kelas)} />
+              </div>
+              <div>
+                <p className="text-[11px] text-[#6B7769] mb-0.5">Wali Kelas</p>
+                <p className="text-sm font-semibold text-[#1C2517]">{row.wali}</p>
+              </div>
+              <div className="pt-2 border-t border-[#F0F7EE]">
+                <p className="text-[11px] text-[#6B7769] mb-1.5">Kapasitas Siswa</p>
+                <SiswaProgress siswa={row.siswa} kap={row.kap} />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ── Desktop Table (hidden md:block) ── */}
+      <div className="hidden md:block bg-white rounded-xl" style={{ border:"1px solid #E2E8DE" }}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -1009,7 +1038,7 @@ export function KelasJadwal() {
   };
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto space-y-5">
+    <div className="w-full max-w-[1600px] mx-auto space-y-4 px-4 md:px-0" style={{ paddingBottom: 88 }}>
       {/* Editor Modal */}
       {(editingKelas || isAddingKelas) && (
         <KelasEditorModal
@@ -1030,12 +1059,12 @@ export function KelasJadwal() {
       )}
       {/* Title */}
       <div className="print:hidden">
-        <h2 className="text-[#1C2517]">Kelas &amp; Jadwal</h2>
-        <p className="text-sm text-[#6B7769]">Manajemen data kelas, wali kelas, dan jadwal mengajar</p>
+        <h2 className="text-xl md:text-2xl font-bold text-[#1C2517]">Kelas &amp; Jadwal</h2>
+        <p className="text-xs md:text-sm text-[#6B7769]">Manajemen data kelas, wali kelas, dan jadwal mengajar</p>
       </div>
 
       {/* Page-level shadcn tabs */}
-      <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC] print:hidden">
+      <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC] print:hidden w-full sm:w-auto overflow-x-auto hide-scrollbar">
         {[
           { id: "jadwal", label: "Jadwal Mengajar" },
           { id: "harian", label: "Jadwal Harian" },
@@ -1045,10 +1074,9 @@ export function KelasJadwal() {
             key={t.id}
             onClick={() => navigate(`/akademik/kelas-jadwal/${t.id}`)}
             className={[
-              "px-5 py-2 rounded-md text-sm font-semibold transition-all",
-              currentTab === t.id ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]",
+              "flex-1 sm:flex-initial px-3 sm:px-5 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all whitespace-nowrap text-center",
+              currentTab === t.id ? "bg-white text-[#1C2517] shadow-sm" : "text-[#6B7769] hover:text-[#374040]",
             ].join(" ")}
-            style={currentTab === t.id ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
           >
             {t.label}
           </button>

@@ -305,7 +305,7 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
       )}
 
       {/* Header row */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <p className="font-semibold text-[#1C2517]">Rencana Anggaran Biaya</p>
           <p className="text-xs text-[#6B7769] mt-0.5">Tahun Anggaran {tahunAjaran}</p>
@@ -319,14 +319,14 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
               ];
               downloadCSV(`RAB-${tahunAjaran}.csv`, csvRows);
             }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors"
             style={{ border:"1px solid #E2E8DE" }}
           >
             <Download size={13} /> Export CSV
           </button>
           <button
             onClick={() => setSheetRow("new")}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-xs sm:text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
           >
             <Plus size={13} /> Tambah Mata Anggaran
           </button>
@@ -629,7 +629,7 @@ export function Anggaran() {
   const { tahunAjaran } = useAppContext();
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto space-y-5">
+    <div className="w-full max-w-[1600px] mx-auto space-y-5 px-4 md:px-0">
       {/* Title */}
       <div>
         <h2 className="text-[#1C2517]">Anggaran</h2>
@@ -637,7 +637,7 @@ export function Anggaran() {
       </div>
 
       {/* Shadcn tabs */}
-      <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
+      <div className="flex sm:inline-flex w-full sm:w-auto rounded-lg p-1 bg-[#EDF7EC]">
         {[
           { id: "rab", label: "RAB" },
           { id: "realisasi", label: "Realisasi" },
@@ -646,7 +646,7 @@ export function Anggaran() {
             key={t.id}
             onClick={() => navigate(`/keuangan/anggaran/${t.id}`)}
             className={[
-              "px-5 py-2 rounded-md text-sm font-semibold transition-all",
+              "flex-1 sm:flex-initial text-center px-5 py-2 rounded-md text-sm font-semibold transition-all",
               currentTab === t.id ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]",
             ].join(" ")}
             style={currentTab === t.id ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}

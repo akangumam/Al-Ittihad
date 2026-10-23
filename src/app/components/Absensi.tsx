@@ -552,55 +552,107 @@ function ManualTab() {
 
   return (
     <div className="bg-white rounded-xl pb-[72px]" style={{ border: "1px solid #E2E8DE" }}>
-      <div className="px-6 py-5" style={{ borderBottom: "1px solid #E2E8DE" }}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white shrink-0" style={{ border: "1.5px solid #3E8A2F" }}>
+      <div className="px-4 sm:px-6 py-4 sm:py-5" style={{ borderBottom: "1px solid #E2E8DE" }}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
+          <div className="flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-lg bg-white shrink-0 self-start md:self-auto" style={{ border: "1.5px solid #3E8A2F" }}>
             <CalendarDays size={15} className="text-[#3E8A2F]" />
-            <span className="text-sm font-semibold text-[#1C2517]">{todayStr}</span>
+            <span className="text-xs sm:text-sm font-semibold text-[#1C2517]">{todayStr}</span>
           </div>
           
-          <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 md:w-64" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
               <Search size={13} className="text-[#9CA3A0] shrink-0" />
               <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/NUPTK..." className="bg-transparent outline-none text-sm text-[#1C2517] w-full" />
             </div>
             
             <div className="flex items-center gap-2">
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="pl-3 pr-8 py-2 rounded-lg text-sm font-medium text-[#1C2517] outline-none appearance-none"
-                style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
+              <div className="relative flex-1 sm:flex-initial">
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full sm:w-auto pl-3 pr-8 py-2 rounded-lg text-sm font-medium text-[#1C2517] outline-none appearance-none"
+                  style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
+                >
+                  <option value="Semua">Semua Status</option>
+                  <option value="Hadir">Hadir</option>
+                  <option value="Belum">Belum Absen</option>
+                  <option value="Terlambat">Terlambat</option>
+                  <option value="Izin">Izin/Sakit</option>
+                  <option value="Alpa">Alpa</option>
+                </select>
+                <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+              </div>
+              
+              <button
+                onClick={markAllHadir}
+                className="px-3.5 py-2 rounded-lg bg-[#F5F9F4] text-[#3E8A2F] text-xs sm:text-sm font-semibold hover:bg-[#E8F2E6] transition-colors whitespace-nowrap shrink-0" style={{ border: "1px solid #3E8A2F" }}
               >
-                <option value="Semua">Semua Status</option>
-                <option value="Hadir">Hadir</option>
-                <option value="Belum">Belum Absen</option>
-                <option value="Terlambat">Terlambat</option>
-                <option value="Izin">Izin/Sakit</option>
-                <option value="Alpa">Alpa</option>
-              </select>
+                Semua Hadir
+              </button>
             </div>
-            
-            <button
-              onClick={markAllHadir}
-              className="px-4 py-2 rounded-lg bg-[#F5F9F4] text-[#3E8A2F] text-sm font-semibold hover:bg-[#E8F2E6] transition-colors whitespace-nowrap" style={{ border: "1px solid #3E8A2F" }}
-            >
-              Semua Hadir
-            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
           {chipDefs.map((c) => (
-            <div key={c.label} className="flex flex-col items-center justify-center rounded-xl py-3 px-2" style={{ background: c.color }}>
-              <span className="tabular-nums font-bold" style={{ fontSize: "1.25rem", color: c.text }}>{c.value}</span>
-              <span className="text-[10px] font-medium mt-0.5" style={{ color: c.text }}>{c.label}</span>
+            <div key={c.label} className="flex flex-col items-center justify-center rounded-xl py-2.5 sm:py-3 px-1.5 sm:px-2 text-center" style={{ background: c.color }}>
+              <span className="tabular-nums font-bold text-base sm:text-xl leading-none" style={{ color: c.text }}>{c.value}</span>
+              <span className="text-[10px] font-medium mt-1 truncate w-full" style={{ color: c.text }}>{c.label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Mobile Guru Cards */}
+      <div className="md:hidden flex flex-col gap-2.5 p-3 sm:p-4">
+        {filteredRows.length === 0 ? (
+          <p className="text-sm text-[#9CA3A0] text-center py-8">Tidak ada data guru ditemukan</p>
+        ) : (
+          filteredRows.map((row) => {
+            const safeData = absensiGuruHariIni || {};
+            const rec = safeData[row.id];
+            const status = rec?.status || null;
+            const jam = rec?.jam || null;
+            const belum = status === null;
+            const late = status === "Terlambat";
+
+            return (
+              <div
+                key={row.id}
+                className="bg-white rounded-xl p-3.5 flex flex-col gap-3 transition-colors shadow-xs"
+                style={{
+                  border: "1px solid #E2E8DE",
+                  background: belum ? "#FFFBEB" : "#FFFFFF"
+                }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-[#3E8A2F] flex items-center justify-center text-[11px] text-white font-bold shrink-0">
+                      {row.inits}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[#1C2517] leading-tight">{row.nama}</p>
+                      <p className="text-[11px] text-[#9CA3A0] mt-0.5">{row.nuptk ? `NUPTK: ${row.nuptk}` : "Guru"} · {row.mapel || "—"}</p>
+                    </div>
+                  </div>
+                  {jam && (
+                    <span className="text-xs font-semibold tabular-nums px-2 py-0.5 rounded bg-[#FAFBF9] border border-[#E2E8DE]" style={{ color: late ? "#92400E" : "#3E8A2F" }}>
+                      {jam}
+                    </span>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-[#F0F7EE]">
+                  <AbsensiStatusControl value={status} onChange={(v) => setStatus(row.id, v)} />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <DataTable>
           <thead>
             <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
@@ -658,15 +710,26 @@ function ManualTab() {
       </div>
 
       {/* Save bar */}
-      <div className="bg-white px-6 py-4 flex items-center justify-between" style={{ position: "fixed", bottom: isMobile ? 64 : 0, left: isMobile ? 0 : "var(--sidebar-w, 260px)", right: 0, borderTop: "1px solid #E2E8DE", zIndex: 50 }}>
+      <div
+        className="bg-white px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between"
+        style={{
+          position: "fixed",
+          bottom: isMobile ? "calc(60px + env(safe-area-inset-bottom, 0px))" : 0,
+          left: isMobile ? 0 : "var(--sidebar-w, 260px)",
+          right: 0,
+          borderTop: "1px solid #E2E8DE",
+          zIndex: 50,
+          boxShadow: isMobile ? "0 -4px 12px rgba(0,0,0,0.05)" : undefined,
+        }}
+      >
         <div>
-          <span className="text-sm font-semibold text-[#1C2517] tabular-nums">{activeGuru.length - chips.Belum} dari {activeGuru.length}</span>
-          <span className="text-sm text-[#6B7769] ml-1">tercatat</span>
-          {chips.Belum > 0 && <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FEF3C7] text-[#92400E] tabular-nums">{chips.Belum} belum absen</span>}
+          <span className="text-xs sm:text-sm font-semibold text-[#1C2517] tabular-nums">{activeGuru.length - chips.Belum} dari {activeGuru.length}</span>
+          <span className="text-xs sm:text-sm text-[#6B7769] ml-1">tercatat</span>
+          {chips.Belum > 0 && <span className="hidden sm:inline-block ml-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FEF3C7] text-[#92400E] tabular-nums">{chips.Belum} belum</span>}
         </div>
         <button 
           onClick={handleSaveClick}
-          className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shadow-sm"
+          className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg bg-[#3E8A2F] text-white text-xs sm:text-sm font-semibold hover:bg-[#2E6B22] transition-colors shadow-sm"
         >
           Simpan Absensi
         </button>
@@ -849,24 +912,24 @@ export function Absensi() {
   const activeTab = tab || "scan";
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto space-y-5" style={{ paddingBottom: 72 }}>
+    <div className="w-full max-w-[1600px] mx-auto space-y-5 px-4 md:px-0" style={{ paddingBottom: 72 }}>
       <div>
         <h2 className="text-[#1C2517]">Absensi Guru</h2>
         <p className="text-sm text-[#6B7769]">Rekam dan pantau kehadiran guru menggunakan QR Code atau Manual</p>
       </div>
 
-      <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
+      <div className="flex sm:inline-flex w-full sm:w-auto rounded-lg p-1 bg-[#EDF7EC]">
         {(["scan", "manual", "rekapitulasi"] as const).map((t) => (
           <button
             key={t}
             onClick={() => navigate(`/akademik/absensi/${t}`)}
             className={[
-              "px-4 py-1.5 rounded-md text-sm font-semibold transition-all",
+              "flex-1 sm:flex-initial text-center px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all whitespace-nowrap",
               activeTab === t ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]",
             ].join(" ")}
             style={activeTab === t ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
           >
-            {t === "scan" ? "Stasiun Scan QR" : t === "manual" ? "Rekap Manual" : "Rekapitulasi"}
+            {t === "scan" ? "Scan QR" : t === "manual" ? "Manual" : "Rekapitulasi"}
           </button>
         ))}
       </div>

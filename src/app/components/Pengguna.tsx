@@ -144,9 +144,9 @@ export function Pengguna() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div className="max-w-3xl mx-auto space-y-5 px-4 md:px-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-[#1C2517]">Pengguna & Akses</h1>
           <p className="text-sm text-[#6B7769] mt-0.5">
@@ -155,7 +155,7 @@ export function Pengguna() {
         </div>
         <button
           onClick={() => { setForm({ email: "", nama: "", role: "TU", password: "" }); setShowPass(false); setFormError(""); setSheetOpen(true); }}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors hover:opacity-90"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors hover:opacity-90 w-full sm:w-auto shrink-0"
           style={{ background: "#3E8A2F" }}
         >
           <UserPlus size={15} />
@@ -163,7 +163,7 @@ export function Pengguna() {
         </button>
       </div>
 
-      {/* Tabel */}
+      {/* Tabel & Mobile Cards */}
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: "1px solid #E2E8DE" }}>
         {loading ? (
           <div className="flex items-center justify-center py-16">
@@ -175,54 +175,92 @@ export function Pengguna() {
             <p className="text-sm text-[#6B7769]">Belum ada pengguna terdaftar.</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
-                {["Nama", "Email", "Role", "Terdaftar", ""].map((h) => (
-                  <th key={h} className="text-left text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide px-5 py-3">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u, i) => (
-                <tr
-                  key={u.id}
-                  className="hover:bg-[#FAFBF9] transition-colors"
-                  style={{ borderBottom: i < users.length - 1 ? "1px solid #F0F7EE" : "none" }}
-                >
-                  <td className="px-5 py-3.5 text-sm font-medium text-[#1C2517]">{u.nama}</td>
-                  <td className="px-5 py-3.5 text-sm text-[#6B7769]">{u.email}</td>
-                  <td className="px-5 py-3.5">
-                    <select
-                      value={u.role}
-                      onChange={(e) => handleRoleChange(u, e.target.value as Role)}
-                      className="text-xs font-semibold rounded-full px-2 py-1 outline-none cursor-pointer border-0 appearance-none"
-                      style={{
-                        background: ROLE_BADGE[u.role].bg,
-                        color: ROLE_BADGE[u.role].text,
-                      }}
-                    >
-                      {ROLE_OPTIONS.map(r => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-5 py-3.5 text-xs text-[#9CA3A0] tabular-nums">{fmtDate(u.created_at)}</td>
-                  <td className="px-5 py-3.5">
-                    <button
-                      onClick={() => setPendingDelete(u)}
-                      className="p-1.5 rounded-lg hover:bg-[#FEF2F2] transition-colors"
-                      title="Hapus akses"
-                    >
-                      <Trash2 size={14} className="text-[#DC2626]" />
-                    </button>
-                  </td>
-                </tr>
+          <>
+            {/* Mobile User Cards */}
+            <div className="md:hidden divide-y divide-[#F0F7EE]">
+              {users.map((u) => (
+                <div key={u.id} className="p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-[#1C2517] leading-tight truncate">{u.nama}</p>
+                    <p className="text-xs text-[#6B7769] truncate mt-0.5">{u.email}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <select
+                        value={u.role}
+                        onChange={(e) => handleRoleChange(u, e.target.value as Role)}
+                        className="text-[11px] font-semibold rounded-full px-2.5 py-0.5 outline-none cursor-pointer border-0 appearance-none"
+                        style={{
+                          background: ROLE_BADGE[u.role].bg,
+                          color: ROLE_BADGE[u.role].text,
+                        }}
+                      >
+                        {ROLE_OPTIONS.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                      <span className="text-[11px] text-[#9CA3A0] tabular-nums">{fmtDate(u.created_at)}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setPendingDelete(u)}
+                    className="p-2 rounded-lg hover:bg-[#FEF2F2] transition-colors text-[#DC2626] shrink-0"
+                    title="Hapus akses"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            {/* Desktop Table */}
+            <table className="hidden md:table w-full">
+              <thead>
+                <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
+                  {["Nama", "Email", "Role", "Terdaftar", ""].map((h) => (
+                    <th key={h} className="text-left text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wide px-5 py-3">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((u, i) => (
+                  <tr
+                    key={u.id}
+                    className="hover:bg-[#FAFBF9] transition-colors"
+                    style={{ borderBottom: i < users.length - 1 ? "1px solid #F0F7EE" : "none" }}
+                  >
+                    <td className="px-5 py-3.5 text-sm font-medium text-[#1C2517]">{u.nama}</td>
+                    <td className="px-5 py-3.5 text-sm text-[#6B7769]">{u.email}</td>
+                    <td className="px-5 py-3.5">
+                      <select
+                        value={u.role}
+                        onChange={(e) => handleRoleChange(u, e.target.value as Role)}
+                        className="text-xs font-semibold rounded-full px-2 py-1 outline-none cursor-pointer border-0 appearance-none"
+                        style={{
+                          background: ROLE_BADGE[u.role].bg,
+                          color: ROLE_BADGE[u.role].text,
+                        }}
+                      >
+                        {ROLE_OPTIONS.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-5 py-3.5 text-xs text-[#9CA3A0] tabular-nums">{fmtDate(u.created_at)}</td>
+                    <td className="px-5 py-3.5">
+                      <button
+                        onClick={() => setPendingDelete(u)}
+                        className="p-1.5 rounded-lg hover:bg-[#FEF2F2] transition-colors"
+                        title="Hapus akses"
+                      >
+                        <Trash2 size={14} className="text-[#DC2626]" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
 
@@ -230,8 +268,8 @@ export function Pengguna() {
       {sheetOpen && (
         <div className="fixed inset-0 z-50 flex justify-end" style={{ background: "rgba(0,0,0,0.4)" }}>
           <div
-            className="bg-white h-full flex flex-col shadow-2xl"
-            style={{ width: 480, borderLeft: "1px solid #E2E8DE" }}
+            className="w-full max-w-[480px] bg-white h-full flex flex-col shadow-2xl"
+            style={{ borderLeft: "1px solid #E2E8DE" }}
           >
             {/* Header sheet */}
             <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>

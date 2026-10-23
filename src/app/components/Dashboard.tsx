@@ -902,7 +902,7 @@ export function Dashboard() {
               </div>
             </div>
           ))}
-          <button className="text-[12px] font-semibold text-[#3E8A2F] mt-2.5 block">Lihat semua →</button>
+          <button onClick={() => navigate("/keuangan/tunggakan")} className="text-[12px] font-semibold text-[#3E8A2F] mt-2.5 block hover:underline">Lihat semua →</button>
         </div>
 
         {/* Absensi Hari Ini */}
@@ -946,6 +946,12 @@ export function Dashboard() {
               ))}
             </div>
           </div>
+          <button
+            onClick={() => navigate(mobileAbsensiTab === "siswa" ? "/akademik/absensi-siswa" : "/akademik/absensi")}
+            className="text-[12px] font-semibold text-[#3E8A2F] mt-3 block hover:underline"
+          >
+            Buka absensi lengkap →
+          </button>
         </div>
       </div>
 

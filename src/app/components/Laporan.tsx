@@ -70,29 +70,29 @@ function ReportToolbar({
   csvRows?: (string | number)[][]; csvFilename?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 px-6 py-4 flex-wrap" style={{ borderBottom: "1px solid #E2E8DE" }}>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4" style={{ borderBottom: "1px solid #E2E8DE" }}>
       <div>
         <p className="font-semibold text-[#1C2517]" style={{ fontSize: "0.9375rem" }}>{title}</p>
         <p className="text-xs text-[#6B7769] mt-0.5">{subtitle}</p>
       </div>
-      <div className="flex items-center gap-2 ml-auto shrink-0 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         {children}
         <button
           onClick={() => csvRows && csvFilename && downloadCSV(csvFilename, csvRows)}
           disabled={!csvRows}
           title={csvRows ? `Unduh ${csvFilename}` : "Data tidak tersedia"}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ border: "1px solid #E2E8DE" }}
         >
           <Download size={13} />
-          Export Excel
+          Excel
         </button>
         <button
           onClick={() => window.print()}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors"
+          className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors"
         >
           <Download size={13} />
-          Export PDF
+          PDF
         </button>
       </div>
     </div>
@@ -101,9 +101,9 @@ function ReportToolbar({
 
 function KpiChip({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="bg-white rounded-xl px-5 py-4 flex flex-col gap-1" style={{ border: "1px solid #E2E8DE" }}>
-      <span className="text-xs text-[#6B7769]">{label}</span>
-      <span className="text-lg font-bold tabular-nums tracking-tight" style={{ color: color ?? "#1C2517" }}>{value}</span>
+    <div className="bg-white rounded-xl px-3.5 sm:px-5 py-3 sm:py-4 flex flex-col gap-0.5 sm:gap-1" style={{ border: "1px solid #E2E8DE" }}>
+      <span className="text-[11px] sm:text-xs text-[#6B7769] leading-tight truncate">{label}</span>
+      <span className="text-base sm:text-lg font-bold tabular-nums tracking-tight truncate" style={{ color: color ?? "#1C2517" }}>{value}</span>
     </div>
   );
 }
@@ -436,7 +436,7 @@ function KasPreview() {
   return (
     <div className="space-y-4">
       {/* KPI */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <KpiChip label="Total Pemasukan"  value={fmt(totalMasuk)}  color="#3E8A2F" />
         <KpiChip label="Total Pengeluaran" value={fmt(totalKeluar)} color="#DC2626" />
         <KpiChip label="Selisih Bersih"   value={`${net >= 0 ? "+" : "−"}${fmt(Math.abs(net))}`} color={net >= 0 ? "#3E8A2F" : "#DC2626"} />
@@ -747,7 +747,7 @@ export function Laporan() {
   const selected = REPORTS.find(r => r.id === selectedId) ?? REPORTS[0];
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto space-y-6">
+    <div className="w-full max-w-[1600px] mx-auto space-y-6 px-4 md:px-0">
       <div>
         <h2 className="text-[#1C2517]">Laporan</h2>
         <p className="text-sm text-[#6B7769]">Pusat laporan keuangan dan akademik</p>

@@ -316,7 +316,7 @@ export function Tunggakan() {
   return (
     <>
       {/* ═══ MOBILE LAYOUT (md:hidden) ═════════════════════════════════════════ */}
-      <div className="md:hidden flex flex-col gap-3">
+      <div className="md:hidden px-4 py-3.5 flex flex-col gap-3">
         {/* Summary strip */}
         <div className="grid grid-cols-3 divide-x bg-white rounded-xl overflow-hidden" style={{ border: "1px solid #E2E8DE", borderColor: "#E2E8DE" }}>
           <div className="flex flex-col items-center justify-center text-center" style={{ padding: "14px 8px" }}>

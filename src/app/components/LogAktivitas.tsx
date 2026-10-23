@@ -129,21 +129,21 @@ export function LogAktivitas() {
   }, [page, totalPages]);
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto space-y-5">
+    <div className="w-full max-w-[1400px] mx-auto space-y-5 px-4 md:px-0">
       {/* Title */}
       <div>
         <h2 className="text-[#1C2517]">Log Aktivitas</h2>
-        <p className="text-sm text-[#6B7769]">Rekam jejak seluruh perubahan data keuangan</p>
+        <p className="text-sm text-[#6B7769]">Rekam jejak seluruh perubahan data keuangan & akademik</p>
       </div>
 
       {/* Main card */}
-      <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+      <div className="bg-white rounded-xl shadow-xs" style={{ border: "1px solid #E2E8DE" }}>
         {/* Toolbar */}
-        <div className="flex items-center gap-2 flex-wrap px-5 py-4" style={{ borderBottom: "1px solid #E2E8DE" }}>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 p-3.5 sm:px-5 sm:py-4" style={{ borderBottom: "1px solid #E2E8DE" }}>
           {/* Search */}
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 min-w-[180px]"
             style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
-            <Search size={13} className="text-[#9CA3A0] shrink-0" />
+            <Search size={14} className="text-[#9CA3A0] shrink-0" />
             <input
               type="text"
               value={search}
@@ -153,52 +153,89 @@ export function LogAktivitas() {
             />
           </div>
 
-          {/* Tipe filter */}
-          <div className="relative">
-            <select
-              value={tipeFilter}
-              onChange={e => setTipeFilter(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
-              style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
-            >
-              {TIPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
-          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Tipe filter */}
+            <div className="relative flex-1 sm:flex-initial">
+              <select
+                value={tipeFilter}
+                onChange={e => setTipeFilter(e.target.value)}
+                className="w-full sm:w-auto appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
+                style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
+              >
+                {TIPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+            </div>
 
-          {/* Periode filter */}
-          <div className="relative">
-            <select
-              value={periode}
-              onChange={e => setPeriode(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
-              style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
-            >
-              {PERIODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
-          </div>
+            {/* Periode filter */}
+            <div className="relative flex-1 sm:flex-initial">
+              <select
+                value={periode}
+                onChange={e => setPeriode(e.target.value)}
+                className="w-full sm:w-auto appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
+                style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
+              >
+                {PERIODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+            </div>
 
-          <button
-            onClick={() => exportCSV(filtered)}
-            disabled={filtered.length === 0}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium text-[#374040] hover:border-[#3E8A2F] hover:text-[#3E8A2F] transition-colors disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
-            style={{ border: "1px solid #E2E8DE" }}
-          >
-            <Download size={13} /> Export CSV
-          </button>
+            <button
+              onClick={() => exportCSV(filtered)}
+              disabled={filtered.length === 0}
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium text-[#374040] hover:border-[#3E8A2F] hover:text-[#3E8A2F] transition-colors disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
+              style={{ border: "1px solid #E2E8DE" }}
+            >
+              <Download size={13} /> Export CSV
+            </button>
+          </div>
         </div>
 
         {/* Count bar */}
         {filtered.length > 0 && (
-          <div className="px-5 py-2.5 text-xs text-[#6B7769]" style={{ borderBottom: "1px solid #F0F7EE", background: "#FAFBF9" }}>
+          <div className="px-4 sm:px-5 py-2.5 text-xs text-[#6B7769]" style={{ borderBottom: "1px solid #F0F7EE", background: "#FAFBF9" }}>
             Menampilkan <span className="font-semibold text-[#1C2517]">{filtered.length}</span> entri
             {tipeFilter !== SEMUA_TIPE && <> · tipe: <span className="font-medium">{tipeFilter}</span></>}
           </div>
         )}
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Mobile Cards (md:hidden) */}
+        <div className="md:hidden divide-y divide-[#F0F7EE]">
+          {paged.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-[#9CA3A0] text-center">
+              <Activity size={32} className="mb-2 opacity-30" />
+              <p className="text-sm font-medium">Belum ada aktivitas tercatat</p>
+              {(search || tipeFilter !== SEMUA_TIPE) && (
+                <p className="text-xs mt-1">Coba ubah filter pencarian</p>
+              )}
+            </div>
+          ) : (
+            paged.map(log => (
+              <div key={log.id} className="p-3.5 space-y-2 hover:bg-[#FAFBF9] transition-colors">
+                <div className="flex items-center justify-between gap-2">
+                  <TipeBadge tipe={log.tipe} />
+                  <span className="text-[11px] font-mono tabular-nums text-[#6B7769]">
+                    {fmtWaktu(log.waktu)}
+                  </span>
+                </div>
+                <p className="text-sm text-[#1C2517] leading-snug">{log.deskripsi}</p>
+                <div className="flex items-center justify-between text-xs pt-0.5">
+                  <span className="text-[#6B7769]">
+                    Oleh: <span className="font-medium text-[#374040]">{log.pelaku}</span>
+                  </span>
+                  {log.ref !== "—" && (
+                    <span className="font-mono text-[11px] font-semibold text-[#3E8A2F] bg-[#DCFCE7] px-2 py-0.5 rounded">
+                      {log.ref}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop Table (hidden md:block) */}
+        <div className="hidden md:block overflow-x-auto">
           <DataTable>
             <thead>
               <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
@@ -261,8 +298,8 @@ export function LogAktivitas() {
 
         {/* Pagination */}
         {filtered.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between px-5 py-3.5" style={{ borderTop: "1px solid #E2E8DE" }}>
-            <span className="text-xs text-[#6B7769]">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 sm:px-5 py-3.5" style={{ borderTop: "1px solid #E2E8DE" }}>
+            <span className="text-xs text-[#6B7769] text-center sm:text-left">
               {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} dari{" "}
               <span className="font-semibold text-[#1C2517]">{filtered.length}</span> entri
             </span>

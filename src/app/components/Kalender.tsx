@@ -283,20 +283,20 @@ export function Kalender() {
   const todayStr = isoDate(today);
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto space-y-5 px-4 md:px-0">
+    <div className="w-full max-w-[1400px] mx-auto space-y-4 px-4 md:px-0" style={{ paddingBottom: 88 }}>
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h2 className="text-[#1C2517]">Kalender Akademik</h2>
-          <p className="text-sm text-[#6B7769]">Tahun Ajaran {tahunAjaran} — jadwal kegiatan dan hari penting</p>
+          <h2 className="text-xl md:text-2xl font-bold text-[#1C2517]">Kalender Akademik</h2>
+          <p className="text-xs md:text-sm text-[#6B7769]">Tahun Ajaran {tahunAjaran} — jadwal kegiatan dan hari penting</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {/* Filter tipe */}
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-initial">
             <select
               value={filterTipe}
               onChange={e => setFilterTipe(e.target.value as TipeEvent | "semua")}
-              className="appearance-none pl-8 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
+              className="w-full appearance-none pl-8 pr-8 py-2 rounded-lg text-xs sm:text-sm text-[#374040] outline-none"
               style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
             >
               <option value="semua">Semua Jenis</option>
@@ -309,7 +309,7 @@ export function Kalender() {
           </div>
           <button
             onClick={goToday}
-            className="px-3 py-2 rounded-lg text-sm font-medium text-[#374040] hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors"
+            className="px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-[#374040] hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors shrink-0"
             style={{ border: "1px solid #E2E8DE" }}
           >
             Hari Ini
@@ -317,9 +317,9 @@ export function Kalender() {
           {isAdmin && (
             <button
               onClick={() => setSheet({ mode: "add" })}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#3E8A2F] text-white text-xs sm:text-sm font-semibold hover:bg-[#2E6B22] transition-colors shadow-sm shrink-0"
             >
-              <Plus size={13} /> Tambah Event
+              <Plus size={14} /> Tambah Event
             </button>
           )}
         </div>
@@ -363,7 +363,7 @@ export function Kalender() {
                 <button
                   key={dateStr}
                   onClick={() => setSelectedDate(isSelected ? null : dateStr)}
-                  className="relative flex flex-col min-h-[68px] md:min-h-[80px] p-1.5 rounded-lg transition-colors text-left"
+                  className="relative flex flex-col items-center sm:items-stretch min-h-[46px] sm:min-h-[80px] p-1 sm:p-1.5 rounded-lg transition-colors text-left"
                   style={{
                     background: isSelected ? "#F0F7EE" : "transparent",
                     border: isSelected ? "1.5px solid #3E8A2F" : "1px solid transparent",
@@ -371,7 +371,7 @@ export function Kalender() {
                 >
                   <span
                     className={[
-                      "w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold mb-1 shrink-0",
+                      "w-6 h-6 flex items-center justify-center rounded-full text-xs font-semibold mb-0.5 sm:mb-1 shrink-0",
                       isToday ? "bg-[#3E8A2F] text-white" :
                       isWeekend ? "text-[#DC2626]/70" :
                       "text-[#374040]",
@@ -379,7 +379,28 @@ export function Kalender() {
                   >
                     {dayNum}
                   </span>
-                  <div className="flex flex-col gap-0.5 w-full overflow-hidden">
+
+                  {/* Mobile indicator dots */}
+                  {dayEvents.length > 0 && (
+                    <div className="flex sm:hidden items-center justify-center gap-1 w-full mt-0.5">
+                      {dayEvents.slice(0, 3).map(ev => {
+                        const cfg = TIPE_CONFIG[ev.tipe];
+                        return (
+                          <span
+                            key={ev.id}
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: cfg.text }}
+                          />
+                        );
+                      })}
+                      {dayEvents.length > 3 && (
+                        <span className="w-1 h-1 rounded-full bg-[#9CA3A0]" />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Desktop text badges */}
+                  <div className="hidden sm:flex flex-col gap-0.5 w-full overflow-hidden">
                     {dayEvents.slice(0, 3).map(ev => {
                       const cfg = TIPE_CONFIG[ev.tipe];
                       return (
@@ -398,7 +419,7 @@ export function Kalender() {
                     )}
                   </div>
                   {isAdmin && dayEvents.length === 0 && (
-                    <div className="absolute inset-0 rounded-lg flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-[#F5FBF4]">
+                    <div className="hidden sm:flex absolute inset-0 rounded-lg items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-[#F5FBF4]">
                       <Plus size={14} className="text-[#3E8A2F]/60" />
                     </div>
                   )}

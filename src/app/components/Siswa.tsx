@@ -927,15 +927,15 @@ function MutasiPanel() {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 max-w-xs" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 sm:max-w-xs" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
           <Search size={13} className="text-[#9CA3A0] shrink-0" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari nama/NIS/kelas..."
             className="bg-transparent outline-none text-sm text-[#1C2517] w-full" />
         </div>
         <div className="relative">
           <select value={jenisFilter} onChange={e => setJenisFilter(e.target.value as JenisMutasi | "semua")}
-            className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
+            className="w-full sm:w-auto appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
             style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
             <option value="semua">Semua Jenis</option>
             {(Object.keys(JENIS_MUTASI_CONFIG) as JenisMutasi[]).map(j => (
@@ -965,9 +965,59 @@ function MutasiPanel() {
         )}
       </div>
 
-      {/* Table */}
+      {/* Mobile Mutasi Cards */}
+      <div className="md:hidden flex flex-col gap-2.5">
+        {filtered.length === 0 ? (
+          <p className="text-sm text-[#9CA3A0] text-center py-8">Tidak ada data mutasi ditemukan</p>
+        ) : (
+          rows.map((m) => {
+            const cfg = JENIS_MUTASI_CONFIG[m.jenisMutasi];
+            const Icon = cfg.icon;
+            return (
+              <div
+                key={m.id}
+                className="bg-white rounded-xl p-3.5 flex flex-col gap-2"
+                style={{ border: "1px solid #E2E8DE" }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-[#F3F4F6]">
+                      <img src={m.jk === "L" ? "/foto_L.png" : "/foto_P.png"} alt={m.nama} className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[#1C2517] leading-tight">{m.nama}</p>
+                      <p className="text-[11px] text-[#9CA3A0] mt-0.5">{m.nis} · Kelas {m.kelas}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full shrink-0" style={{ background: cfg.bg }}>
+                    <Icon size={10} style={{ color: cfg.color }} />
+                    <span className="text-[10px] font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
+                  </div>
+                </div>
+
+                <div className="text-xs text-[#374040] bg-[#FAFBF9] rounded-lg p-2 flex flex-col gap-0.5 border border-[#F0F7EE]">
+                  {m.jenisMutasi === "pindah" && m.sekolahTujuan && (
+                    <span className="font-medium text-[#1C2517]">Tujuan: {m.sekolahTujuan}</span>
+                  )}
+                  {m.jenisMutasi === "masuk" && m.sekolahAsal && (
+                    <span className="font-medium text-[#1C2517]">Asal: {m.sekolahAsal}</span>
+                  )}
+                  <span className="text-[#6B7769]">{m.alasan}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-[#9CA3A0] pt-1 border-t border-[#F0F7EE]">
+                  <span>{fmtTanggal(m.tanggal)}</span>
+                  <span>Oleh: {m.dicatatOleh}</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Table */}
       {filtered.length > 0 && (
-        <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+        <div className="hidden md:block bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -1476,10 +1526,10 @@ export function Siswa() {
               : "Data dan rekam jejak seluruh peserta didik"}
           </p>
           {/* Tab toggle */}
-          <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC] mt-3">
+          <div className="flex sm:inline-flex w-full sm:w-auto rounded-lg p-1 bg-[#EDF7EC] mt-3">
             {([["siswa", "Peserta Didik"], ["alumni", "Alumni"], ["mutasi", "Mutasi"]] as const).map(([val, label]) => (
               <button key={val} onClick={() => setSearchParams(val === "siswa" ? {} : { tab: val })}
-                className={["px-4 py-1.5 rounded-md text-sm font-semibold transition-all whitespace-nowrap",
+                className={["flex-1 sm:flex-initial text-center px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-all whitespace-nowrap",
                   pageTab === val ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]"].join(" ")}
                 style={pageTab === val ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}>
                 {label}
@@ -1713,60 +1763,78 @@ export function Siswa() {
         ) : filteredRows.map((row) => {
           const nonaktif = row.status === "Nonaktif";
           return (
-            <div key={row.id} className="relative w-full rounded-xl bg-[#F0F7EE] overflow-hidden" style={{ border: "1px solid #E2E8DE" }}>
-              {/* Actions behind the card */}
-              <div className="absolute inset-0 flex justify-between items-center px-6">
-                <button 
-                  onClick={() => { setSheetMode("edit"); setSelectedSiswa(row); }}
-                  className="flex flex-col items-center justify-center gap-1 text-[#3E8A2F] font-semibold"
-                >
-                  <Pencil size={18} />
-                  <span className="text-[10px]">Edit</span>
-                </button>
-                <button 
-                  onClick={() => setSelectedCardSiswa(row)}
-                  className="flex flex-col items-center justify-center gap-1 text-[#3E8A2F] font-semibold"
-                >
-                  <IdCard size={18} />
-                  <span className="text-[10px]">Kartu</span>
-                </button>
-              </div>
-              
-              {/* Swipeable Card */}
-              <motion.button
-                drag="x"
-                dragConstraints={{ left: -80, right: 80 }}
-                dragElastic={0.2}
-                onClick={() => setSelectedSiswa(row)}
-                className="relative w-full text-left bg-white z-10 flex flex-col"
-                style={{ padding: "14px 16px", touchAction: "pan-y", borderLeft: "1px solid #E2E8DE", borderRight: "1px solid #E2E8DE" }}
+            <div
+              key={row.id}
+              className="w-full bg-white rounded-xl shadow-xs transition-colors hover:border-[#3E8A2F]/50 flex flex-col"
+              style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}
+            >
+              {/* Top row: Avatar, Info, Badges */}
+              <div
+                onClick={() => { setSheetMode("view"); setSelectedSiswa(row); }}
+                className="flex items-start gap-3 w-full cursor-pointer"
               >
-                <div className="flex items-start gap-3 w-full">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 overflow-hidden"
-                    style={{ background: nonaktif ? "#E2E8DE" : "#3E8A2F", color: nonaktif ? "#9CA3A0" : "#FFF" }}>
-                    <img src={row.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt={row.nama} className={`w-full h-full object-cover ${nonaktif ? 'grayscale opacity-50' : ''}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 overflow-hidden"
+                  style={{ background: nonaktif ? "#E2E8DE" : "#3E8A2F", color: nonaktif ? "#9CA3A0" : "#FFF" }}
+                >
+                  <img
+                    src={row.jk === 'L' ? '/foto_L.png' : '/foto_P.png'}
+                    alt={row.nama}
+                    className={`w-full h-full object-cover ${nonaktif ? 'grayscale opacity-50' : ''}`}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
                     <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
-                    <p className="text-[11px] text-[#6B7769]" style={{ marginTop: 2 }}>{row.nis}</p>
-                    <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 6 }}>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${KELAS_COLOR[row.kelas[0]] ?? "bg-[#F3F4F6] text-[#374040]"}`}>{row.kelas}</span>
-                      <StatusBadge status={row.statusTagihan} />
-                      <StatusBadge status={row.status as "Aktif" | "Nonaktif"} />
-                    </div>
+                    <span className="text-[11px] font-medium text-[#3E8A2F] shrink-0">Detail →</span>
+                  </div>
+                  <p className="text-[11px] text-[#6B7769] mt-0.5">{row.nis}{row.nisn ? ` · NISN: ${row.nisn}` : ""}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${KELAS_COLOR[row.kelas[0]] ?? "bg-[#F3F4F6] text-[#374040]"}`}>
+                      {row.kelas}
+                    </span>
+                    <StatusBadge status={row.statusTagihan} />
+                    <StatusBadge status={row.status as "Aktif" | "Nonaktif"} />
                   </div>
                 </div>
-                <div className="flex items-center justify-between w-full" style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #F0F7EE" }}>
-                  <div>
-                    <p className="text-[12px] text-[#374040]">{row.waliNama}</p>
-                    <a href={`https://wa.me/62${row.waliHp.replace(/^0/, "")}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 mt-0.5 text-[#3E8A2F] hover:underline">
-                      <MessageCircle size={10} />
-                      <span className="text-[11px] tabular-nums">{row.waliHp}</span>
+              </div>
+
+              {/* Bottom row: Wali & Actions */}
+              <div
+                className="flex items-center justify-between w-full mt-3 pt-2.5"
+                style={{ borderTop: "1px solid #F0F7EE" }}
+              >
+                <div>
+                  <p className="text-[11px] text-[#6B7769] leading-none">Wali: <span className="font-medium text-[#374040]">{row.waliNama || "—"}</span></p>
+                  {row.waliHp && (
+                    <a
+                      href={`https://wa.me/62${row.waliHp.replace(/^0/, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 mt-1 text-[#3E8A2F] hover:underline"
+                    >
+                      <MessageCircle size={11} />
+                      <span className="text-[11px] font-medium tabular-nums">{row.waliHp}</span>
                     </a>
-                  </div>
-                  <span className="text-[12px] font-semibold text-[#3E8A2F]">Detail →</span>
+                  )}
                 </div>
-              </motion.button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => { setSheetMode("edit"); setSelectedSiswa(row); }}
+                    className="p-1.5 rounded-lg text-[#6B7769] hover:text-[#3E8A2F] hover:bg-[#F5F9F4] transition-colors"
+                    title="Edit Siswa"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    onClick={() => setSelectedCardSiswa(row)}
+                    className="p-1.5 rounded-lg text-[#6B7769] hover:text-[#3E8A2F] hover:bg-[#F5F9F4] transition-colors"
+                    title="Kartu Pelajar"
+                  >
+                    <IdCard size={15} />
+                  </button>
+                </div>
+              </div>
             </div>
           );
         })}

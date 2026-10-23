@@ -587,7 +587,7 @@ function TemplateTab() {
 
       <div>
         {/* Section header */}
-        <div className="flex items-start justify-between mb-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">
           <div>
             <p className="font-semibold text-[#1C2517]" style={{ fontSize: "0.9375rem" }}>
               Template Biaya
@@ -598,7 +598,7 @@ function TemplateTab() {
           </div>
           <button
             onClick={() => setSheetOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shrink-0 w-full sm:w-auto justify-center"
           >
             <Plus size={14} />
             Tambah Template
@@ -606,7 +606,7 @@ function TemplateTab() {
         </div>
 
         {/* Cards grid */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {templates.map((t) => (
             <TemplateCard key={t.id} t={t} />
           ))}
@@ -826,35 +826,37 @@ function PenetapanTab() {
       )}
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
           <Search size={13} className="text-[#9CA3A0] shrink-0" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari siswa..." className="bg-transparent outline-none text-sm text-[#1C2517] w-36" />
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari siswa..." className="bg-transparent outline-none text-sm text-[#1C2517] w-full" />
         </div>
-        <div className="relative">
-          <select value={kelasFilter} onChange={(e) => setKelasFilter(e.target.value)} className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
-            {kelasOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-          <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
-        </div>
-        <div className="relative">
-          <select value={templateFilter} onChange={(e) => setTemplateFilter(e.target.value)} className="appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
-            {templateOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-          <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:flex-initial">
+            <select value={kelasFilter} onChange={(e) => setKelasFilter(e.target.value)} className="w-full sm:w-auto appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+              {kelasOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+          </div>
+          <div className="relative flex-1 sm:flex-initial">
+            <select value={templateFilter} onChange={(e) => setTemplateFilter(e.target.value)} className="w-full sm:w-auto appearance-none pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
+              {templateOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+          </div>
         </div>
         {checked.size > 0 && (
-          <button onClick={() => setSheetOpen(true)} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
-            <Plus size={14} />Tetapkan ke {checked.size} Siswa
+          <button onClick={() => setSheetOpen(true)} className="sm:ml-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors">
+            <Plus size={14} />Tetapkan ({checked.size})
           </button>
         )}
       </div>
 
       {/* Bulk action bar */}
       {checked.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "#EDF7EC", border: "1px solid #D4EDD0" }}>
+        <div className="flex flex-wrap items-center gap-2.5 px-4 py-3 rounded-xl" style={{ background: "#EDF7EC", border: "1px solid #D4EDD0" }}>
           <span className="text-sm font-semibold text-[#3E8A2F]">{checked.size} siswa dipilih</span>
-          <span className="text-[#9CA3A0]">—</span>
+          <span className="text-[#9CA3A0] hidden sm:inline">—</span>
           <button onClick={() => setSheetOpen(true)} className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors">Pilih Template & Tetapkan</button>
           <button onClick={() => setChecked(new Set())} className="ml-auto text-xs text-[#6B7769] hover:text-[#374040]">Batalkan pilihan</button>
         </div>
@@ -867,8 +869,94 @@ function PenetapanTab() {
         </div>
       )}
 
-      {/* Table */}
-      <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+      {/* Mobile Student Cards */}
+      <div className="md:hidden flex flex-col gap-2.5">
+        {filteredRows.length === 0 ? (
+          <p className="text-sm text-[#9CA3A0] text-center py-8">Tidak ada data siswa ditemukan</p>
+        ) : (
+          filteredRows.map((row) => {
+            const isChecked = checked.has(row.id);
+            const belum = row.status === "Belum Ditetapkan";
+            return (
+              <div
+                key={row.id}
+                className="bg-white rounded-xl p-3.5 flex flex-col gap-2.5 transition-colors"
+                style={{
+                  border: isChecked ? "1.5px solid #3E8A2F" : "1px solid #E2E8DE",
+                  background: isChecked ? "#F5FBF4" : "#FFFFFF"
+                }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <Checkbox checked={isChecked} onChange={() => toggleRow(row.id)} />
+                    <div className="w-8 h-8 rounded-full bg-[#3E8A2F] flex items-center justify-center text-white text-[11px] font-bold shrink-0">
+                      {row.inits}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-[#1C2517] leading-tight">{row.nama}</p>
+                      <p className="text-[11px] text-[#6B7769] mt-0.5">{row.nis} · Kelas {row.kelas}</p>
+                    </div>
+                  </div>
+                  <div>
+                    {belum ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold text-[#92400E] bg-[#FEF3C7]">
+                        Belum
+                      </span>
+                    ) : (
+                      <StatusBadge status="Lengkap" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Templates & Total */}
+                <div className="flex items-center justify-between text-xs bg-[#FAFBF9] rounded-lg p-2 border border-[#F0F7EE]">
+                  <div className="flex-1 pr-2">
+                    <p className="text-[10px] text-[#9CA3A0] mb-1">Template Diterapkan:</p>
+                    {row.templates.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {row.templates.map((tb) => (
+                          <span key={tb.key} className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${TMPL_BADGE[tb.key] ?? "bg-[#F3F4F6] text-[#374040]"}`}>
+                            {tb.label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[#9CA3A0] text-[11px]">Belum ada template</span>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[10px] text-[#9CA3A0] mb-0.5">Total Tagihan:</p>
+                    <p className="font-bold tabular-nums text-sm text-[#1C2517]">
+                      {row.total !== null ? fmt(row.total) : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action button */}
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={() => {
+                      if (belum) {
+                        setChecked(new Set([row.id]));
+                        setSheetOpen(true);
+                      } else {
+                        setProfilStudentId(row.id);
+                      }
+                    }}
+                    className="w-full sm:w-auto text-center px-3 py-1.5 rounded-lg text-xs font-semibold text-[#374040] hover:border-[#3E8A2F] hover:text-[#3E8A2F] transition-colors"
+                    style={{ border: "1px solid #E2E8DE" }}
+                  >
+                    {belum ? "+ Tetapkan Tagihan" : "Lihat Profil Tagihan →"}
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
         <div className="overflow-x-auto">
           <DataTable>
             <thead>
@@ -951,7 +1039,7 @@ export function Tagihan() {
   const activeTab: TabType = tab === "penetapan" ? "penetapan" : "template";
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto space-y-5">
+    <div className="w-full max-w-[1600px] mx-auto space-y-5 px-4 md:px-0">
       {/* Page title */}
       <div>
         <h2 className="text-[#1C2517]">Tagihan</h2>
@@ -959,13 +1047,13 @@ export function Tagihan() {
       </div>
 
       {/* Tab buttons — shadcn Tabs pattern, tab stored in URL */}
-      <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
+      <div className="flex sm:inline-flex w-full sm:w-auto rounded-lg p-1 bg-[#EDF7EC]">
         {(["template", "penetapan"] as const).map((t) => (
           <button
             key={t}
             onClick={() => navigate(`/keuangan/tagihan/${t}`)}
             className={[
-              "px-4 py-1.5 rounded-md text-sm font-semibold transition-all",
+              "flex-1 sm:flex-initial text-center px-4 py-1.5 rounded-md text-sm font-semibold transition-all",
               activeTab === t
                 ? "bg-white text-[#1C2517]"
                 : "text-[#6B7769] hover:text-[#374040]",

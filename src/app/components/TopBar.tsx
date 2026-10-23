@@ -40,7 +40,7 @@ const SALDO_MINIMUM = 12_000_000;
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
-function useAlerts() {
+export function useAlerts() {
   const { tagihanList, siswaList, jadwalList, guruList, absensiGuruHariIni, transaksiList, manualTransaksiList } = useAppContext();
 
   return useMemo<Alert[]>(() => {
@@ -150,7 +150,7 @@ function useAlerts() {
 
 // ─── notification panel ───────────────────────────────────────────────────────
 
-function NotifPanel({ onClose }: { onClose: () => void }) {
+export function NotifPanel({ onClose }: { onClose: () => void }) {
   const alerts = useAlerts();
   const navigate = useNavigate();
 

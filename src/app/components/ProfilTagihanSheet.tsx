@@ -49,8 +49,7 @@ export function ProfilTagihanSheet({
         onClick={onClose}
       />
       <div
-        className="fixed top-0 right-0 h-full bg-white z-50 flex flex-col shadow-2xl transition-transform"
-        style={{ width: "640px" }}
+        className="fixed top-0 right-0 h-full w-full max-w-[640px] bg-white z-50 flex flex-col shadow-2xl transition-transform"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8DE] shrink-0">
@@ -156,7 +155,7 @@ export function ProfilTagihanSheet({
                         <p className="font-bold text-sm text-[#1C2517]">{fmt(t.nominal)}</p>
                         {t.keterangan && <p className="text-[11px] text-[#92400E] mt-0.5 italic">Catatan: {t.keterangan}</p>}
                       </div>
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => startEdit(t)}
                           className="w-7 h-7 rounded bg-[#F3F4F6] flex items-center justify-center text-[#6B7769] hover:text-[#1C2517]"

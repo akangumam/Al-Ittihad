@@ -228,9 +228,10 @@ function HariIniTab() {
         />
       ))}
 
-      {/* Fixed bottom floating bar above MobileShell bottom nav (bottom: 64px) */}
+      {/* Fixed bottom floating bar above MobileShell bottom nav */}
       <div
-        className="fixed bottom-16 left-0 right-0 z-30 bg-white border-t border-[#E2E8DE] px-4 py-2.5 flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]"
+        className="fixed left-0 right-0 z-30 bg-white border-t border-[#E2E8DE] px-4 py-2.5 flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]"
+        style={{ bottom: "calc(60px + env(safe-area-inset-bottom, 0px))" }}
       >
         <div>
           <span className="text-sm font-semibold text-[#1C2517] tabular-nums">{tercatat} dari {guruList.length}</span>

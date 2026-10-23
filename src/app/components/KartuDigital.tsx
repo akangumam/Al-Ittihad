@@ -292,13 +292,13 @@ export function KartuDigital() {
             <p className="text-sm text-[#6B7769]">Kartu identitas dengan QR Code siap cetak</p>
           </div>
 
-          <div className="inline-flex rounded-lg p-1 bg-[#E2E8DE]/40">
+          <div className="flex sm:inline-flex w-full sm:w-auto rounded-lg p-1 bg-[#E2E8DE]/40">
             {(["siswa", "guru"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => switchTab(t)}
                 className={[
-                  "px-4 py-1.5 rounded-md text-sm font-semibold transition-all capitalize",
+                  "flex-1 sm:flex-initial text-center px-4 py-1.5 rounded-md text-sm font-semibold transition-all capitalize",
                   activeTab === t ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]",
                 ].join(" ")}
                 style={activeTab === t ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
@@ -309,7 +309,7 @@ export function KartuDigital() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 mt-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 mt-4">
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 sm:max-w-xs bg-white" style={{ border: "1px solid #E2E8DE" }}>
             <Search size={14} className="text-[#9CA3A0] shrink-0" />
             <input
@@ -321,29 +321,31 @@ export function KartuDigital() {
             />
           </div>
 
-          <div className="relative">
-            <select
-              value={filterDropdown}
-              onChange={(e) => setFilterDropdown(e.target.value)}
-              className="appearance-none bg-white pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
-              style={{ border: "1px solid #E2E8DE" }}
-            >
-              <option value="Semua">Semua {activeTab === "siswa" ? "Kelas" : "Status"}</option>
-              {activeTab === "siswa" 
-                ? kelasOptions.map((o) => <option key={o} value={o}>{o}</option>)
-                : ["PNS", "GTY", "Honorer"].map((o) => <option key={o} value={o}>{o}</option>)
-              }
-            </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
-          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 sm:flex-initial">
+              <select
+                value={filterDropdown}
+                onChange={(e) => setFilterDropdown(e.target.value)}
+                className="w-full sm:w-auto appearance-none bg-white pl-3 pr-8 py-2 rounded-lg text-sm text-[#374040] outline-none"
+                style={{ border: "1px solid #E2E8DE" }}
+              >
+                <option value="Semua">Semua {activeTab === "siswa" ? "Kelas" : "Status"}</option>
+                {activeTab === "siswa" 
+                  ? kelasOptions.map((o) => <option key={o} value={o}>{o}</option>)
+                  : ["PNS", "GTY", "Honorer"].map((o) => <option key={o} value={o}>{o}</option>)
+                }
+              </select>
+              <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+            </div>
 
-          <button
-            onClick={handlePrint}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-[#3E8A2F] text-white text-sm font-semibold rounded-lg hover:bg-[#2E6B22] transition-colors"
-          >
-            <Printer size={16} />
-            Cetak
-          </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-[#3E8A2F] text-white text-sm font-semibold rounded-lg hover:bg-[#2E6B22] transition-colors shrink-0"
+            >
+              <Printer size={16} />
+              Cetak
+            </button>
+          </div>
         </div>
       </div>
 

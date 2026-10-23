@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import {
   Search, ChevronDown, ChevronLeft, ChevronRight,
   Plus, MoreHorizontal, X, Eye, Pencil,
-  MessageCircle, Trash2, FileText, Calendar, IdCard, ZoomIn
+  MessageCircle, Trash2, FileText, Calendar, IdCard, ZoomIn, SlidersHorizontal
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
@@ -674,6 +674,7 @@ export function Guru() {
   const [selectedCardGuru, setSelectedCardGuru] = useState<GuruRow | null>(null);
   const [qrZoomGuru, setQrZoomGuru] = useState<GuruRow | null>(null);
   const [isAddingGuru, setIsAddingGuru] = useState(false);
+  const [showMobileFilter, setShowMobileFilter] = useState(false);
 
   const dynamicMapelOptions = useMemo(() => {
     const base = new Set(mapelOptions);
@@ -719,13 +720,30 @@ export function Guru() {
   const endIdx = Math.min(currentPage * itemsPerPage, rows.length);
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto space-y-5">
+    <div className="w-full max-w-[1600px] mx-auto space-y-4 px-4 md:px-0">
       {/* ── Title + KPI chips ── */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-4">
         <div>
-          <h2 className="text-[#1C2517]">Guru</h2>
-          <p className="text-sm text-[#6B7769]">Data tenaga pengajar dan kepegawaian madrasah</p>
+          <h2 className="text-xl md:text-2xl font-bold text-[#1C2517]">Guru & Tenaga Pendidik</h2>
+          <p className="text-xs md:text-sm text-[#6B7769]">Data tenaga pengajar dan kepegawaian madrasah</p>
+
+          {/* Mobile KPI Chips */}
+          <div className="md:hidden flex items-center gap-1.5 flex-wrap mt-2.5">
+            <div className="flex items-center px-2 py-0.5 bg-[#F5FBF4] text-[#3E8A2F] rounded-md border border-[#3E8A2F]/20">
+              <span className="text-[11px] font-semibold">Total: {kpiData[0].value}</span>
+            </div>
+            <div className="flex items-center px-2 py-0.5 bg-[#EFF6FF] text-[#1E40AF] rounded-md border border-[#3B82F6]/20">
+              <span className="text-[11px] font-semibold">PNS: {kpiData[1].value}</span>
+            </div>
+            <div className="flex items-center px-2 py-0.5 bg-[#EDF7EC] text-[#166534] rounded-md border border-[#3E8A2F]/20">
+              <span className="text-[11px] font-semibold">GTY: {kpiData[2].value}</span>
+            </div>
+            <div className="flex items-center px-2 py-0.5 bg-[#FFFBEB] text-[#D97706] rounded-md border border-[#D97706]/20">
+              <span className="text-[11px] font-semibold">Honorer: {kpiData[3].value}</span>
+            </div>
+          </div>
         </div>
+
         <div className="hidden md:flex items-center gap-2 mt-1 shrink-0">
           {kpiData.map((kpi, i) => (
             <div key={kpi.label} className="flex items-center gap-2">
@@ -742,7 +760,7 @@ export function Guru() {
         </div>
       </div>
 
-      {/* ── Toolbar ── */}
+      {/* ── Desktop Toolbar ── */}
       <div className="hidden md:flex items-center gap-2">
         <div
           className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 max-w-xs"
@@ -792,18 +810,85 @@ export function Guru() {
         </div>
       </div>
 
-      {/* ── Mobile toolbar ── */}
+      {/* ── Mobile Toolbar ── */}
       <div className="md:hidden flex gap-2">
         <div className="flex-1 flex items-center gap-2 rounded-xl" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9", padding: "0 12px", minHeight: 44 }}>
           <Search size={14} className="text-[#9CA3A0] shrink-0" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari nama / NUPTK / mapel..."
-            className="flex-1 bg-transparent outline-none text-[13px] text-[#1C2517]" />
+            className="flex-1 bg-transparent outline-none text-[13px] text-[#1C2517]"
+          />
         </div>
-        <button className="w-11 h-11 flex items-center justify-center rounded-xl bg-[#3E8A2F] shrink-0">
-          <Plus size={16} color="#FFF" />
+        <button
+          onClick={() => setShowMobileFilter(true)}
+          className={`w-11 h-11 flex items-center justify-center rounded-xl shrink-0 transition-colors ${mapelFilter !== "Semua Mapel" || statusFilter !== "Semua Status" ? "bg-[#EDF7EC] text-[#3E8A2F] border border-[#3E8A2F]/30" : "bg-[#FAFBF9] text-[#6B7769] border border-[#E2E8DE]"}`}
+          aria-label="Filter Guru"
+        >
+          <SlidersHorizontal size={16} />
+        </button>
+        <button
+          onClick={() => setIsAddingGuru(true)}
+          className="w-11 h-11 flex items-center justify-center rounded-xl bg-[#3E8A2F] shrink-0 text-white shadow-sm"
+          aria-label="Tambah Guru"
+        >
+          <Plus size={16} />
         </button>
       </div>
+
+      {/* ── Mobile Filter Bottom Sheet ── */}
+      {showMobileFilter && (
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setShowMobileFilter(false)} />
+          <div className="fixed inset-x-0 bottom-0 z-[70] bg-white rounded-t-2xl p-6 animate-in slide-in-from-bottom-full duration-300">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-[#1C2517]">Filter Guru</h3>
+              <button onClick={() => setShowMobileFilter(false)} className="text-[#9CA3A0] hover:text-[#1C2517]">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Mata Pelajaran</label>
+                <div className="relative">
+                  <select
+                    value={mapelFilter}
+                    onChange={(e) => setMapelFilter(e.target.value)}
+                    className="w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl text-sm text-[#1C2517] font-medium outline-none border border-[#E2E8DE] bg-[#FAFBF9]"
+                  >
+                    {["Semua Mapel", ...dynamicMapelOptions.filter(o => o !== "Semua Mapel")].map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Status Kepegawaian</label>
+                <div className="relative">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full appearance-none pl-4 pr-10 py-2.5 rounded-xl text-sm text-[#1C2517] font-medium outline-none border border-[#E2E8DE] bg-[#FAFBF9]"
+                  >
+                    {["Semua Status", "PNS", "GTY", "Honorer"].map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowMobileFilter(false)}
+              className="w-full py-3 bg-[#3E8A2F] text-white font-semibold rounded-xl hover:bg-[#2E6B22] transition-colors"
+            >
+              Terapkan Filter
+            </button>
+          </div>
+        </>
+      )}
 
       {/* ── Mobile guru cards ── */}
       <div className="md:hidden flex flex-col gap-2.5">

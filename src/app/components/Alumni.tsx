@@ -290,12 +290,13 @@ export function Alumni() {
   };
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto space-y-5">
+    <div className="w-full max-w-[1600px] mx-auto space-y-4 sm:space-y-5 px-4 md:px-0">
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-4">
         <div>
           <h2 className="text-[#1C2517]">Data Alumni</h2>
-          <p className="text-sm text-[#6B7769]">Buku induk rekam jejak lulusan madrasah</p>
+          <p className="text-sm text-[#6B7769]">Buku induk rekam jejak kelulusan madrasah</p>
         </div>
+        {/* KPI: Desktop */}
         <div className="hidden md:flex items-center gap-2 mt-1 shrink-0">
           {kpiData.map((kpi, i) => (
             <div key={kpi.label} className="flex items-center gap-2">
@@ -307,8 +308,18 @@ export function Alumni() {
             </div>
           ))}
         </div>
+        {/* KPI: Mobile Horizontal Strip */}
+        <div className="flex md:hidden items-center gap-2 overflow-x-auto pb-1 pt-1 scrollbar-none">
+          {kpiData.map((kpi) => (
+            <div key={kpi.label} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-white shrink-0 shadow-xs" style={{ border: "1px solid #E2E8DE" }}>
+              <span className="font-bold tabular-nums text-[#1C2517]">{kpi.value}</span>
+              <span className="text-[#6B7769] text-[11px]">{kpi.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
+      {/* Desktop Toolbar */}
       <div className="hidden md:flex items-center justify-between gap-2">
         <div className="flex gap-2">
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg flex-1 max-w-xs" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
@@ -340,36 +351,111 @@ export function Alumni() {
         </button>
       </div>
 
-      <div className="md:hidden flex gap-2">
-        <div className="flex-1 flex items-center gap-2 rounded-xl" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9", padding: "0 12px", minHeight: 44 }}>
-          <Search size={14} className="text-[#9CA3A0] shrink-0" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama..." className="flex-1 bg-transparent outline-none text-[13px] text-[#1C2517]" />
+      {/* Mobile Toolbar */}
+      <div className="md:hidden flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-2 rounded-xl" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9", padding: "0 12px", minHeight: 40 }}>
+            <Search size={14} className="text-[#9CA3A0] shrink-0" />
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari alumni / NIS..." className="flex-1 bg-transparent outline-none text-[13px] text-[#1C2517]" />
+          </div>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#3E8A2F] text-white shadow-sm shrink-0 active:scale-95 transition-transform"
+            aria-label="Tambah Alumni"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
+
+        <div className="relative w-full">
+          <select
+            value={tahunFilter}
+            onChange={(e) => setTahunFilter(e.target.value)}
+            className="w-full appearance-none pl-3 pr-8 py-2 rounded-xl text-xs text-[#374040] outline-none"
+            style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
+          >
+            {tahunOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+          <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
         </div>
       </div>
 
+      {/* Mobile Cards */}
       <div className="md:hidden flex flex-col gap-2.5">
         {rows.length === 0 ? (
-          <p className="text-sm text-[#9CA3A0] text-center py-8">Belum ada data alumni</p>
+          <div className="bg-white rounded-xl p-8 text-center text-[#9CA3A0]" style={{ border: "1px solid #E2E8DE" }}>
+            <p className="text-sm font-medium">Belum ada data alumni ditemukan</p>
+          </div>
         ) : rows.map((row) => (
-          <button key={row.id} onClick={() => setSelectedAlumni(row)} className="w-full text-left bg-white rounded-xl" style={{ border: "1px solid #E2E8DE", padding: "14px 16px" }}>
+          <div key={row.id} className="w-full bg-white rounded-xl shadow-xs" style={{ border: "1px solid #E2E8DE", padding: "12px 14px" }}>
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0 overflow-hidden" style={{ background: "#F3F4F6", color: "#374040" }}>
                 <img src={row.jk === 'L' ? '/foto_L.png' : '/foto_P.png'} alt={row.nama} className="w-full h-full object-cover" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
-                <p className="text-[11px] text-[#6B7769]" style={{ marginTop: 2 }}>{row.nis}</p>
-                <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 6 }}>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#F0FDF4] text-[#166534]">Angkatan {row.angkatan}</span>
-                  <span className="text-[11px] text-[#6B7769]">Lulus: {row.tahunLulus}</span>
+              <div className="flex-1 min-w-0" onClick={() => setSelectedAlumni(row)}>
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-[14px] font-semibold text-[#1C2517] leading-tight truncate">{row.nama}</p>
+                  <span className="text-[11px] font-mono text-[#6B7769] shrink-0">{row.nis}</span>
                 </div>
+                <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F0FDF4] text-[#166534]">Angkatan {row.angkatan}</span>
+                  <span className="text-[11px] text-[#6B7769]">Lulus: {row.tahunLulus}</span>
+                  <span className="text-[11px] text-[#9CA3A0]">· {row.jk === 'L' ? 'L' : 'P'}</span>
+                </div>
+                {row.keterangan && (
+                  <p className="text-xs text-[#6B7769] mt-1 line-clamp-1 italic">{row.keterangan}</p>
+                )}
               </div>
             </div>
-          </button>
+            <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-[#F0F7EE]">
+              <button
+                onClick={() => setSelectedAlumni(row)}
+                className="flex items-center gap-1 text-xs font-semibold text-[#3E8A2F] py-1"
+              >
+                <Eye size={13} /> Detail Profil
+              </button>
+              {row.wa && (
+                <button
+                  onClick={() => {
+                    const digits = row.wa!.replace(/\D/g, "");
+                    const formatted = digits.startsWith('0') ? '62' + digits.slice(1) : digits;
+                    window.open(`https://wa.me/${formatted}`, '_blank');
+                  }}
+                  className="flex items-center gap-1 text-xs font-medium text-[#25D366] bg-[#DCFCE7] px-2.5 py-1 rounded-md"
+                >
+                  <MessageCircle size={12} /> WhatsApp
+                </button>
+              )}
+            </div>
+          </div>
         ))}
+
+        {/* Mobile Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between py-2 text-xs text-[#6B7769]">
+            <span>Halaman {currentPage} dari {totalPages}</span>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className="px-2.5 py-1 rounded-md bg-white border border-[#E2E8DE] disabled:opacity-40"
+              >
+                Prev
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                className="px-2.5 py-1 rounded-md bg-white border border-[#E2E8DE] disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="hidden md:block bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-white rounded-xl shadow-xs" style={{ border: "1px solid #E2E8DE" }}>
         <div className="overflow-x-auto">
           <DataTable>
             <thead>

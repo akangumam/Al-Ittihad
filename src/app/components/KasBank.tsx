@@ -439,17 +439,17 @@ function TransaksiTab() {
 
           {/* Action buttons */}
           {canEdit && (
-            <div className="ml-auto flex gap-2 shrink-0">
+            <div className="w-full sm:w-auto sm:ml-auto flex gap-2 shrink-0">
               <button
                 onClick={() => setSheetTipe("masuk")}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#3E8A2F] text-white text-xs sm:text-sm font-semibold hover:bg-[#2E6B22] transition-colors shadow-sm"
               >
-                <Plus size={13} />
+                <Plus size={14} />
                 Pemasukan
               </button>
               <button
                 onClick={() => setSheetTipe("keluar")}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
                 style={{ border: "1.5px solid #DC2626" }}
               >
                 <span className="font-bold text-base leading-none">−</span>
@@ -460,30 +460,62 @@ function TransaksiTab() {
         </div>
 
         {/* Summary chips */}
-        <div className="flex items-center gap-2 mt-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#EDF7EC]">
-            <TrendingUp size={12} className="text-[#3E8A2F]" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#EDF7EC]">
+            <TrendingUp size={14} className="text-[#3E8A2F] shrink-0" />
             <span className="text-xs text-[#6B7769]">Pemasukan:</span>
-            <span className="text-sm font-bold tabular-nums text-[#3E8A2F]">{fmt(totalMasuk)}</span>
+            <span className="text-xs sm:text-sm font-bold tabular-nums text-[#3E8A2F] ml-auto">{fmt(totalMasuk)}</span>
           </div>
-          <span className="text-[#D1D5DB]">·</span>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#FEE2E2]">
-            <TrendingDown size={12} className="text-[#DC2626]" />
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#FEE2E2]">
+            <TrendingDown size={14} className="text-[#DC2626] shrink-0" />
             <span className="text-xs text-[#6B7769]">Pengeluaran:</span>
-            <span className="text-sm font-bold tabular-nums text-[#DC2626]">{fmt(totalKeluar)}</span>
+            <span className="text-xs sm:text-sm font-bold tabular-nums text-[#DC2626] ml-auto">{fmt(totalKeluar)}</span>
           </div>
-          <span className="text-[#D1D5DB]">·</span>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#F5F9F4]">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F5F9F4]">
             <span className="text-xs text-[#6B7769]">Saldo:</span>
-            <span className={`text-sm font-bold tabular-nums ${totalMasuk - totalKeluar >= 0 ? "text-[#3E8A2F]" : "text-[#DC2626]"}`}>
+            <span className={`text-xs sm:text-sm font-bold tabular-nums ml-auto ${totalMasuk - totalKeluar >= 0 ? "text-[#3E8A2F]" : "text-[#DC2626]"}`}>
               {fmt(totalMasuk - totalKeluar)}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* ── Mobile Transaction Cards (md:hidden) ── */}
+      <div className="md:hidden flex flex-col gap-2 p-3">
+        {paged.length === 0 ? (
+          <div className="text-center py-8 text-sm text-[#9CA3A0]">Belum ada transaksi</div>
+        ) : (
+          paged.map((row) => (
+            <div key={row.id} className="bg-white rounded-xl p-3.5 border border-[#E2E8DE] shadow-sm flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5 min-w-0">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${row.tipe === "masuk" ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#FEE2E2] text-[#991B1B]"}`}>
+                  {row.tipe === "masuk" ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[#1C2517] leading-tight truncate">{row.keterangan}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                    <span className="text-[10px] text-[#6B7769] font-medium bg-[#F5F9F4] px-1.5 py-0.5 rounded">
+                      {row.kategori}
+                    </span>
+                    <span className="text-[10px] text-[#9CA3A0]">•</span>
+                    <span className="text-[11px] text-[#6B7769]">{row.akun}</span>
+                    <span className="text-[10px] text-[#9CA3A0]">•</span>
+                    <span className="text-[11px] text-[#9CA3A0]">{row.tanggal}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <span className={`text-sm font-bold tabular-nums ${row.tipe === "masuk" ? "text-[#3E8A2F]" : "text-[#DC2626]"}`}>
+                  {row.tipe === "masuk" ? "+" : "−"}{fmt(row.jumlah)}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ── Desktop Table (hidden md:block) ── */}
+      <div className="hidden md:block overflow-x-auto">
         <DataTable>
           <thead>
             <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
@@ -821,7 +853,35 @@ function MutasiTab() {
         </button>
       </div>
 
-      <div className="bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
+      {/* ── Mobile Transfer Cards (md:hidden) ── */}
+      <div className="md:hidden flex flex-col gap-2.5">
+        {bankTransferList.length === 0 ? (
+          <div className="text-center py-8 text-sm text-[#9CA3A0] bg-white rounded-xl border border-[#E2E8DE]">
+            Belum ada mutasi antar akun
+          </div>
+        ) : (
+          bankTransferList.map((row) => (
+            <div key={row.id} className="bg-white rounded-xl p-3.5 border border-[#E2E8DE] shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#6B7769]">{fmtTglISO(row.tanggal)}</span>
+                <StatusBadge status={row.status} />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-[#1C2517]">{row.dari}</span>
+                <ArrowRight size={13} className="text-[#3E8A2F] shrink-0" />
+                <span className="text-sm font-semibold text-[#1C2517]">{row.ke}</span>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-[#F0F7EE]">
+                <span className="text-xs text-[#6B7769] truncate max-w-[180px]">{row.catatan || "—"}</span>
+                <span className="text-sm font-bold tabular-nums text-[#1C2517]">{fmt(row.nominal)}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ── Desktop Table (hidden md:block) ── */}
+      <div className="hidden md:block bg-white rounded-xl" style={{ border: "1px solid #E2E8DE" }}>
         <div className="overflow-x-auto">
           <DataTable>
             <thead>
@@ -879,21 +939,20 @@ export function KasBank() {
   const activeTab = (tab || "transaksi") as TabType;
 
   return (
-    <div className="w-full max-w-[1600px] mx-auto space-y-5">
+    <div className="w-full max-w-[1600px] mx-auto space-y-4 px-4 md:px-0" style={{ paddingBottom: 88 }}>
       <div>
-        <h2 className="text-[#1C2517]">Kas &amp; Bank</h2>
-        <p className="text-sm text-[#6B7769]">Kelola transaksi, akun, dan mutasi keuangan</p>
+        <h2 className="text-xl md:text-2xl font-bold text-[#1C2517]">Kas &amp; Bank</h2>
+        <p className="text-xs md:text-sm text-[#6B7769]">Kelola transaksi, akun, dan mutasi keuangan</p>
       </div>
 
       <div className="overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
+        <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC] w-full sm:w-auto">
           {(["transaksi", "akun", "mutasi"] as const).map(t => (
             <button key={t} onClick={() => navigate(`/keuangan/kas-bank/${t}`)}
               className={[
-                "px-4 py-1.5 rounded-md text-sm font-semibold transition-all",
-                activeTab === t ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]",
+                "flex-1 sm:flex-initial px-4 py-2 text-xs sm:text-sm font-semibold rounded-md transition-all text-center whitespace-nowrap",
+                activeTab === t ? "bg-white text-[#1C2517] shadow-sm" : "text-[#6B7769] hover:text-[#374040]",
               ].join(" ")}
-              style={activeTab === t ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
             >
               {TAB_LABELS[t]}
             </button>
