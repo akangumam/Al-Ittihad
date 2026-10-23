@@ -29,6 +29,7 @@ export interface TransaksiPembayaran {
   metode: string; // "Tunai", "Transfer"
   nomorKuitansi: string;
   alokasi: TransaksiAlokasi[];
+  akun?: string;
 }
 
 // ─── Template komponen (mirrors tagihanTemplates below, used by generator) ────

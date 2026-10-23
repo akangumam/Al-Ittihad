@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { fmt } from "@/lib/formatters";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
-import { akunData } from "@/data/keuangan";
 import { SALDO_AWAL, BOS_KOMPONEN } from "@/data/laporan";
 import { absensiRekapData } from "@/data/absensi";
 
@@ -124,8 +123,6 @@ function fmtTgl(iso: string): string {
   if (isNaN(d.getTime())) return iso;
   return `${d.getDate()} ${d.toLocaleString("id-ID", { month: "short" })} ${d.getFullYear()}`;
 }
-
-function metodeToAkun(m: string) { return m === "Tunai" ? "Kas Tunai" : "Bank BSI"; }
 
 // ─── 1. BKU ───────────────────────────────────────────────────────────────────
 
@@ -299,16 +296,14 @@ function BosPreview() {
 // ─── 3. Neraca ────────────────────────────────────────────────────────────────
 
 function NeracaPreview() {
-  const { transaksiList, tagihanList, siswaList, manualTransaksiList } = useAppContext();
+  const { transaksiList, tagihanList, siswaList, manualTransaksiList, computedAkunList } = useAppContext();
 
   const { aset, ekuitas, piutang } = useMemo(() => {
-    // Compute current saldo per akun
-    const computed = akunData.map(akun => {
-      const deltaMasuk = transaksiList.reduce((s, t) => metodeToAkun(t.metode) === akun.nama ? s + t.nominal : s, 0);
-      const deltaManualMasuk = manualTransaksiList.filter(t => t.akun === akun.nama && t.tipe === "masuk").reduce((s, t) => s + t.jumlah, 0);
-      const deltaManualKeluar = manualTransaksiList.filter(t => t.akun === akun.nama && t.tipe === "keluar").reduce((s, t) => s + t.jumlah, 0);
-      return { ...akun, current: akun.saldo + deltaMasuk + deltaManualMasuk - deltaManualKeluar };
-    });
+    // Current saldo per akun from dynamic accounts
+    const computed = computedAkunList.map(akun => ({
+      ...akun,
+      current: akun.saldo,
+    }));
 
     // Piutang: unpaid tagihan from active students
     const activeNis = new Set(siswaList.filter(s => s.status === "Aktif").map(s => s.nis));
@@ -325,7 +320,7 @@ function NeracaPreview() {
     const surplus = allMasuk - allKeluar;
 
     return { aset: computed, ekuitas: { modalAwal: SALDO_AWAL, surplus, total: SALDO_AWAL + surplus }, piutang, totalAset };
-  }, [transaksiList, tagihanList, siswaList, manualTransaksiList]);
+  }, [transaksiList, tagihanList, siswaList, manualTransaksiList, computedAkunList]);
 
   const totalAset = aset.reduce((s, a) => s + a.current, 0) + piutang;
 

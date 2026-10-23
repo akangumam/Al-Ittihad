@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import {
   Plus, Search, ChevronDown, ChevronLeft, ChevronRight,
   Calendar, MoreHorizontal, ArrowRight, Landmark, Wallet, X,
-  TrendingUp, TrendingDown,
+  TrendingUp, TrendingDown, Edit2, Trash2, AlertTriangle, Building,
 } from "lucide-react";
 import { fmt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 import {
   BSI_SPARK, MANDIRI_SPARK, KAS_SPARK,
-  akunData,
+  akunData, AkunRow, resolveAkunForPembayaran,
 } from "@/data/keuangan";
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -60,8 +60,8 @@ function fmtTanggal(isoOrStr: string): string {
   return `${d.getDate()} ${d.toLocaleString("id-ID", { month: "short" })} ${d.getFullYear()}`;
 }
 
-function metodeToAkun(metode: string): AkunNama {
-  return metode === "Tunai" ? "Kas Tunai" : "Bank BSI";
+function getAkunForTrx(metode: string, customAkun?: string, list?: AkunRow[]): AkunNama {
+  return (customAkun || resolveAkunForPembayaran(metode, customAkun, list)) as AkunNama;
 }
 
 // ─── Transaksi form sheet ─────────────────────────────────────────────────────
@@ -75,12 +75,14 @@ function TransaksiSheet({
   onClose: () => void;
   onSave: (data: Omit<ManualTransaksiRow, "id" | "dicatatOleh" | "waktuCatat" | "ref">) => void;
 }) {
+  const { akunList } = useAppContext();
+  const optionsAkun = akunList.length > 0 ? akunList.map(a => a.nama) : AKUN_OPTIONS;
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState({
     tanggal: today,
     keterangan: "",
     kategori: tipe === "masuk" ? KATEGORI_MASUK[0] : KATEGORI_KELUAR[0],
-    akun: "Bank BSI" as AkunNama,
+    akun: (optionsAkun[0] || "Bank BSI") as AkunNama,
     jumlah: "",
     catatan: "",
   });
@@ -206,7 +208,7 @@ function TransaksiSheet({
                   onChange={e => setForm(f => ({ ...f, akun: e.target.value as AkunNama }))}
                   className="w-full appearance-none px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors"
                 >
-                  {AKUN_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+                  {optionsAkun.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
                 <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
               </div>
@@ -318,13 +320,13 @@ function TransaksiTab() {
         tanggalRaw: t.tanggal,
         keterangan: `Pembayaran ${nama}`,
         kategori,
-        akun: metodeToAkun(t.metode) as AkunNama,
+        akun: getAkunForTrx(t.metode, (t as any).akun, akunList),
         ref: t.nomorKuitansi,
         jumlah: t.nominal,
         tipe: "masuk" as const,
       };
     }).sort((a, b) => b.tanggalRaw.localeCompare(a.tanggalRaw)),
-  [transaksiList, siswaList, tagihanList]);
+  [transaksiList, siswaList, tagihanList, akunList]);
 
   // Manual entries (both masuk and keluar)
   const manualRows = useMemo(() =>
@@ -613,91 +615,388 @@ function TransaksiTab() {
   );
 }
 
+// ─── AkunFormSheet ────────────────────────────────────────────────────────────
+
+type AkunFormMode = "add" | "edit";
+
+function AkunFormSheet({
+  mode,
+  initial,
+  onClose,
+  onSave,
+}: {
+  mode: AkunFormMode;
+  initial?: AkunRow;
+  onClose: () => void;
+  onSave: (data: Omit<AkunRow, "id">) => void;
+}) {
+  const [nama, setNama] = useState(initial?.nama ?? "");
+  const [tipe, setTipe] = useState<"bank" | "wallet">(initial?.icon ?? "bank");
+  const [nomor, setNomor] = useState(initial?.nomor ?? "");
+  const [atasNama, setAtasNama] = useState(initial?.atasNama ?? "");
+  const [saldo, setSaldo] = useState(initial?.saldo ? String(initial.saldo) : "");
+  const [catatan, setCatatan] = useState(initial?.catatan ?? "");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function validate() {
+    const e: Record<string, string> = {};
+    if (!nama.trim()) e.nama = "Nama akun wajib diisi";
+    if (tipe === "bank" && !nomor.trim()) e.nomor = "Nomor rekening wajib diisi untuk akun bank";
+    return e;
+  }
+
+  function handleSave() {
+    const e = validate();
+    if (Object.keys(e).length > 0) { setErrors(e); return; }
+    const nominalSaldo = Number(saldo.replace(/\D/g, "")) || 0;
+    onSave({
+      nama: nama.trim(),
+      nomor: tipe === "wallet" ? null : (nomor.trim() || null),
+      atasNama: atasNama.trim() || undefined,
+      saldo: nominalSaldo,
+      icon: tipe,
+      sparkColor: tipe === "wallet" ? "#F6B31E" : "#3E8A2F",
+      spark: [0, 0, 0],
+      rekonsiliasi: "—",
+      catatan: catatan.trim() || undefined,
+    });
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/25" onClick={onClose} />
+      <div
+        className="fixed inset-0 md:inset-y-0 md:left-auto md:right-0 md:w-[480px] z-50 flex flex-col bg-white"
+        style={{ borderLeft: "1px solid #E2E8DE", boxShadow: "-4px 0 32px rgba(0,0,0,0.10)" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "#EDF7EC" }}>
+              {tipe === "wallet" ? <Wallet size={17} className="text-[#3E8A2F]" /> : <Landmark size={17} className="text-[#3E8A2F]" />}
+            </div>
+            <div>
+              <h3 className="font-bold text-[#1C2517]">{mode === "add" ? "Tambah Akun Keuangan" : "Edit Akun Keuangan"}</h3>
+              <p className="text-xs text-[#6B7769] mt-0.5">{mode === "add" ? "Daftarkan rekening bank atau kas tunai baru" : "Perbarui informasi akun keuangan"}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F5F9F4] transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Form */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+          {/* Tipe */}
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-2">Jenis Akun <span className="text-[#DC2626]">*</span></label>
+            <div className="grid grid-cols-2 gap-3">
+              {(["bank", "wallet"] as const).map(t => {
+                const isSelected = tipe === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTipe(t)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      border: isSelected ? "2px solid #3E8A2F" : "1.5px solid #E2E8DE",
+                      background: isSelected ? "#F0FAF0" : "#fff",
+                      color: isSelected ? "#1C2517" : "#6B7769",
+                    }}
+                  >
+                    {t === "bank" ? <Landmark size={16} className={isSelected ? "text-[#3E8A2F]" : "text-[#9CA3A0]"} /> : <Wallet size={16} className={isSelected ? "text-[#F6B31E]" : "text-[#9CA3A0]"} />}
+                    {t === "bank" ? "Rekening Bank" : "Kas Tunai"}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Nama */}
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Nama Akun <span className="text-[#DC2626]">*</span></label>
+            <input
+              type="text" value={nama} placeholder={tipe === "bank" ? "cth. Bank BSI Operasional" : "cth. Kas Tunai TU"}
+              onChange={e => { setNama(e.target.value); setErrors(p => ({ ...p, nama: "" })); }}
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none"
+              style={{ border: errors.nama ? "1px solid #DC2626" : "1px solid #E2E8DE" }}
+            />
+            {errors.nama && <p className="text-xs text-[#DC2626] mt-1">{errors.nama}</p>}
+          </div>
+
+          {/* Nomor Rekening (hanya untuk bank) */}
+          {tipe === "bank" && (
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Nomor Rekening <span className="text-[#DC2626]">*</span></label>
+              <input
+                type="text" value={nomor} placeholder="cth. 7101-0254-3318"
+                onChange={e => { setNomor(e.target.value); setErrors(p => ({ ...p, nomor: "" })); }}
+                className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none"
+                style={{ border: errors.nomor ? "1px solid #DC2626" : "1px solid #E2E8DE", fontFamily: "monospace" }}
+              />
+              {errors.nomor && <p className="text-xs text-[#DC2626] mt-1">{errors.nomor}</p>}
+            </div>
+          )}
+
+          {/* Atas Nama */}
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Atas Nama</label>
+            <input
+              type="text" value={atasNama} placeholder="cth. MTs Al-Ittihad Pedaleman"
+              onChange={e => setAtasNama(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none border border-[#E2E8DE]"
+            />
+          </div>
+
+          {/* Saldo Awal */}
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Saldo Awal (Rp)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6B7769]">Rp</span>
+              <input
+                type="text" inputMode="numeric" value={saldo}
+                placeholder="0"
+                onChange={e => {
+                  const num = e.target.value.replace(/\D/g, "");
+                  setSaldo(num ? Number(num).toLocaleString("id-ID") : "");
+                }}
+                className="w-full pl-8 pr-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none border border-[#E2E8DE]"
+              />
+            </div>
+            <p className="text-xs text-[#9CA3A0] mt-1">Saldo awal saat akun pertama kali didaftarkan</p>
+          </div>
+
+          {/* Catatan */}
+          <div>
+            <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">Catatan</label>
+            <textarea
+              value={catatan} rows={2} placeholder="Keterangan tambahan akun..."
+              onChange={e => setCatatan(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none border border-[#E2E8DE] resize-none"
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 shrink-0 flex gap-3" style={{ borderTop: "1px solid #E2E8DE" }}>
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#6B7769] bg-[#F5F9F4] hover:bg-[#E8F0E5] transition-colors"
+          >Batal</button>
+          <button
+            onClick={handleSave}
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
+            style={{ background: "#3E8A2F" }}
+          >{mode === "add" ? "Tambah Akun" : "Simpan Perubahan"}</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── DeleteAkunDialog ─────────────────────────────────────────────────────────
+
+function DeleteAkunDialog({
+  akun,
+  onClose,
+  onConfirm,
+}: {
+  akun: AkunRow;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" style={{ border: "1px solid #E2E8DE" }}>
+          <div className="flex items-start gap-4 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-[#FEE2E2] flex items-center justify-center shrink-0">
+              <Trash2 size={18} className="text-[#DC2626]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-[#1C2517] mb-1">Hapus Akun Keuangan</h3>
+              <p className="text-sm text-[#6B7769]">
+                Anda akan menghapus akun <strong>"{akun.nama}"</strong>
+                {akun.nomor ? ` (${akun.nomor})` : ""}. Tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#6B7769] bg-[#F5F9F4] hover:bg-[#E8F0E5] transition-colors"
+            >Batal</button>
+            <button
+              onClick={onConfirm}
+              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] transition-colors"
+            >Ya, Hapus</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Akun tab ─────────────────────────────────────────────────────────────────
 
 function AkunTab() {
-  const { transaksiList, manualTransaksiList } = useAppContext();
+  const { manualTransaksiList, bankTransferList, computedAkunList, addAkun, updateAkun, deleteAkun } = useAppContext();
+  const [formMode, setFormMode] = useState<{ mode: AkunFormMode; akun?: AkunRow } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AkunRow | null>(null);
 
-  const computedAkun = useMemo(() => {
-    return akunData.map(akun => {
-      const deltaMasuk = transaksiList.reduce((sum, t) =>
-        metodeToAkun(t.metode) === akun.nama ? sum + t.nominal : sum, 0);
-      const deltaManualMasuk = manualTransaksiList
-        .filter(t => t.akun === akun.nama && t.tipe === "masuk")
-        .reduce((s, t) => s + t.jumlah, 0);
-      const deltaManualKeluar = manualTransaksiList
-        .filter(t => t.akun === akun.nama && t.tipe === "keluar")
-        .reduce((s, t) => s + t.jumlah, 0);
-      return {
-        ...akun,
-        saldo: akun.saldo + deltaMasuk + deltaManualMasuk - deltaManualKeluar,
-      };
-    });
-  }, [transaksiList, manualTransaksiList]);
+  const computedAkun = computedAkunList;
+
+  function handleDelete(akun: AkunRow) {
+    const result = deleteAkun(akun.id);
+    if (!result.success) {
+      toast.error(result.message ?? "Gagal menghapus akun");
+    } else {
+      toast.success(`Akun "${akun.nama}" berhasil dihapus`);
+    }
+    setDeleteTarget(null);
+  }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-      {computedAkun.map((akun) => {
-        const Icon = akun.icon === "wallet" ? Wallet : Landmark;
-        const iconBg    = akun.icon === "wallet" ? "#FEF3C7" : "#EDF7EC";
-        const iconColor = akun.icon === "wallet" ? "#92400E" : "#3E8A2F";
-        return (
-          <div key={akun.id} className="bg-white rounded-xl p-6 flex flex-col" style={{ border: "1px solid #E2E8DE" }}>
-            <div className="flex items-start justify-between mb-4">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#1C2517]">{akun.nama}</p>
-                {akun.nomor
-                  ? <p className="text-[11px] text-[#9CA3A0] mt-0.5" style={{ fontFamily: "monospace" }}>{akun.nomor}</p>
-                  : <p className="text-[11px] text-[#9CA3A0] mt-0.5">Petty cash</p>
-                }
-              </div>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ml-3" style={{ background: iconBg }}>
-                <Icon size={15} style={{ color: iconColor }} />
-              </div>
-            </div>
-            <p className="tabular-nums font-bold text-[#1C2517] tracking-tight mb-4" style={{ fontSize: "1.25rem" }}>
-              {fmt(akun.saldo)}
-            </p>
-            <div className="flex-1 flex items-end mb-3">
-              <Sparkline data={akun.spark} color={akun.sparkColor} />
-            </div>
-            <p className="text-[11px] text-[#9CA3A0]">Terakhir rekonsiliasi: {akun.rekonsiliasi}</p>
-          </div>
-        );
-      })}
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        {computedAkun.map((akun) => {
+          const Icon = akun.icon === "wallet" ? Wallet : Landmark;
+          const iconBg    = akun.icon === "wallet" ? "#FEF3C7" : "#EDF7EC";
+          const iconColor = akun.icon === "wallet" ? "#92400E" : "#3E8A2F";
+          const manualTrxCount = manualTransaksiList.filter(t => t.akun === akun.nama).length;
+          const transferCount  = bankTransferList.filter(t => t.dari === akun.nama || t.ke === akun.nama).length;
+          const hasTrx = (manualTrxCount + transferCount) > 0;
 
-      {/* Add account slot */}
-      <button
-        className="flex flex-col items-center justify-center rounded-xl transition-colors group"
-        style={{ border: "2px dashed #D1D5DB" }}
-        onMouseOver={e => {
-          (e.currentTarget as HTMLElement).style.borderColor = "#3E8A2F";
-          (e.currentTarget as HTMLElement).style.background = "#F5FBF4";
-        }}
-        onMouseOut={e => {
-          (e.currentTarget as HTMLElement).style.borderColor = "#D1D5DB";
-          (e.currentTarget as HTMLElement).style.background = "";
-        }}
-      >
-        <div className="w-9 h-9 rounded-xl bg-[#E2E8DE] flex items-center justify-center mb-2.5 group-hover:bg-[#DCFCE7] transition-colors">
-          <Plus size={18} className="text-[#9CA3A0] group-hover:text-[#3E8A2F]" />
-        </div>
-        <p className="text-sm font-semibold text-[#9CA3A0] group-hover:text-[#3E8A2F] transition-colors">
-          Tambah Akun
-        </p>
-      </button>
-    </div>
+          return (
+            <div key={String(akun.id)} className="bg-white rounded-xl p-5 flex flex-col group relative" style={{ border: "1px solid #E2E8DE" }}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: iconBg }}>
+                    <Icon size={15} style={{ color: iconColor }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[#1C2517] truncate">{akun.nama}</p>
+                    {akun.nomor
+                      ? <p className="text-[11px] text-[#9CA3A0] mt-0.5 truncate" style={{ fontFamily: "monospace" }}>{akun.nomor}</p>
+                      : <p className="text-[11px] text-[#9CA3A0] mt-0.5">Petty cash</p>
+                    }
+                  </div>
+                </div>
+                {/* Aksi edit/hapus */}
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-2">
+                  <button
+                    onClick={() => setFormMode({ mode: "edit", akun })}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#F0FAF0] hover:text-[#3E8A2F] transition-colors"
+                    title="Edit akun"
+                  >
+                    <Edit2 size={13} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (hasTrx) {
+                        toast.error(`Akun "${akun.nama}" memiliki transaksi aktif dan tidak dapat dihapus`);
+                      } else {
+                        setDeleteTarget(akun);
+                      }
+                    }}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-[#6B7769] hover:bg-[#FEE2E2] hover:text-[#DC2626] transition-colors"
+                    title="Hapus akun"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+
+              <p className="tabular-nums font-bold text-[#1C2517] tracking-tight mb-3" style={{ fontSize: "1.20rem" }}>
+                {fmt(akun.saldo)}
+              </p>
+              <div className="flex-1 flex items-end mb-3">
+                <Sparkline data={akun.spark ?? [0, 0, 0]} color={akun.sparkColor ?? "#3E8A2F"} />
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] text-[#9CA3A0]">Rekonsiliasi: {akun.rekonsiliasi ?? "—"}</p>
+                {hasTrx && (
+                  <span className="text-[10px] bg-[#EDF7EC] text-[#3E8A2F] px-2 py-0.5 rounded-full font-semibold">
+                    {manualTrxCount + transferCount} trx
+                  </span>
+                )}
+              </div>
+              {akun.catatan && (
+                <p className="text-[11px] text-[#9CA3A0] mt-1 italic truncate">{akun.catatan}</p>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Add account slot */}
+        <button
+          className="flex flex-col items-center justify-center rounded-xl transition-all group min-h-[180px]"
+          style={{ border: "2px dashed #D1D5DB" }}
+          onClick={() => setFormMode({ mode: "add" })}
+          onMouseOver={e => {
+            (e.currentTarget as HTMLElement).style.borderColor = "#3E8A2F";
+            (e.currentTarget as HTMLElement).style.background = "#F5FBF4";
+          }}
+          onMouseOut={e => {
+            (e.currentTarget as HTMLElement).style.borderColor = "#D1D5DB";
+            (e.currentTarget as HTMLElement).style.background = "";
+          }}
+        >
+          <div className="w-10 h-10 rounded-xl bg-[#E2E8DE] flex items-center justify-center mb-2.5 group-hover:bg-[#DCFCE7] transition-colors">
+            <Plus size={20} className="text-[#9CA3A0] group-hover:text-[#3E8A2F]" />
+          </div>
+          <p className="text-sm font-semibold text-[#9CA3A0] group-hover:text-[#3E8A2F] transition-colors">
+            Tambah Akun
+          </p>
+          <p className="text-xs text-[#C8CFC5] mt-1 group-hover:text-[#9CA3A0] transition-colors">
+            Bank atau Kas Tunai
+          </p>
+        </button>
+      </div>
+
+      {/* Form Sheet Add/Edit */}
+      {formMode && (
+        <AkunFormSheet
+          mode={formMode.mode}
+          initial={formMode.akun}
+          onClose={() => setFormMode(null)}
+          onSave={data => {
+            if (formMode.mode === "add") {
+              const saved = addAkun(data);
+              toast.success(`Akun "${saved.nama}" berhasil ditambahkan`);
+            } else if (formMode.akun) {
+              updateAkun(formMode.akun.id, data);
+              toast.success(`Akun "${data.nama}" berhasil diperbarui`);
+            }
+            setFormMode(null);
+          }}
+        />
+      )}
+
+      {/* Confirm Delete */}
+      {deleteTarget && (
+        <DeleteAkunDialog
+          akun={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => handleDelete(deleteTarget)}
+        />
+      )}
+    </>
   );
 }
 
 // ─── Buat Transfer Sheet ──────────────────────────────────────────────────────
 
 function BuatTransferSheet({ onClose }: { onClose: () => void }) {
-  const { addBankTransfer, logActivity } = useAppContext();
+  const { addBankTransfer, logActivity, akunList } = useAppContext();
+  const optionsAkun = akunList.length > 0 ? akunList.map(a => a.nama) : AKUN_OPTIONS;
   const today = new Date().toISOString().split("T")[0];
   const [tanggal, setTanggal]   = useState(today);
-  const [dari, setDari]         = useState<AkunNama>("Bank BSI");
-  const [ke, setKe]             = useState<AkunNama>("Kas Tunai");
+  const [dari, setDari]         = useState<AkunNama>(optionsAkun[0] || "Bank BSI");
+  const [ke, setKe]             = useState<AkunNama>(optionsAkun[1] || optionsAkun[0] || "Kas Tunai");
   const [nominal, setNominal]   = useState("");
   const [catatan, setCatatan]   = useState("");
   const [errors, setErrors]     = useState<Record<string, string>>({});
@@ -758,7 +1057,7 @@ function BuatTransferSheet({ onClose }: { onClose: () => void }) {
                 className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none appearance-none"
                 style={{ border: "1px solid #E2E8DE" }}
               >
-                {AKUN_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+                {optionsAkun.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
 
@@ -770,7 +1069,7 @@ function BuatTransferSheet({ onClose }: { onClose: () => void }) {
                 className="w-full px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none appearance-none"
                 style={{ border: errors.ke ? "1px solid #DC2626" : "1px solid #E2E8DE" }}
               >
-                {AKUN_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
+                {optionsAkun.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
               {errors.ke && <p className="text-xs text-[#DC2626] mt-1">{errors.ke}</p>}
             </div>

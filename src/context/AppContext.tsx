@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import type { Role, AppSettings, ActivityLogEntry, MutasiRecord, ManualTransaksiRow, BankTransferRow } from "@/types";
 import { WA_TEMPLATE_DEFAULTS } from "@/lib/waTemplates";
-import { RABRow, RAB_DATA, mutasiData } from "@/data/keuangan";
+import { RABRow, RAB_DATA, mutasiData, AkunRow, akunData, computeSaldoAkunList } from "@/data/keuangan";
 import { useAuth } from "@/context/AuthContext";
 import { fmt, getTodayDateString } from "@/lib/formatters";
 import { isGhostEmail } from "@/lib/ghost";
@@ -47,6 +47,11 @@ import {
   updateRabDB,
   deleteRabDB,
   bulkInsertRabDB,
+  loadAkunFromDB,
+  insertAkunDB,
+  updateAkunDB,
+  deleteAkunDB,
+  bulkInsertAkunDB,
 } from "@/lib/supabase-keuangan";
 import {
   loadAppSettingsFromDB,
@@ -165,6 +170,13 @@ interface AppContextValue {
 
   bankTransferList: BankTransferRow[];
   addBankTransfer: (row: Omit<BankTransferRow, "id" | "dicatatOleh" | "waktuCatat">) => void;
+
+  akunList: AkunRow[];
+  computedAkunList: (AkunRow & { saldoBerjalan: number })[];
+  addAkun: (row: Omit<AkunRow, "id">) => AkunRow;
+  updateAkun: (id: string | number, data: Partial<AkunRow>) => void;
+  deleteAkun: (id: string | number) => { success: boolean; message?: string };
+
   resetToCleanData: () => void;
   refreshAllCloudData: () => Promise<void>;
   isSyncing: boolean;
@@ -252,6 +264,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const missing = BANK_TRANSFER_SEED.filter(t => !existingIds.has(t.id));
       return [...existing, ...missing];
     } catch { return BANK_TRANSFER_SEED; }
+  });
+
+  const [akunList, setAkunList] = useState<AkunRow[]>(() => {
+    try {
+      const s = localStorage.getItem("alittihad_akun_bank");
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return akunData;
   });
 
   const defaultAppSettings: AppSettings = {
@@ -656,6 +679,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setRabList(RAB_DATA);
           }
         }
+
+        try {
+          const dbAkun = await loadAkunFromDB();
+          if (dbAkun && dbAkun.length > 0) {
+            setAkunList(dbAkun);
+          } else {
+            const localAkunStr = localStorage.getItem("alittihad_akun_bank");
+            if (localAkunStr) {
+              const parsed = JSON.parse(localAkunStr);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                setAkunList(parsed);
+                bulkInsertAkunDB(parsed).catch(() => {});
+              }
+            } else {
+              bulkInsertAkunDB(akunData).catch(() => {});
+            }
+          }
+        } catch {}
       } catch (e) {
         console.error("Gagal load kas/bank/rab dari Supabase", e);
       }
@@ -1134,6 +1175,90 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem("alittihad_bank_transfer", JSON.stringify(bankTransferList));
   }, [bankTransferList]);
+
+  useEffect(() => {
+    localStorage.setItem("alittihad_akun_bank", JSON.stringify(akunList));
+  }, [akunList]);
+
+  const addAkun = (row: Omit<AkunRow, "id">): AkunRow => {
+    const newId = `akun-${Date.now()}`;
+    const newAkun: AkunRow = {
+      ...row,
+      id: newId,
+      spark: row.spark ?? [0, 0, 0],
+      sparkColor: row.sparkColor ?? (row.icon === "wallet" ? "#F6B31E" : "#3E8A2F"),
+      icon: row.icon ?? (row.nama.toLowerCase().includes("kas") ? "wallet" : "bank"),
+      rekonsiliasi: row.rekonsiliasi ?? "—",
+      saldo: Number(row.saldo) || 0,
+    };
+    setAkunList(prev => [...prev, newAkun]);
+    logActivity({
+      tipe: "Kelola Akun Bank",
+      deskripsi: `Tambah akun keuangan: ${newAkun.nama}${newAkun.nomor ? ` (${newAkun.nomor})` : ""}`,
+      ref: "—",
+    });
+    insertAkunDB(newAkun).catch(() => {});
+    return newAkun;
+  };
+
+  const updateAkun = (id: string | number, data: Partial<AkunRow>) => {
+    const target = akunList.find(a => String(a.id) === String(id));
+    const oldNama = target?.nama;
+    setAkunList(prev => prev.map(a => String(a.id) === String(id) ? { ...a, ...data } : a));
+
+    if (data.nama && oldNama && data.nama !== oldNama) {
+      const newNama = data.nama;
+      setManualTransaksiList(prev => prev.map(t => t.akun === oldNama ? { ...t, akun: newNama } : t));
+      setBankTransferList(prev => prev.map(t => ({
+        ...t,
+        dari: t.dari === oldNama ? newNama : t.dari,
+        ke: t.ke === oldNama ? newNama : t.ke,
+      })));
+      setTransaksiList(prev => prev.map(t => (t as any).akun === oldNama ? { ...t, akun: newNama } : t));
+    }
+
+    logActivity({
+      tipe: "Kelola Akun Bank",
+      deskripsi: `Perbarui akun keuangan: ${data.nama || oldNama || id}`,
+      ref: "—",
+    });
+    updateAkunDB(id, data).catch(() => {});
+  };
+
+  const computedAkunList = useMemo(() => {
+    return computeSaldoAkunList(akunList, transaksiList, manualTransaksiList, bankTransferList);
+  }, [akunList, transaksiList, manualTransaksiList, bankTransferList]);
+
+  const deleteAkun = (id: string | number): { success: boolean; message?: string } => {
+    if (akunList.length <= 1) {
+      return { success: false, message: "Minimal harus ada 1 akun kas/bank di sistem." };
+    }
+    const target = akunList.find(a => String(a.id) === String(id));
+    if (!target) {
+      return { success: false, message: "Akun tidak ditemukan." };
+    }
+
+    const manualCount = manualTransaksiList.filter(t => t.akun === target.nama).length;
+    const transferCount = bankTransferList.filter(t => t.dari === target.nama || t.ke === target.nama).length;
+    const pembayaranCount = transaksiList.filter(t => (t as any).akun === target.nama).length;
+    const totalTrx = manualCount + transferCount + pembayaranCount;
+
+    if (totalTrx > 0) {
+      return {
+        success: false,
+        message: `Akun "${target.nama}" tidak dapat dihapus karena memiliki ${totalTrx} transaksi aktif (${manualCount} transaksi kas umum, ${transferCount} mutasi transfer, ${pembayaranCount} pembayaran kasir). Silakan edit akun atau hapus transaksi terkait terlebih dahulu.`,
+      };
+    }
+
+    setAkunList(prev => prev.filter(a => String(a.id) !== String(id)));
+    logActivity({
+      tipe: "Kelola Akun Bank",
+      deskripsi: `Hapus akun keuangan: ${target.nama}`,
+      ref: "—",
+    });
+    deleteAkunDB(id).catch(() => {});
+    return { success: true };
+  };
 
   const nextBVRef = (tipe: "masuk" | "keluar"): string => {
     const now = new Date();
@@ -1732,6 +1857,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         manualTransaksiList, addManualTransaksi, nextBVRef,
         rabList, addRab, updateRab, deleteRab,
         bankTransferList, addBankTransfer,
+        akunList, computedAkunList, addAkun, updateAkun, deleteAkun,
         resetToCleanData,
         refreshAllCloudData,
         isSyncing,

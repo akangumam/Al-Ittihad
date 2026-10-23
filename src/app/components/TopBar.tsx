@@ -7,14 +7,8 @@ import {
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { tahunAjaranOptions } from "@/data/settings";
-import { akunData } from "@/data/keuangan";
-import type { AkunNama } from "@/types";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { toast } from "sonner";
-
-function metodeToAkun(metode: string): AkunNama {
-  return metode === "Tunai" ? "Kas Tunai" : "Bank BSI";
-}
 
 // ─── alert types ─────────────────────────────────────────────────────────────
 
@@ -41,7 +35,7 @@ const SALDO_MINIMUM = 12_000_000;
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export function useAlerts() {
-  const { tagihanList, siswaList, jadwalList, guruList, absensiGuruHariIni, transaksiList, manualTransaksiList } = useAppContext();
+  const { tagihanList, siswaList, jadwalList, guruList, absensiGuruHariIni, computedAkunList } = useAppContext();
 
   return useMemo<Alert[]>(() => {
     const today = new Date();
@@ -121,19 +115,7 @@ export function useAlerts() {
     });
 
     // ── 4. Saldo minimum ─────────────────────────────────────────────────────
-    const computedAkun = akunData.map(akun => {
-      const deltaMasuk = transaksiList.reduce((sum, t) =>
-        metodeToAkun(t.metode) === akun.nama ? sum + t.nominal : sum, 0);
-      const deltaManualMasuk = manualTransaksiList
-        .filter(t => t.akun === akun.nama && t.tipe === "masuk")
-        .reduce((s, t) => s + t.jumlah, 0);
-      const deltaManualKeluar = manualTransaksiList
-        .filter(t => t.akun === akun.nama && t.tipe === "keluar")
-        .reduce((s, t) => s + t.jumlah, 0);
-      return { ...akun, saldo: akun.saldo + deltaMasuk + deltaManualMasuk - deltaManualKeluar };
-    });
-
-    computedAkun.forEach(akun => {
+    computedAkunList.forEach(akun => {
       if (akun.saldo < SALDO_MINIMUM) alerts.push({
         id: `saldo-${akun.id}`,
         level: "kritis",
@@ -145,7 +127,7 @@ export function useAlerts() {
     });
 
     return alerts;
-  }, [tagihanList, siswaList, jadwalList, guruList, absensiGuruHariIni, transaksiList, manualTransaksiList]);
+  }, [tagihanList, siswaList, jadwalList, guruList, absensiGuruHariIni, computedAkunList]);
 }
 
 // ─── notification panel ───────────────────────────────────────────────────────

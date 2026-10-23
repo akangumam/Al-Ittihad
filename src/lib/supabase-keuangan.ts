@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { ManualTransaksiRow, BankTransferRow, AkunNama } from "@/types";
-import type { RABRow } from "@/data/keuangan";
+import type { RABRow, AkunRow } from "@/data/keuangan";
 
 // ─── Manual Transaksi (Buku Kas Umum) ─────────────────────────────────────────
 
@@ -163,3 +163,84 @@ export async function bulkInsertRabDB(rows: Omit<RABRow, "id">[]): Promise<RABRo
   if (error) throw error;
   return (data ?? []).map(rowToRAB);
 }
+
+// ─── Akun Bank / Kas ─────────────────────────────────────────────────────────
+
+export function rowToAkun(r: Record<string, any>): AkunRow {
+  return {
+    id:           r.id,
+    nama:         r.nama,
+    nomor:        r.nomor ?? null,
+    atasNama:     r.atas_nama ?? undefined,
+    saldo:        Number(r.saldo_awal ?? r.saldo ?? 0),
+    spark:        Array.isArray(r.spark) ? r.spark : [0, 0, 0],
+    sparkColor:   r.spark_color ?? "#3E8A2F",
+    icon:         (r.icon as "bank" | "wallet") ?? (r.tipe === "Kas" ? "wallet" : "bank"),
+    rekonsiliasi: r.rekonsiliasi ?? "—",
+    catatan:      r.catatan ?? undefined,
+    isDefault:    Boolean(r.is_default),
+  };
+}
+
+export function akunToPayload(a: AkunRow): Record<string, unknown> {
+  return {
+    id:           a.id,
+    nama:         a.nama,
+    nomor:        a.nomor,
+    atas_nama:    a.atasNama ?? null,
+    saldo_awal:   a.saldo,
+    spark:        a.spark ?? [0, 0, 0],
+    spark_color:  a.sparkColor ?? "#3E8A2F",
+    icon:         a.icon ?? "bank",
+    rekonsiliasi: a.rekonsiliasi ?? "—",
+    catatan:      a.catatan ?? null,
+    is_default:   Boolean(a.isDefault),
+  };
+}
+
+export async function loadAkunFromDB(): Promise<AkunRow[]> {
+  const { data, error } = await supabase
+    .from("akun_bank")
+    .select("*")
+    .order("id", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map(rowToAkun);
+}
+
+export async function insertAkunDB(a: AkunRow): Promise<void> {
+  const { error } = await supabase.from("akun_bank").insert(akunToPayload(a));
+  if (error) throw error;
+}
+
+export async function updateAkunDB(id: string | number, a: Partial<AkunRow>): Promise<void> {
+  const payload: Record<string, unknown> = {};
+  if (a.nama !== undefined) payload.nama = a.nama;
+  if (a.nomor !== undefined) payload.nomor = a.nomor;
+  if (a.atasNama !== undefined) payload.atas_nama = a.atasNama;
+  if (a.saldo !== undefined) payload.saldo_awal = a.saldo;
+  if (a.spark !== undefined) payload.spark = a.spark;
+  if (a.sparkColor !== undefined) payload.spark_color = a.sparkColor;
+  if (a.icon !== undefined) payload.icon = a.icon;
+  if (a.rekonsiliasi !== undefined) payload.rekonsiliasi = a.rekonsiliasi;
+  if (a.catatan !== undefined) payload.catatan = a.catatan;
+
+  const { error } = await supabase.from("akun_bank").update(payload).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteAkunDB(id: string | number): Promise<void> {
+  const { error } = await supabase.from("akun_bank").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function bulkInsertAkunDB(rows: AkunRow[]): Promise<AkunRow[]> {
+  const { data, error } = await supabase
+    .from("akun_bank")
+    .insert(rows.map(akunToPayload))
+    .select();
+
+  if (error) throw error;
+  return (data ?? []).map(rowToAkun);
+}
+

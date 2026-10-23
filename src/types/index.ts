@@ -95,7 +95,7 @@ export interface MutasiRecord {
   waktuCatat: string;        // ISO timestamp
 }
 
-export type AkunNama = "Bank BSI" | "Bank Mandiri Syariah" | "Kas Tunai";
+export type AkunNama = string;
 
 export interface ManualTransaksiRow {
   id: string;
@@ -133,7 +133,8 @@ export type ActivityLogTipe =
   | "Hapus Tagihan"
   | "Mutasi Siswa"
   | "Absensi Siswa"
-  | "Absensi Guru";
+  | "Absensi Guru"
+  | "Kelola Akun Bank";
 
 export interface ActivityLogEntry {
   id: string;

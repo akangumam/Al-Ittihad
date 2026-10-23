@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Search, Check, ChevronDown, X, MessageCircle, Printer } from "lucide-react";
 import { useSearchParams } from "react-router";
 import { fmt, fmtNum } from "@/lib/formatters";
@@ -276,7 +276,7 @@ function ReceiptDialog({
 // ─── page component ───────────────────────────────────────────────────────────
 
 export function Pembayaran() {
-  const { siswaList, tagihanList, addTransaksi, appSettings } = useAppContext();
+  const { siswaList, tagihanList, addTransaksi, appSettings, akunList } = useAppContext();
   const [searchParams] = useSearchParams();
   const initialStudentId = searchParams.get("siswaId") ? Number(searchParams.get("siswaId")) : null;
   
@@ -290,9 +290,24 @@ export function Pembayaran() {
     }
   }, [initialStudentId]);
   
+  const optionsAkun = useMemo(() => {
+    return akunList.length > 0 ? akunList.map(a => a.nama) : KAS_BANK_LIST.map(k => k.nama);
+  }, [akunList]);
+
   const [nominal, setNominal] = useState(0);
   const [metode, setMetode] = useState(METODE_PEMBAYARAN_LIST[0] || "Tunai");
-  const [akun, setAkun] = useState(KAS_BANK_LIST[0]?.nama || "Kas Tunai");
+  const [akun, setAkun] = useState(optionsAkun[0] || "Kas Tunai");
+
+  const handleMetodeChange = (m: string) => {
+    setMetode(m);
+    if (m === "Tunai") {
+      const kas = akunList.find(a => a.icon === "wallet" || a.nama.toLowerCase().includes("kas"));
+      if (kas) setAkun(kas.nama);
+    } else {
+      const bank = akunList.find(a => a.icon === "bank" || !a.nama.toLowerCase().includes("kas"));
+      if (bank) setAkun(bank.nama);
+    }
+  };
   const today = new Date();
   const formattedToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [tanggal, setTanggal] = useState(formattedToday);
@@ -344,6 +359,7 @@ export function Pembayaran() {
       tanggal: new Date().toISOString(), // Use real ISO string for storing
       nominal,
       metode,
+      akun,
       nomorKuitansi: "KWT-" + Date.now().toString().slice(-6),
       alokasi: alokasi.filter(a => a.alloc > 0).map(a => ({
         tagihanId: a.id,
@@ -689,7 +705,7 @@ export function Pembayaran() {
                   id="metode"
                   label="Metode Pembayaran"
                   value={metode}
-                  onChange={setMetode}
+                  onChange={handleMetodeChange}
                   options={METODE_PEMBAYARAN_LIST}
                   required
                 />
@@ -698,7 +714,7 @@ export function Pembayaran() {
                   label="Akun Tujuan"
                   value={akun}
                   onChange={setAkun}
-                  options={KAS_BANK_LIST.map((k) => k.nama)}
+                  options={optionsAkun}
                   required
                 />
               </div>

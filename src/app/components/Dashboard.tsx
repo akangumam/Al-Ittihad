@@ -10,7 +10,7 @@ import { fmt, fmtCompact, fmtJt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
-import { akunData, transaksiData } from "@/data/keuangan";
+import { transaksiData } from "@/data/keuangan";
 import { supabase } from "@/lib/supabase";
 import type { AgingBadge } from "@/types";
 
@@ -104,24 +104,17 @@ function KpiCard({
 }
 
 function SaldoAkunCard() {
-  const { transaksiList } = useAppContext();
-  const accounts = useMemo(() => {
-    const delta = transaksiList.reduce<Record<string, number>>((acc, t) => {
-      const akun = t.metode === "Tunai" ? "Kas Tunai" : "Bank BSI";
-      acc[akun] = (acc[akun] ?? 0) + t.nominal;
-      return acc;
-    }, {});
-    return akunData.map(a => ({ ...a, saldo: a.saldo + (delta[a.nama] ?? 0) }));
-  }, [transaksiList]);
+  const { computedAkunList } = useAppContext();
+  const accounts = computedAkunList;
 
   return (
     <div className="bg-white rounded-xl px-6 py-4" style={{ border: "1px solid #E2E8DE" }}>
       <p className="text-sm font-semibold text-[#1C2517] mb-3">Saldo per Akun</p>
-      <div className="grid grid-cols-3 divide-x" style={{ borderColor: "#E2E8DE" }}>
+      <div className={`grid gap-4 ${accounts.length <= 3 ? "grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`} style={{ borderColor: "#E2E8DE" }}>
         {accounts.map((akun, i) => (
-          <div key={i} className={`flex flex-col ${i > 0 ? "pl-6" : ""} ${i < accounts.length - 1 ? "pr-6" : ""}`}>
-            <p className="text-xs text-[#6B7769] font-medium mb-1">{akun.nama}</p>
-            <p className="tabular-nums font-bold text-[#1C2517] tracking-tight text-right">{fmt(akun.saldo)}</p>
+          <div key={String(akun.id)} className={`flex flex-col ${accounts.length <= 3 && i > 0 ? "sm:pl-6 pt-3 sm:pt-0" : "p-3 bg-[#FAFBF9] rounded-xl border border-[#E2E8DE]/60"}`}>
+            <p className="text-xs text-[#6B7769] font-medium mb-1 truncate">{akun.nama}</p>
+            <p className="tabular-nums font-bold text-[#1C2517] tracking-tight">{fmt(akun.saldo)}</p>
           </div>
         ))}
       </div>
@@ -767,14 +760,8 @@ export function Dashboard() {
   }, [transaksiList, ayStart]);
 
   // Mobile: saldo per akun
-  const mobileAkun = useMemo(() => {
-    const delta = transaksiList.reduce<Record<string, number>>((acc, t) => {
-      const akun = t.metode === "Tunai" ? "Kas Tunai" : "Bank BSI";
-      acc[akun] = (acc[akun] ?? 0) + t.nominal;
-      return acc;
-    }, {});
-    return akunData.map(a => ({ ...a, saldo: a.saldo + (delta[a.nama] ?? 0) }));
-  }, [transaksiList]);
+  const { computedAkunList } = useAppContext();
+  const mobileAkun = computedAkunList;
 
   // Mobile: top 3 tunggakan
   const mobileTopTunggakan = useMemo(() => {
