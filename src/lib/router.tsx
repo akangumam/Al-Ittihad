@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Dashboard } from "@/app/components/Dashboard";
 import { Kalender } from "@/app/components/Kalender";
 import { Siswa } from "@/app/components/Siswa";
+import { MobileSiswa } from "@/app/components/MobileSiswa";
 import { Guru } from "@/app/components/Guru";
 import { KelasJadwal } from "@/app/components/KelasJadwal";
 import { Absensi } from "@/app/components/Absensi";
@@ -27,13 +28,15 @@ import { WABlast } from "@/app/components/WABlast";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { Role } from "@/types";
 
-// Pembayaran & Absensi keep separate renderers permanently —
-// they have fundamentally different compositions, not just layout.
+// Pembayaran, Absensi & Siswa keep separate mobile renderers permanently
 function PembayaranRoute() {
   return useIsMobile() ? <MobilePembayaran /> : <Pembayaran />;
 }
 function AbsensiRoute() {
   return useIsMobile() ? <MobileAbsensi /> : <Absensi />;
+}
+function SiswaRoute() {
+  return useIsMobile() ? <MobileSiswa /> : <Siswa />;
 }
 
 function Placeholder({ label }: { label: string }) {
@@ -92,7 +95,7 @@ export const router = createBrowserRouter([
       // Akademik
       {
         path: "akademik/siswa",
-        element: <RequireRole roles={["Admin", "Bendahara"]}><Siswa /></RequireRole>,
+        element: <RequireRole roles={["Admin", "Bendahara", "TU"]}><SiswaRoute /></RequireRole>,
       },
       { path: "akademik/alumni",       element: <Navigate to="/akademik/siswa?tab=alumni" replace /> },
       {

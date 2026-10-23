@@ -30,9 +30,9 @@ interface BottomNavItem {
 
 const ATTENDANCE_NAV: BottomNavItem[] = [
   { id: "dashboard",     path: "/",                              Icon: LayoutDashboard, label: "Beranda" },
-  { id: "absensi-siswa", path: "/akademik/absensi-siswa/manual", Icon: UserCheck,       label: "Siswa" },
+  { id: "absensi-siswa", path: "/akademik/absensi-siswa/manual", Icon: ClipboardList,   label: "Absensi" },
   { id: "scan",          path: "/akademik/absensi-siswa/scan",   Icon: QrCode,          label: "Scan QR", isCenterFab: true },
-  { id: "absensi-guru",  path: "/akademik/absensi",              Icon: ClipboardList,   label: "Guru" },
+  { id: "siswa",         path: "/akademik/siswa",                Icon: Users,           label: "Siswa" },
   { id: "menu",                                                  Icon: MoreHorizontal,  label: "Menu" },
 ];
 
