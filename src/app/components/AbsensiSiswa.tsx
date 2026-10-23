@@ -747,6 +747,7 @@ function ManualTab() {
   const [filterStatus, setFilterStatus] = useState("Semua");
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [showSemuaHadirModal, setShowSemuaHadirModal] = useState(false);
 
   const activeSiswa = useMemo(() => siswaList.filter(s => s.status === "Aktif"), [siswaList]);
 
@@ -849,18 +850,29 @@ function ManualTab() {
     setConfirmEdit(null);
   };
 
-  const markAllTargetHadir = () => {
+  const handleSemuaHadirClick = () => {
+    if (chips.Belum === 0) {
+      toast.info(`Semua siswa di ${kelasFilter === "Semua Kelas" ? "seluruh kelas" : kelasFilter} sudah memiliki catatan kehadiran.`);
+      return;
+    }
+    setShowSemuaHadirModal(true);
+  };
+
+  const handleConfirmSemuaHadir = () => {
     const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    let countMarked = 0;
     setAbsensiSiswaHariIni(prev => {
       const next = { ...prev };
       targetSiswa.forEach(s => {
         if (!next[s.nis]) {
           next[s.nis] = { status: "Hadir", jam: now };
+          countMarked++;
         }
       });
       return next;
     });
-    toast.success(`Semua siswa yang belum absen di ${kelasFilter === "Semua Kelas" ? "seluruh kelas" : kelasFilter} ditandai Hadir`);
+    toast.success(`${countMarked} siswa di ${kelasFilter === "Semua Kelas" ? "seluruh kelas" : kelasFilter} berhasil ditandai Hadir`);
+    setShowSemuaHadirModal(false);
   };
 
   const filteredRows = useMemo(() => {
@@ -1009,11 +1021,12 @@ function ManualTab() {
             </div>
             
             <button
-              onClick={markAllTargetHadir}
-              className="px-3 py-2 rounded-lg bg-[#F5F9F4] text-[#3E8A2F] text-xs sm:text-sm font-semibold hover:bg-[#E8F2E6] transition-colors whitespace-nowrap"
+              onClick={handleSemuaHadirClick}
+              className="px-3 py-2 rounded-lg bg-[#F5F9F4] text-[#3E8A2F] text-xs sm:text-sm font-semibold hover:bg-[#E8F2E6] transition-colors whitespace-nowrap flex items-center gap-1.5"
               style={{ border: "1px solid #3E8A2F" }}
             >
-              Semua Hadir
+              <CheckCircle2 size={14} />
+              <span>Semua Hadir</span>
             </button>
           </div>
           
@@ -1386,6 +1399,69 @@ function ManualTab() {
                 className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#3E8A2F] hover:bg-[#2E6B22] shadow-sm transition-colors"
               >
                 Ya, Ubah Status
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Dialog Konfirmasi "Semua Hadir" */}
+      {showSemuaHadirModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E2E8DE] animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#3E8A2F] shrink-0">
+                <CheckCircle2 size={22} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-[#1C2517]">Tandai Semua Hadir?</h3>
+                <p className="text-xs text-[#6B7769]">Konfirmasi presensi massal untuk siswa yang belum absen.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#FAFBF9] rounded-xl p-4 border border-[#E2E8DE] mb-5 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7769]">Target Kelas:</span>
+                <span className="font-bold text-[#1C2517] bg-white px-2 py-0.5 rounded border border-[#E2E8DE]">
+                  {kelasFilter}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7769]">Siswa Belum Absen:</span>
+                <span className="font-bold text-[#166534] bg-[#DCFCE7] px-2 py-0.5 rounded">
+                  {chips.Belum} Siswa
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7769]">Waktu Presensi:</span>
+                <span className="font-semibold text-[#1C2517]">
+                  {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                </span>
+              </div>
+
+              <div className="pt-2.5 border-t border-[#E2E8DE] text-[11px] text-[#6B7769] leading-relaxed flex items-start gap-1.5">
+                <Info size={14} className="text-[#3E8A2F] shrink-0 mt-0.5" />
+                <span>
+                  Siswa yang sudah tercatat (<em>Terlambat, Izin, Sakit, Alpa</em>) tidak akan diubah. Hanya siswa yang berstatus <strong>Belum Absen</strong> yang akan ditandai Hadir.
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowSemuaHadirModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-[#6B7769] hover:bg-neutral-100 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSemuaHadir}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#3E8A2F] hover:bg-[#2E6B22] shadow-sm transition-colors flex items-center gap-1.5"
+              >
+                <Check size={16} />
+                <span>Ya, Tandai Hadir ({chips.Belum})</span>
               </button>
             </div>
           </div>

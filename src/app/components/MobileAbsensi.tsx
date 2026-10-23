@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { CalendarDays, ChevronDown, FileText } from "lucide-react";
+import { CalendarDays, ChevronDown, FileText, CheckCircle2, Info, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAppContext } from "@/context/AppContext";
 import { bulanOptions, tahunOptions } from "@/data/constants";
@@ -98,6 +98,7 @@ function HariIniTab() {
   const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, appSettings, logActivity } = useAppContext();
   const jamMasuk = appSettings.jamMasukGuru ?? "07:00";
   const [showModal, setShowModal] = useState(false);
+  const [showSemuaHadirModal, setShowSemuaHadirModal] = useState(false);
 
   const [statuses, setStatuses] = useState<Record<number, string | null>>(
     () => {
@@ -120,15 +121,38 @@ function HariIniTab() {
     }));
   };
 
-  const markAllHadir = () => {
+  const handleSemuaHadirClick = () => {
+    if (chips.Belum === 0) {
+      toast.info("Semua guru sudah memiliki catatan kehadiran.");
+      return;
+    }
+    setShowSemuaHadirModal(true);
+  };
+
+  const handleConfirmSemuaHadir = () => {
     const now = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false });
-    const allHadir: Record<number, string | null> = Object.fromEntries(guruList.map(g => [g.id, "Hadir"]));
-    setStatuses(allHadir);
-    setAbsensiGuruHariIni(prev => {
-      const update: typeof prev = { ...prev };
-      guruList.forEach(g => { update[g.id] = { status: "Hadir", jam: prev?.[g.id]?.jam ?? now }; });
+    let countMarked = 0;
+    setStatuses(prev => {
+      const update = { ...prev };
+      guruList.forEach(g => {
+        if (!update[g.id]) {
+          update[g.id] = "Hadir";
+          countMarked++;
+        }
+      });
       return update;
     });
+    setAbsensiGuruHariIni(prev => {
+      const update = { ...(prev || {}) };
+      guruList.forEach(g => {
+        if (!update[g.id]) {
+          update[g.id] = { status: "Hadir", jam: now };
+        }
+      });
+      return update;
+    });
+    toast.success(`${countMarked} guru yang belum absen berhasil ditandai Hadir`);
+    setShowSemuaHadirModal(false);
   };
 
   const handleConfirm = async () => {
@@ -209,11 +233,12 @@ function HariIniTab() {
       </div>
 
       <button
-        onClick={markAllHadir}
-        className="w-full flex items-center justify-center rounded-lg text-sm font-semibold text-[#3E8A2F] transition-colors hover:bg-[#EDF7EC]"
+        onClick={handleSemuaHadirClick}
+        className="w-full flex items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[#3E8A2F] transition-colors hover:bg-[#EDF7EC]"
         style={{ height: 44, background: "transparent", border: "1px solid #D4EDD0", cursor: "pointer", fontFamily: "inherit" }}
       >
-        Tandai Semua Hadir
+        <CheckCircle2 size={15} />
+        <span>Tandai Semua Hadir</span>
       </button>
 
       {guruList.map((g) => (
@@ -249,6 +274,63 @@ function HariIniTab() {
           Simpan Absensi
         </button>
       </div>
+
+      {/* Modal Dialog Konfirmasi "Semua Hadir" Guru (Mobile) */}
+      {showSemuaHadirModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-[#E2E8DE] animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-3.5">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#3E8A2F] shrink-0">
+                <CheckCircle2 size={22} />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-[#1C2517]">Tandai Semua Hadir?</h3>
+                <p className="text-xs text-[#6B7769]">Presensi massal untuk guru belum absen.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#FAFBF9] rounded-xl p-3.5 border border-[#E2E8DE] mb-4 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7769]">Guru Belum Absen:</span>
+                <span className="font-bold text-[#166534] bg-[#DCFCE7] px-2 py-0.5 rounded">
+                  {chips.Belum} Guru
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7769]">Waktu Presensi:</span>
+                <span className="font-semibold text-[#1C2517]">
+                  {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                </span>
+              </div>
+
+              <div className="pt-2 border-t border-[#E2E8DE] text-[11px] text-[#6B7769] leading-relaxed flex items-start gap-1.5">
+                <Info size={13} className="text-[#3E8A2F] shrink-0 mt-0.5" />
+                <span>
+                  Hanya guru yang berstatus <strong>Belum Absen</strong> yang akan ditandai Hadir. Status yang sudah dicatat tidak akan diubah.
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSemuaHadirModal(false)}
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold text-[#6B7769] hover:bg-neutral-100 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSemuaHadir}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#3E8A2F] hover:bg-[#2E6B22] shadow-sm transition-colors flex items-center gap-1.5"
+              >
+                <Check size={14} />
+                <span>Ya, Tandai Hadir ({chips.Belum})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Konfirmasi */}
       <KonfirmasiAbsensiGuruModal

@@ -646,6 +646,7 @@ function ManualTab() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("Semua");
   const [showModal, setShowModal] = useState(false);
+  const [showSemuaHadirModal, setShowSemuaHadirModal] = useState(false);
 
   const activeGuru = useMemo(() => guruList.filter(g => g.status === "Aktif"), [guruList]);
 
@@ -657,18 +658,29 @@ function ManualTab() {
     });
   };
 
-  const markAllHadir = () => {
+  const handleSemuaHadirClick = () => {
+    if (chips.Belum === 0) {
+      toast.info("Semua guru sudah memiliki catatan kehadiran.");
+      return;
+    }
+    setShowSemuaHadirModal(true);
+  };
+
+  const handleConfirmSemuaHadir = () => {
     const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    let countMarked = 0;
     setAbsensiGuruHariIni(prev => {
       const next = { ...(prev || {}) };
       activeGuru.forEach(g => {
         if (!next[g.id]) {
           next[g.id] = { status: "Hadir", jam: timeStr };
+          countMarked++;
         }
       });
       return next;
     });
-    toast.success("Semua guru yang belum absen telah ditandai Hadir");
+    toast.success(`${countMarked} guru yang belum absen berhasil ditandai Hadir`);
+    setShowSemuaHadirModal(false);
   };
 
   const handleConfirm = async () => {
@@ -781,10 +793,11 @@ function ManualTab() {
               </div>
               
               <button
-                onClick={markAllHadir}
-                className="px-3.5 py-2 rounded-lg bg-[#F5F9F4] text-[#3E8A2F] text-xs sm:text-sm font-semibold hover:bg-[#E8F2E6] transition-colors whitespace-nowrap shrink-0" style={{ border: "1px solid #3E8A2F" }}
+                onClick={handleSemuaHadirClick}
+                className="px-3.5 py-2 rounded-lg bg-[#F5F9F4] text-[#3E8A2F] text-xs sm:text-sm font-semibold hover:bg-[#E8F2E6] transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5" style={{ border: "1px solid #3E8A2F" }}
               >
-                Semua Hadir
+                <CheckCircle2 size={14} />
+                <span>Semua Hadir</span>
               </button>
             </div>
           </div>
@@ -931,6 +944,63 @@ function ManualTab() {
           Simpan Absensi
         </button>
       </div>
+
+      {/* Modal Dialog Konfirmasi "Semua Hadir" Guru */}
+      {showSemuaHadirModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E2E8DE] animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#3E8A2F] shrink-0">
+                <CheckCircle2 size={22} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-[#1C2517]">Tandai Semua Guru Hadir?</h3>
+                <p className="text-xs text-[#6B7769]">Konfirmasi presensi massal untuk guru yang belum absen.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#FAFBF9] rounded-xl p-4 border border-[#E2E8DE] mb-5 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7769]">Guru Belum Absen:</span>
+                <span className="font-bold text-[#166534] bg-[#DCFCE7] px-2 py-0.5 rounded">
+                  {chips.Belum} Guru
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-[#6B7769]">Waktu Presensi:</span>
+                <span className="font-semibold text-[#1C2517]">
+                  {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                </span>
+              </div>
+
+              <div className="pt-2.5 border-t border-[#E2E8DE] text-[11px] text-[#6B7769] leading-relaxed flex items-start gap-1.5">
+                <Info size={14} className="text-[#3E8A2F] shrink-0 mt-0.5" />
+                <span>
+                  Guru yang sudah memiliki catatan kehadiran tidak akan diubah. Hanya guru yang masih berstatus <strong>Belum Absen</strong> yang akan ditandai Hadir.
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowSemuaHadirModal(false)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-[#6B7769] hover:bg-neutral-100 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSemuaHadir}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#3E8A2F] hover:bg-[#2E6B22] shadow-sm transition-colors flex items-center gap-1.5"
+              >
+                <Check size={16} />
+                <span>Ya, Tandai Hadir ({chips.Belum})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Konfirmasi */}
       <KonfirmasiAbsensiGuruModal
