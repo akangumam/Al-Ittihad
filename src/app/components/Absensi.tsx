@@ -1,6 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { CalendarDays, FileText, ChevronDown, Download, Search, CheckCircle2, AlertCircle, Info, SwitchCamera, Lock } from "lucide-react";
+import { 
+  CalendarDays, FileText, ChevronDown, Download, Search, CheckCircle2, 
+  AlertCircle, Info, SwitchCamera, Lock, Clock, Sparkles, AlertTriangle, Check 
+} from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
 import { toast } from "sonner";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
@@ -18,27 +21,60 @@ function playScannerBeep(type: 'success' | 'warning' | 'error') {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
 
     if (type === 'success') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.12);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.12);
-    } else {
+      // Melodic 2-tone ascending success chime (cheerful ding-dong!)
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      const gain2 = ctx.createGain();
+
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, now); // A5
+      gain1.gain.setValueAtTime(0.18, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.14);
+
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1318.5, now + 0.09); // E6
+      gain2.gain.setValueAtTime(0.22, now + 0.09);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.09);
+      osc2.stop(now + 0.3);
+    } else if (type === 'warning') {
+      // 2-tone descending caution alert chime (distinct warning!)
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(440, ctx.currentTime);
-      osc.frequency.setValueAtTime(330, ctx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.2);
+      osc.frequency.setValueAtTime(659.25, now); // E5
+      osc.frequency.setValueAtTime(493.88, now + 0.12); // B4
+      gain.gain.setValueAtTime(0.24, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.28);
+    } else {
+      // Reject low buzz
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(180, now + 0.25);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.25);
     }
   } catch {
     // audio context might be blocked if browser requires user gesture
@@ -50,7 +86,16 @@ export function ScanTabGuru() {
   const { guruList, absensiGuruHariIni, setAbsensiGuruHariIni, appSettings } = useAppContext();
   const isMobile = useIsMobile();
   const [scanValue, setScanValue] = useState("");
-  const [lastScanned, setLastScanned] = useState<{ guru: GuruRow; status: 'success' | 'warning' | 'error'; message: string; time: string; isAlreadyRecorded?: boolean } | null>(null);
+  const [lastScanned, setLastScanned] = useState<{ 
+    guru: GuruRow; 
+    status: 'success' | 'warning' | 'error'; 
+    message: string; 
+    time: string; 
+    isTerlambat?: boolean;
+    menitTerlambat?: number;
+    batasJam?: string;
+    isAlreadyRecorded?: boolean;
+  } | null>(null);
   const [cameraMode, setCameraMode] = useState<"user" | "environment">(isMobile ? "environment" : "user");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -78,14 +123,14 @@ export function ScanTabGuru() {
   };
 
   const triggerFlash = (type: 'success' | 'warning' | 'error') => {
-    const colors = { success: '#22c55e', warning: '#f59e0b', error: '#ef4444' };
+    const colors = { success: '#10b981', warning: '#f59e0b', error: '#ef4444' };
     setFlashColor(colors[type]);
     setFlashVisible(true);
     if (flashResetRef.current) clearTimeout(flashResetRef.current);
     flashResetRef.current = setTimeout(() => {
       setFlashVisible(false);
       setTimeout(() => setFlashColor(null), 500);
-    }, 300);
+    }, 380);
   };
 
   const processScanRef = useRef<(text: string) => void>(() => {});
@@ -132,10 +177,13 @@ export function ScanTabGuru() {
         toast.info(`${guru.nama} sudah tercatat: ${recordedStatus}`);
       } else {
         const [jH, jM] = (appSettings.jamMasukGuru ?? "07:00").split(":").map(Number);
-        const batasMasuk = new Date();
+        const batasMasuk = new Date(now);
         batasMasuk.setHours(jH, jM, 0, 0);
 
         const isTerlambat = now > batasMasuk;
+        const diffMs = now.getTime() - batasMasuk.getTime();
+        const menitTerlambat = isTerlambat ? Math.max(1, Math.round(diffMs / 60000)) : 0;
+        const batasJamStr = `${String(jH).padStart(2, '0')}:${String(jM).padStart(2, '0')}`;
         const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
 
         playScannerBeep(isTerlambat ? 'warning' : 'success');
@@ -144,13 +192,16 @@ export function ScanTabGuru() {
         setLastScanned({ 
           guru, 
           status: isTerlambat ? 'warning' : 'success', 
-          message: isTerlambat ? "Terlambat" : "Berhasil Hadir", 
-          time: timeStr 
+          message: isTerlambat ? `Terlambat ${menitTerlambat} Menit` : "Tepat Waktu", 
+          time: timeStr,
+          isTerlambat,
+          menitTerlambat,
+          batasJam: batasJamStr,
         });
         if (isTerlambat) {
-          toast.warning(`Presensi dicatat: ${guru.nama} Terlambat (${timeStr})`);
+          toast.warning(`Presensi dicatat: ${guru.nama} Terlambat (${menitTerlambat} menit)`);
         } else {
-          toast.success(`Presensi berhasil: ${guru.nama} Hadir (${timeStr})`);
+          toast.success(`✨ Presensi tepat waktu: ${guru.nama} Hadir (${timeStr})`);
         }
       }
     } else {
@@ -309,9 +360,27 @@ export function ScanTabGuru() {
 
   return (
     <div className="flex flex-col items-center min-h-[520px] bg-white rounded-xl py-5 px-4 relative shadow-sm" style={{ border: "1px solid #E2E8DE" }}>
-      {cameraMode === "user" && (
-        <style>{`#reader-guru video { transform: scaleX(-1) !important; }`}</style>
-      )}
+      <style>{`
+        @keyframes scanSuccessBounce {
+          0% { transform: scale(0.92); opacity: 0; }
+          60% { transform: scale(1.03); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes scanWarningShake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-6px); }
+          40%, 80% { transform: translateX(6px); }
+        }
+        @keyframes pulseGlowGreen {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+          50% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
+        }
+        @keyframes pulseGlowAmber {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6); }
+          50% { box-shadow: 0 0 0 14px rgba(245, 158, 11, 0); }
+        }
+        ${cameraMode === "user" ? `#reader-guru video { transform: scaleX(-1) !important; }` : ""}
+      `}</style>
 
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md">
         {/* Banner Indikator Kamera Aktif */}
@@ -379,7 +448,135 @@ export function ScanTabGuru() {
             <h3 className="text-base font-bold text-[#1C2517] mb-1">Arahkan Kartu Guru ke Kamera</h3>
             <p className="text-[#6B7769] text-xs">Atau gunakan scanner barcode fisik. Presensi guru langsung tersimpan otomatis.</p>
           </div>
+        ) : lastScanned.isTerlambat ? (
+          /* ======================================================== */
+          /* KARTU TERLAMBAT GURU                                     */
+          /* ======================================================== */
+          <div
+            className="flex flex-col items-center text-center p-5 rounded-2xl w-full shadow-lg relative overflow-hidden mb-2"
+            style={{
+              animation: "scanWarningShake 0.45s ease-in-out forwards",
+              background: "linear-gradient(180deg, #FFFBEB 0%, #FFFFFF 38%)",
+              border: "2px solid #F59E0B",
+              boxShadow: "0 12px 28px -6px rgba(245, 158, 11, 0.35), 0 0 0 1px rgba(245, 158, 11, 0.2)",
+            }}
+          >
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-[#F59E0B] text-white shadow-sm mb-3.5 animate-pulse">
+              <Clock size={13} />
+              <span>TERLAMBAT MASUK</span>
+            </div>
+
+            <div className="relative mb-3">
+              <div
+                className="w-16 h-16 rounded-full bg-[#F59E0B] flex items-center justify-center border-4 border-[#F59E0B] text-white font-bold text-2xl shadow-md"
+                style={{ animation: "pulseGlowAmber 1.8s infinite" }}
+              >
+                {lastScanned.guru.inits}
+              </div>
+              <div
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow bg-[#F59E0B]"
+                title="Terlambat"
+              >
+                <AlertTriangle size={13} color="white" />
+              </div>
+            </div>
+
+            <h3 className="text-lg font-bold text-[#1C2517] mb-0.5">{lastScanned.guru.nama}</h3>
+            <p className="text-xs font-medium text-[#6B7769] mb-3">
+              {lastScanned.guru.nuptk ? `NUPTK: ${lastScanned.guru.nuptk}` : "NUPTK: -"}
+            </p>
+
+            <div className="w-full max-w-sm bg-amber-50 border border-amber-300 rounded-xl p-3 mb-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-amber-900 font-bold text-sm mb-0.5">
+                <Clock size={16} className="text-amber-600" />
+                <span>Terlambat {lastScanned.menitTerlambat || 0} Menit</span>
+                <span className="text-xs font-normal text-amber-700">({lastScanned.time})</span>
+              </div>
+              <p className="text-[11px] text-amber-800">
+                Batas waktu kedatangan guru: <strong>{lastScanned.batasJam || '07:00'}</strong>
+              </p>
+            </div>
+
+            <div className="w-full pt-2.5 border-t border-amber-100 flex items-center justify-between text-xs text-[#6B7769]">
+              <span className="flex items-center gap-1.5 text-amber-700 font-semibold text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                Kamera siap scan berikutnya...
+              </span>
+              <button
+                type="button"
+                onClick={handleNextScan}
+                className="text-xs text-[#6B7769] hover:text-[#1C2517] underline font-medium"
+              >
+                Scan Sekarang
+              </button>
+            </div>
+          </div>
+        ) : lastScanned.status === 'success' ? (
+          /* ======================================================== */
+          /* KARTU TEPAT WAKTU GURU                                   */
+          /* ======================================================== */
+          <div
+            className="flex flex-col items-center text-center p-5 rounded-2xl w-full shadow-lg relative overflow-hidden mb-2"
+            style={{
+              animation: "scanSuccessBounce 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+              background: "linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 38%)",
+              border: "2px solid #10B981",
+              boxShadow: "0 12px 28px -6px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2)",
+            }}
+          >
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-[#10B981] text-white shadow-sm mb-3.5">
+              <Sparkles size={13} />
+              <span>✨ HADIR TEPAT WAKTU</span>
+            </div>
+
+            <div className="relative mb-3">
+              <div
+                className="w-16 h-16 rounded-full bg-[#10B981] flex items-center justify-center border-4 border-[#10B981] text-white font-bold text-2xl shadow-md"
+                style={{ animation: "pulseGlowGreen 2s infinite" }}
+              >
+                {lastScanned.guru.inits}
+              </div>
+              <div
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow bg-[#10B981]"
+                title="Tepat Waktu"
+              >
+                <CheckCircle2 size={15} color="white" />
+              </div>
+            </div>
+
+            <h3 className="text-lg font-bold text-[#1C2517] mb-0.5">{lastScanned.guru.nama}</h3>
+            <p className="text-xs font-medium text-[#6B7769] mb-3">
+              {lastScanned.guru.nuptk ? `NUPTK: ${lastScanned.guru.nuptk}` : "NUPTK: -"}
+            </p>
+
+            <div className="w-full max-w-sm bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-emerald-900 font-bold text-sm mb-0.5">
+                <CheckCircle2 size={16} className="text-emerald-600" />
+                <span>Berhasil Hadir Pukul {lastScanned.time}</span>
+              </div>
+              <p className="text-[11px] text-emerald-700">
+                Alhamdulillah, hadir tepat waktu. Selamat beraktivitas dan membimbing siswa!
+              </p>
+            </div>
+
+            <div className="w-full pt-2.5 border-t border-emerald-100 flex items-center justify-between text-xs text-[#6B7769]">
+              <span className="flex items-center gap-1.5 text-[#3E8A2F] font-semibold text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-[#3E8A2F] animate-ping"></span>
+                Kamera siap scan berikutnya...
+              </span>
+              <button
+                type="button"
+                onClick={handleNextScan}
+                className="text-xs text-[#6B7769] hover:text-[#1C2517] underline font-medium"
+              >
+                Scan Sekarang
+              </button>
+            </div>
+          </div>
         ) : (
+          /* ======================================================== */
+          /* KARTU SUDAH TERCATAT / ERROR LAINNYA                     */
+          /* ======================================================== */
           <div
             className="flex flex-col items-center text-center p-4 bg-white rounded-2xl border w-full shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200 mb-2"
             style={{ borderColor: statusColor }}

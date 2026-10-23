@@ -1,7 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Html5Qrcode } from "html5-qrcode";
-import { QrCode, CalendarDays, Search, ChevronDown, CheckCircle2, AlertCircle, Info, SwitchCamera, Lock, MessageCircle, ExternalLink } from "lucide-react";
+import { 
+  QrCode, CalendarDays, Search, ChevronDown, CheckCircle2, AlertCircle, 
+  Info, SwitchCamera, Lock, MessageCircle, ExternalLink, Clock, Sparkles, 
+  AlertTriangle, Check
+} from "lucide-react";
 import { toast } from "sonner";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
@@ -19,27 +23,60 @@ function playScannerBeep(type: 'success' | 'warning' | 'error') {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
 
     if (type === 'success') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.12);
-      gain.gain.setValueAtTime(0.2, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.12);
-    } else {
+      // Melodic 2-tone ascending success chime (cheerful ding-dong!)
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      const gain2 = ctx.createGain();
+
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, now); // A5
+      gain1.gain.setValueAtTime(0.18, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.14);
+
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1318.5, now + 0.09); // E6
+      gain2.gain.setValueAtTime(0.22, now + 0.09);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.09);
+      osc2.stop(now + 0.3);
+    } else if (type === 'warning') {
+      // 2-tone descending caution alert chime (distinct warning!)
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(440, ctx.currentTime);
-      osc.frequency.setValueAtTime(330, ctx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.2);
+      osc.frequency.setValueAtTime(659.25, now); // E5
+      osc.frequency.setValueAtTime(493.88, now + 0.12); // B4
+      gain.gain.setValueAtTime(0.24, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.28);
+    } else {
+      // Reject low buzz
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(180, now + 0.25);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.25);
     }
   } catch {
     // audio context might be blocked if browser requires user gesture
@@ -57,6 +94,9 @@ function ScanTab() {
     status: 'success' | 'warning' | 'error';
     message: string;
     time: string;
+    isTerlambat?: boolean;
+    menitTerlambat?: number;
+    batasJam?: string;
     isAlreadyRecorded?: boolean;
     waInfo?: { type: 'sent' | 'no_phone' | 'disabled'; phone?: string };
   } | null>(null);
@@ -87,14 +127,14 @@ function ScanTab() {
   };
 
   const triggerFlash = (type: 'success' | 'warning' | 'error') => {
-    const colors = { success: '#22c55e', warning: '#f59e0b', error: '#ef4444' };
+    const colors = { success: '#10b981', warning: '#f59e0b', error: '#ef4444' };
     setFlashColor(colors[type]);
     setFlashVisible(true);
     if (flashResetRef.current) clearTimeout(flashResetRef.current);
     flashResetRef.current = setTimeout(() => {
       setFlashVisible(false);
       setTimeout(() => setFlashColor(null), 500);
-    }, 300);
+    }, 380);
   };
 
   // Ref agar camera callback selalu pakai processScan terbaru (hindari stale closure)
@@ -143,10 +183,13 @@ function ScanTab() {
         toast.info(`${siswa.nama} sudah tercatat ${existing?.status} pada ${existing?.jam || timeStr}`);
       } else {
         const [jH, jM] = (appSettings.jamMasukSiswa ?? appSettings.jamMasukGuru ?? "07:00").split(":").map(Number);
-        const batasMasuk = new Date();
+        const batasMasuk = new Date(now);
         batasMasuk.setHours(jH, jM, 0, 0);
 
         const isTerlambat = now > batasMasuk;
+        const diffMs = now.getTime() - batasMasuk.getTime();
+        const menitTerlambat = isTerlambat ? Math.max(1, Math.round(diffMs / 60000)) : 0;
+        const batasJamStr = `${String(jH).padStart(2, '0')}:${String(jM).padStart(2, '0')}`;
         const statusAbsen = isTerlambat ? "Terlambat" : "Hadir";
 
         playScannerBeep(isTerlambat ? 'warning' : 'success');
@@ -158,10 +201,10 @@ function ScanTab() {
         if (isTerlambat) {
           if (!siswa.waliHp) {
             waInfo = { type: 'no_phone' };
-            toast.warning(`Siswa terlambat. Nomor WA wali murid belum terdaftar.`);
+            toast.warning(`Siswa terlambat (${menitTerlambat} menit). Nomor WA wali belum terdaftar.`);
           } else if (!appSettings.wahaEnabled) {
             waInfo = { type: 'disabled', phone: siswa.waliHp };
-            toast.info(`Siswa terlambat. Notifikasi WA otomatis belum diaktifkan di Pengaturan.`);
+            toast.info(`Siswa terlambat (${menitTerlambat} menit). Notifikasi WA otomatis belum diaktifkan.`);
           } else {
             waInfo = { type: 'sent', phone: siswa.waliHp };
             enqueue({
@@ -183,14 +226,17 @@ function ScanTab() {
             });
           }
         } else {
-          toast.success(`Absensi ${siswa.nama} tercatat: Hadir pukul ${timeStr}`);
+          toast.success(`✨ Tepat waktu: ${siswa.nama} Hadir pukul ${timeStr}`);
         }
 
         setLastScanned({
           siswa,
           status: isTerlambat ? 'warning' : 'success',
-          message: isTerlambat ? "Terlambat" : "Berhasil Hadir",
+          message: isTerlambat ? `Terlambat ${menitTerlambat} Menit` : "Tepat Waktu",
           time: timeStr,
+          isTerlambat,
+          menitTerlambat,
+          batasJam: batasJamStr,
           waInfo,
         });
       }
@@ -351,9 +397,27 @@ function ScanTab() {
 
   return (
     <div className="flex flex-col items-center min-h-[520px] bg-white rounded-xl py-5 px-4 relative shadow-sm" style={{ border: "1px solid #E2E8DE" }}>
-      {cameraMode === "user" && (
-        <style>{`#reader video { transform: scaleX(-1) !important; }`}</style>
-      )}
+      <style>{`
+        @keyframes scanSuccessBounce {
+          0% { transform: scale(0.92); opacity: 0; }
+          60% { transform: scale(1.03); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes scanWarningShake {
+          0%, 100% { transform: translateX(0); }
+          20%, 60% { transform: translateX(-6px); }
+          40%, 80% { transform: translateX(6px); }
+        }
+        @keyframes pulseGlowGreen {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+          50% { box-shadow: 0 0 0 12px rgba(16, 185, 129, 0); }
+        }
+        @keyframes pulseGlowAmber {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6); }
+          50% { box-shadow: 0 0 0 14px rgba(245, 158, 11, 0); }
+        }
+        ${cameraMode === "user" ? `#reader video { transform: scaleX(-1) !important; }` : ""}
+      `}</style>
 
       <div className="flex-1 flex flex-col items-center justify-center w-full max-w-md">
         {/* Banner Indikator Kamera Berjalan */}
@@ -422,7 +486,192 @@ function ScanTab() {
             <h3 className="text-xl font-bold text-[#1C2517] mb-1">Arahkan Kartu Siswa ke Kamera</h3>
             <p className="text-[#6B7769] text-xs">Atau gunakan scanner fisik. Scanner standby dan terus menyala tanpa perlu refresh.</p>
           </div>
+        ) : lastScanned.isTerlambat ? (
+          /* ======================================================== */
+          /* KARTU TERLAMBAT: Animasi Peringatan / Shake + Amber Aura */
+          /* ======================================================== */
+          <div
+            className="flex flex-col items-center text-center p-5 rounded-2xl w-full shadow-lg relative overflow-hidden mb-2"
+            style={{
+              animation: "scanWarningShake 0.45s ease-in-out forwards",
+              background: "linear-gradient(180deg, #FFFBEB 0%, #FFFFFF 38%)",
+              border: "2px solid #F59E0B",
+              boxShadow: "0 12px 28px -6px rgba(245, 158, 11, 0.35), 0 0 0 1px rgba(245, 158, 11, 0.2)",
+            }}
+          >
+            {/* Top Amber Caution Banner */}
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-[#F59E0B] text-white shadow-sm mb-3.5 animate-pulse">
+              <Clock size={13} />
+              <span>TERLAMBAT MASUK</span>
+            </div>
+
+            {/* Avatar dengan Pulsing Amber Glow */}
+            <div className="relative mb-3">
+              <div
+                className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#F59E0B] shadow-md"
+                style={{ animation: "pulseGlowAmber 1.8s infinite" }}
+              >
+                <img
+                  src={lastScanned.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png'}
+                  alt={lastScanned.siswa.nama}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center border-2 border-white shadow bg-[#F59E0B]"
+                title="Terlambat"
+              >
+                <AlertTriangle size={14} color="white" />
+              </div>
+            </div>
+
+            <h3 className="text-xl font-bold text-[#1C2517] mb-0.5">{lastScanned.siswa.nama}</h3>
+            <p className="text-xs font-medium text-[#6B7769] mb-3">
+              NIS: <span className="font-semibold text-[#1C2517]">{lastScanned.siswa.nis}</span> • Kelas {lastScanned.siswa.kelas}
+            </p>
+
+            {/* Big Late Indicator Banner */}
+            <div className="w-full max-w-sm bg-amber-50 border border-amber-300 rounded-xl p-3 mb-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-amber-900 font-bold text-sm mb-0.5">
+                <Clock size={16} className="text-amber-600" />
+                <span>Terlambat {lastScanned.menitTerlambat || 0} Menit</span>
+                <span className="text-xs font-normal text-amber-700">({lastScanned.time})</span>
+              </div>
+              <p className="text-[11px] text-amber-800">
+                Batas waktu masuk madrasah: <strong>{lastScanned.batasJam || '07:00'}</strong>
+              </p>
+            </div>
+
+            {/* Status WhatsApp */}
+            {lastScanned.waInfo && (
+              <div className="w-full mb-3">
+                {lastScanned.waInfo.type === 'sent' && (
+                  <div className="flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium">
+                    <MessageCircle size={15} className="text-emerald-600 shrink-0" />
+                    <span>WA otomatis keterlambatan dikirim ke wali murid ({lastScanned.waInfo.phone})</span>
+                  </div>
+                )}
+                {lastScanned.waInfo.type === 'no_phone' && (
+                  <div className="flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium">
+                    <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                    <span>Nomor WhatsApp wali murid belum terdaftar di data siswa</span>
+                  </div>
+                )}
+                {lastScanned.waInfo.type === 'disabled' && (
+                  <div className="flex flex-col items-center gap-1.5 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-600 text-xs">
+                    <span>Notifikasi WA otomatis nonaktif</span>
+                    {lastScanned.siswa.waliHp && (
+                      <a
+                        href={`https://wa.me/${lastScanned.siswa.waliHp.replace(/^0/, '62').replace(/\D/g, '')}?text=${encodeURIComponent(
+                          renderTemplate(appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat, {
+                            nama_siswa: lastScanned.siswa.nama,
+                            kelas: lastScanned.siswa.kelas,
+                            jam_masuk: lastScanned.time,
+                          })
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-bold text-[#166534] bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg text-xs transition-colors"
+                      >
+                        <MessageCircle size={14} />
+                        Kirim WA Manual ({lastScanned.siswa.waliHp})
+                        <ExternalLink size={12} />
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bottom Bar: Kamera Standby */}
+            <div className="w-full pt-2.5 border-t border-amber-100 flex items-center justify-between text-xs text-[#6B7769]">
+              <span className="flex items-center gap-1.5 text-amber-700 font-semibold text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                Kamera siap scan berikutnya...
+              </span>
+              <button
+                type="button"
+                onClick={handleNextScan}
+                className="text-xs text-[#6B7769] hover:text-[#1C2517] underline font-medium"
+              >
+                Scan Sekarang
+              </button>
+            </div>
+          </div>
+        ) : lastScanned.status === 'success' ? (
+          /* ======================================================== */
+          /* KARTU TIDAK TERLAMBAT (TEPAT WAKTU): Animasi Bounce + Hijau Segar */
+          /* ======================================================== */
+          <div
+            className="flex flex-col items-center text-center p-5 rounded-2xl w-full shadow-lg relative overflow-hidden mb-2"
+            style={{
+              animation: "scanSuccessBounce 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+              background: "linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 38%)",
+              border: "2px solid #10B981",
+              boxShadow: "0 12px 28px -6px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2)",
+            }}
+          >
+            {/* Top Emerald Celebration Badge */}
+            <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-[#10B981] text-white shadow-sm mb-3.5">
+              <Sparkles size={13} />
+              <span>✨ HADIR TEPAT WAKTU</span>
+            </div>
+
+            {/* Avatar dengan Pulsing Emerald Halo */}
+            <div className="relative mb-3">
+              <div
+                className="w-20 h-20 rounded-full overflow-hidden border-4 border-[#10B981] shadow-md"
+                style={{ animation: "pulseGlowGreen 2s infinite" }}
+              >
+                <img
+                  src={lastScanned.siswa.jk === 'L' ? '/foto_L.png' : '/foto_P.png'}
+                  alt={lastScanned.siswa.nama}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center border-2 border-white shadow bg-[#10B981]"
+                title="Tepat Waktu"
+              >
+                <CheckCircle2 size={16} color="white" />
+              </div>
+            </div>
+
+            <h3 className="text-xl font-bold text-[#1C2517] mb-0.5">{lastScanned.siswa.nama}</h3>
+            <p className="text-xs font-medium text-[#6B7769] mb-3">
+              NIS: <span className="font-semibold text-[#1C2517]">{lastScanned.siswa.nis}</span> • Kelas {lastScanned.siswa.kelas}
+            </p>
+
+            {/* Success Banner */}
+            <div className="w-full max-w-sm bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-emerald-900 font-bold text-sm mb-0.5">
+                <CheckCircle2 size={16} className="text-emerald-600" />
+                <span>Berhasil Hadir Pukul {lastScanned.time}</span>
+              </div>
+              <p className="text-[11px] text-emerald-700">
+                Alhamdulillah, hadir tepat waktu. Selamat belajar dan berprestasi!
+              </p>
+            </div>
+
+            {/* Bottom Bar */}
+            <div className="w-full pt-2.5 border-t border-emerald-100 flex items-center justify-between text-xs text-[#6B7769]">
+              <span className="flex items-center gap-1.5 text-[#3E8A2F] font-semibold text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-[#3E8A2F] animate-ping"></span>
+                Kamera siap scan berikutnya...
+              </span>
+              <button
+                type="button"
+                onClick={handleNextScan}
+                className="text-xs text-[#6B7769] hover:text-[#1C2517] underline font-medium"
+              >
+                Scan Sekarang
+              </button>
+            </div>
+          </div>
         ) : (
+          /* ======================================================== */
+          /* KARTU SUDAH TERCATAT / ERROR LAINNYA                     */
+          /* ======================================================== */
           <div
             className="flex flex-col items-center text-center p-5 bg-white rounded-2xl border w-full shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-200 mb-2"
             style={{ borderColor: statusColor }}
@@ -464,47 +713,6 @@ function ScanTab() {
                 <p className="text-amber-800 text-[11px]">
                   Siswa sudah presensi hari ini. Ubah status lewat menu <strong>Rekap Manual</strong> jika perlu koreksi.
                 </p>
-              </div>
-            )}
-
-            {/* Status WhatsApp */}
-            {lastScanned.waInfo && (
-              <div className="w-full mb-2.5">
-                {lastScanned.waInfo.type === 'sent' && (
-                  <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium">
-                    <MessageCircle size={14} className="text-emerald-600 shrink-0" />
-                    <span>WA keterlambatan dikirim ke wali ({lastScanned.waInfo.phone})</span>
-                  </div>
-                )}
-                {lastScanned.waInfo.type === 'no_phone' && (
-                  <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-medium">
-                    <AlertCircle size={14} className="text-amber-600 shrink-0" />
-                    <span>Nomor WhatsApp wali belum terdaftar di data siswa</span>
-                  </div>
-                )}
-                {lastScanned.waInfo.type === 'disabled' && (
-                  <div className="flex flex-col items-center gap-1 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-600 text-xs">
-                    <span>Notifikasi WA otomatis nonaktif</span>
-                    {lastScanned.siswa.waliHp && (
-                      <a
-                        href={`https://wa.me/${lastScanned.siswa.waliHp.replace(/^0/, '62').replace(/\D/g, '')}?text=${encodeURIComponent(
-                          renderTemplate(appSettings.waTemplates?.absensiTerlambat ?? WA_TEMPLATE_DEFAULTS.absensiTerlambat, {
-                            nama_siswa: lastScanned.siswa.nama,
-                            kelas: lastScanned.siswa.kelas,
-                            jam_masuk: lastScanned.time,
-                          })
-                        )}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 font-bold text-[#166534] bg-emerald-100 hover:bg-emerald-200 px-2.5 py-1 rounded-md text-[11px]"
-                      >
-                        <MessageCircle size={13} />
-                        Kirim WA Manual ({lastScanned.siswa.waliHp})
-                        <ExternalLink size={11} />
-                      </a>
-                    )}
-                  </div>
-                )}
               </div>
             )}
 
