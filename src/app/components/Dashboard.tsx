@@ -685,7 +685,7 @@ function WAHAWidget() {
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { transaksiList, tagihanList, siswaList } = useAppContext();
+  const { transaksiList, tagihanList, siswaList, computedAkunList, manualTransaksiList } = useAppContext();
   const { user } = useAuth();
   const todayStr = new Intl.DateTimeFormat("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
   const displayName = user?.nama ?? "Admin";
@@ -715,21 +715,26 @@ export function Dashboard() {
   );
 
   const saldoKas = useMemo(() => {
-    const seed = akunData.reduce((s, a) => s + a.saldo, 0);
-    const delta = transaksiList.reduce((s, t) => s + t.nominal, 0);
-    return seed + delta;
-  }, [transaksiList]);
+    return computedAkunList.reduce((s, a) => s + a.saldo, 0);
+  }, [computedAkunList]);
 
-  const totalPengeluaran = useMemo(() =>
-    transaksiData
+  const totalPengeluaran = useMemo(() => {
+    const fromManual = manualTransaksiList
+      .filter(t => {
+        if (t.tipe !== "keluar") return false;
+        const d = new Date(t.tanggal);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYearNum;
+      })
+      .reduce((s, t) => s + t.jumlah, 0);
+    const fromLegacy = transaksiData
       .filter(t => {
         if (t.tipe !== "keluar") return false;
         const d = parseKBDate(t.tanggal);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYearNum;
       })
-      .reduce((s, t) => s + t.jumlah, 0),
-    [currentMonth, currentYearNum],
-  );
+      .reduce((s, t) => s + t.jumlah, 0);
+    return fromManual + fromLegacy;
+  }, [manualTransaksiList, currentMonth, currentYearNum]);
 
   // Build 12-month academic year chart data from real transactions
   const chartData = useMemo<ChartEntry[]>(() => {
@@ -742,6 +747,13 @@ export function Dashboard() {
     }));
     const acc = months.map(() => ({ pemasukan: 0, pengeluaran: 0 }));
 
+    for (const t of manualTransaksiList) {
+      const d = new Date(t.tanggal);
+      const idx = months.findIndex(m => m.mi === d.getMonth() && m.yr === d.getFullYear());
+      if (idx < 0) continue;
+      if (t.tipe === "masuk") acc[idx].pemasukan += t.jumlah;
+      else acc[idx].pengeluaran += t.jumlah;
+    }
     for (const t of transaksiData) {
       const d = parseKBDate(t.tanggal);
       const idx = months.findIndex(m => m.mi === d.getMonth() && m.yr === d.getFullYear());
@@ -757,10 +769,9 @@ export function Dashboard() {
     }
 
     return months.map((m, i) => ({ bulan: m.bulan, label: m.label, ...acc[i] }));
-  }, [transaksiList, ayStart]);
+  }, [transaksiList, manualTransaksiList, ayStart]);
 
   // Mobile: saldo per akun
-  const { computedAkunList } = useAppContext();
   const mobileAkun = computedAkunList;
 
   // Mobile: top 3 tunggakan

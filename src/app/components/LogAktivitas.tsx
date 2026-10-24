@@ -18,6 +18,7 @@ const TIPE_STYLE: Record<ActivityLogTipe, string> = {
   "Mutasi Siswa":      "bg-[#FEF3C7] text-[#92400E]",
   "Absensi Siswa":     "bg-[#DCFCE7] text-[#166534]",
   "Absensi Guru":      "bg-[#DCFCE7] text-[#166534]",
+  "Kelola Akun Bank":  "bg-[#E0F2FE] text-[#0369A1]",
 };
 
 function TipeBadge({ tipe }: { tipe: ActivityLogTipe }) {
@@ -42,7 +43,18 @@ function fmtWaktu(iso: string): string {
 
 const SEMUA_TIPE = "Semua Tipe";
 const TIPE_OPTIONS: string[] = [
-  SEMUA_TIPE, "Login", "Logout", "Pembayaran", "Penetapan Tagihan", "Update Tagihan", "Hapus Tagihan", "Pembatalan",
+  SEMUA_TIPE,
+  "Login",
+  "Logout",
+  "Pembayaran",
+  "Penetapan Tagihan",
+  "Update Tagihan",
+  "Hapus Tagihan",
+  "Pembatalan",
+  "Mutasi Siswa",
+  "Absensi Siswa",
+  "Absensi Guru",
+  "Kelola Akun Bank",
 ];
 
 const PERIODE_OPTIONS = [

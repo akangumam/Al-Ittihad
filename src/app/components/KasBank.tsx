@@ -297,7 +297,7 @@ const PAGE_SIZE = 15;
 function TransaksiTab() {
   const {
     transaksiList, siswaList, tagihanList,
-    manualTransaksiList, addManualTransaksi, nextBVRef, role,
+    manualTransaksiList, addManualTransaksi, nextBVRef, role, akunList,
   } = useAppContext();
 
   const [filter, setFilter] = useState<FilterType>("Semua");
