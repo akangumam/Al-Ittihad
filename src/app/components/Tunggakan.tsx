@@ -11,6 +11,7 @@ import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 
 import { useAppContext } from "@/context/AppContext";
+import { useWAQueue } from "@/hooks/useWAQueue";
 import { kelasOptions } from "@/data/constants";
 import type { TransaksiPembayaran } from "@/data/pembayaran";
 
@@ -126,7 +127,8 @@ function ClassFilterSheet({
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function Tunggakan() {
-  const { siswaList, tagihanList, transaksiList } = useAppContext();
+  const { siswaList, tagihanList, transaksiList, appSettings } = useAppContext();
+  const { enqueueBulk } = useWAQueue();
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab]       = useState(0);
@@ -298,6 +300,48 @@ export function Tunggakan() {
     navigate(`/keuangan/pembayaran?siswaId=${siswaId}`);
   };
 
+  const exportToCSV = (dataRows: any[], filename = "data_tunggakan.csv") => {
+    if (dataRows.length === 0) {
+      toast.error("Tidak ada data untuk diekspor");
+      return;
+    }
+    const headers = [
+      "No",
+      "NIS",
+      "Nama Siswa",
+      "Kelas",
+      "Total Tunggakan (Rp)",
+      "Status",
+      "Kategori Keterlambatan",
+      "Jatuh Tempo",
+      "Terakhir Bayar"
+    ];
+
+    const rows = dataRows.map((r, i) => [
+      i + 1,
+      `"${r.nis}"`,
+      `"${(r.nama || "").replace(/"/g, '""')}"`,
+      `"${r.kelas}"`,
+      r.jumlah,
+      `"${r.badge}"`,
+      `"${r.overdueCategory}"`,
+      `"${r.jatuhTempo}"`,
+      `"${r.terakhirBayar}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Berhasil mengunduh ${dataRows.length} data tunggakan`);
+  };
+
   const handleKirimWA = (studentId: number) => {
     const student = siswaList.find(s => s.id === studentId);
     const row = allRows.find(r => r.id === studentId);
@@ -308,9 +352,68 @@ export function Tunggakan() {
     window.open(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
-  const handleBulkWA = () => {
+  const [sendingWA, setSendingWA] = useState(false);
+
+  const handleBulkWA = async () => {
     if (checked.size === 0) return;
-    toast.info(`Pengiriman WA ke ${checked.size} orang tua siswa akan dieksekusi via API`);
+
+    setSendingWA(true);
+    const toastId = toast.loading(`Menyiapkan pesan untuk ${checked.size} siswa...`);
+
+    const payloads: any[] = [];
+    let noPhoneCount = 0;
+
+    checked.forEach(studentId => {
+      const student = siswaList.find(s => s.id === studentId);
+      const row = allRows.find(r => r.id === studentId);
+      if (!student || !row) return;
+
+      if (!student.waliHp || student.waliHp.trim() === "") {
+        noPhoneCount++;
+        return;
+      }
+
+      let phone = student.waliHp.replace(/[\s\-().+]/g, "");
+      if (phone.startsWith("0")) phone = "62" + phone.slice(1);
+
+      const pesan = `Assalamu'alaikum Wr. Wb.\n\nYth. Orang Tua/Wali Murid *${student.nama}* (Kelas ${student.kelas})\n\nKami menginformasikan bahwa terdapat tunggakan administrasi madrasah ananda:\n💰 Total Tunggakan : *${fmt(row.jumlah)}*\n📅 Jatuh Tempo      : *${row.jatuhTempo}*\n📌 Status          : *${row.overdueCategory}*\n\nMohon kerjasamanya untuk segera menyelesaikan administrasi madrasah. Jika Bapak/Ibu sudah melakukan pembayaran, mohon abaikan pesan ini.\n\nJazakumullah khairan katsiran.\n_${appSettings.namaMadrasah || "MTs Al-Ittihad Pedaleman"}_`;
+
+      payloads.push({
+        phone,
+        nama_penerima: student.waliNama || `Wali ${student.nama}`,
+        pesan,
+        jenis: "tunggakan" as const,
+        ref_id: String(student.id),
+        priority: 1
+      });
+    });
+
+    if (payloads.length === 0) {
+      toast.dismiss(toastId);
+      setSendingWA(false);
+      toast.error("Tidak ada siswa terpilih yang memiliki nomor HP wali");
+      return;
+    }
+
+    try {
+      const res = await enqueueBulk(payloads);
+      toast.dismiss(toastId);
+      if (res.ok) {
+        if (noPhoneCount > 0) {
+          toast.success(`${res.count} pesan masuk antrean WA (${noPhoneCount} siswa tidak punya no HP).`);
+        } else {
+          toast.success(`Berhasil mengantrekan ${res.count} pesan pengingat WA.`);
+        }
+        setChecked(new Set());
+      } else {
+        toast.error(`Gagal mengantrekan pesan: ${res.error}`);
+      }
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      toast.error(`Terjadi kesalahan: ${err?.message || "Gagal kirim pesan"}`);
+    } finally {
+      setSendingWA(false);
+    }
   };
 
   return (
@@ -362,7 +465,7 @@ export function Tunggakan() {
           </div>
         </div>
 
-        {/* Search + Filter row */}
+        {/* Search + Filter + Export row */}
         <div className="flex gap-2">
           <div className="flex-1 flex items-center gap-2 rounded-xl" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9", padding: "0 12px", minHeight: 44 }}>
             <Search size={14} color="#9CA3A0" className="shrink-0" />
@@ -372,11 +475,19 @@ export function Tunggakan() {
           </div>
           <button onClick={() => setFilterOpen(true)}
             className="flex items-center justify-center rounded-xl shrink-0"
-            style={{ width: 44, height: 44, border: "1px solid #E2E8DE", background: "#FFFFFF", position: "relative" }}>
+            style={{ width: 44, height: 44, border: "1px solid #E2E8DE", background: "#FFFFFF", position: "relative" }}
+            aria-label="Filter Kelas">
             <SlidersHorizontal size={16} color="#374040" />
             {kelasFilter !== "Semua Kelas" && (
               <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#3E8A2F]" />
             )}
+          </button>
+          <button
+            onClick={() => exportToCSV(filteredRows, `tunggakan_mobile_${new Date().toISOString().slice(0, 10)}.csv`)}
+            aria-label="Export CSV"
+            className="flex items-center justify-center rounded-xl shrink-0 text-[#374040] hover:text-[#3E8A2F] hover:border-[#3E8A2F] transition-colors"
+            style={{ width: 44, height: 44, border: "1px solid #E2E8DE", background: "#FFFFFF" }}>
+            <Download size={16} />
           </button>
         </div>
 
@@ -502,7 +613,10 @@ export function Tunggakan() {
                 </select>
                 <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
               </div>
-              <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium text-[#374040] hover:border-[#3E8A2F] hover:text-[#3E8A2F] transition-colors" style={{ border: "1px solid #E2E8DE" }}>
+              <button
+                onClick={() => exportToCSV(filteredRows, `tunggakan_${kelasFilter.replace(/\s+/g, "_").toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium text-[#374040] hover:border-[#3E8A2F] hover:text-[#3E8A2F] transition-colors"
+                style={{ border: "1px solid #E2E8DE" }}>
                 <Download size={13} /> Export
               </button>
             </div>
@@ -513,10 +627,16 @@ export function Tunggakan() {
             <div className="flex items-center gap-3 px-6 py-3" style={{ background: "#EDF7EC", borderBottom: "1px solid #D4EDD0" }}>
               <span className="text-sm font-semibold text-[#3E8A2F]">{checked.size} siswa dipilih</span>
               <span className="text-[#9CA3A0]">—</span>
-              <button onClick={handleBulkWA} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors">
-                <MessageCircle size={13} /> Kirim Pengingat WA
+              <button
+                onClick={handleBulkWA}
+                disabled={sendingWA}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-[#3E8A2F] text-white hover:bg-[#2E6B22] transition-colors disabled:opacity-60">
+                <MessageCircle size={13} /> {sendingWA ? "Mengantrekan..." : "Kirim Pengingat WA"}
               </button>
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#3E8A2F] hover:bg-[#DCFCE7] transition-colors" style={{ border: "1px solid #3E8A2F" }}>
+              <button
+                onClick={() => exportToCSV(allRows.filter(r => checked.has(r.id)), `tunggakan_terpilih_${new Date().toISOString().slice(0, 10)}.csv`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-[#3E8A2F] hover:bg-[#DCFCE7] transition-colors"
+                style={{ border: "1px solid #3E8A2F" }}>
                 <Download size={13} /> Export Terpilih
               </button>
               <button onClick={() => setChecked(new Set())} className="ml-auto text-xs text-[#6B7769] hover:text-[#374040]">Batalkan pilihan</button>

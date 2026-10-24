@@ -34,6 +34,11 @@ import {
   deleteTagihanSiswaDB,
   insertTransaksiDB,
   transaksiToPayload,
+  loadTemplateFromDB,
+  insertTemplateDB,
+  updateTemplateDB,
+  deleteTemplateDB,
+  bulkInsertTemplateDB,
 } from "@/lib/supabase-pembayaran";
 import {
   loadManualTransaksiFromDB,
@@ -73,8 +78,10 @@ import { toast } from "sonner";
 import {
   initialTagihanSiswa,
   initialTransaksiPembayaran,
+  tagihanTemplates,
   type TagihanSiswa,
-  type TransaksiPembayaran
+  type TransaksiPembayaran,
+  type Template,
 } from "@/data/pembayaran";
 import { absensiGuruList } from "@/data/absensi";
 import { siswaData, type SiswaRow } from "@/data/siswa";
@@ -146,6 +153,11 @@ interface AppContextValue {
   deleteTagihanSiswa: (id: string) => void;
   addTagihanSiswaManual: (nis: string, namaTagihan: string, nominal: number, jatuhTempo: string, kategori?: string) => void;
   addTransaksi: (transaksi: TransaksiPembayaran, updatedTagihan: TagihanSiswa[]) => void;
+
+  templateTagihanList: Template[];
+  addTemplateTagihan: (tmpl: Omit<Template, "id"> | Template) => Template;
+  updateTemplateTagihan: (id: number, data: Partial<Template>) => void;
+  deleteTemplateTagihan: (id: number) => { success: boolean; message?: string };
 
   absensiGuruHistory: Record<string, Record<number, { status: string; jam: string }>>;
   absensiSiswaHistory: Record<string, Record<string, { status: string; jam: string }>>;
@@ -230,6 +242,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [absensiSiswaHistory, setAbsensiSiswaHistory] = useState<Record<string, Record<string, { status: string; jam: string }>>>({});
   const [tagihanList, setTagihanList] = useState<TagihanSiswa[]>(initialTagihanSiswa);
   const [transaksiList, setTransaksiList] = useState<TransaksiPembayaran[]>(initialTransaksiPembayaran);
+  const [templateTagihanList, setTemplateTagihanList] = useState<Template[]>(() => {
+    try {
+      const s = localStorage.getItem("alittihad_template_tagihan");
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return tagihanTemplates;
+  });
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
 
   const [manualTransaksiList, setManualTransaksiList] = useState<ManualTransaksiRow[]>(() => {
@@ -362,6 +384,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             try {
               const parsed = JSON.parse(s5);
               if (Array.isArray(parsed)) setTransaksiList(parsed);
+            } catch {}
+          }
+          const sTemplate = localStorage.getItem("alittihad_template_tagihan");
+          if (sTemplate) {
+            try {
+              const parsed = JSON.parse(sTemplate);
+              if (Array.isArray(parsed) && parsed.length > 0) setTemplateTagihanList(parsed);
             } catch {}
           }
           // Jadwal format version guard — clears stale data if format changed
@@ -615,6 +644,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
               }
             } catch {}
           }
+        }
+
+        try {
+          const dbTmpl = await loadTemplateFromDB();
+          if (dbTmpl && dbTmpl.length > 0) {
+            setTemplateTagihanList(dbTmpl);
+          } else {
+            const localTmplStr = localStorage.getItem("alittihad_template_tagihan");
+            if (localTmplStr) {
+              try {
+                const parsed = JSON.parse(localTmplStr);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setTemplateTagihanList(parsed);
+                  bulkInsertTemplateDB(parsed).catch(() => {});
+                }
+              } catch {}
+            } else {
+              bulkInsertTemplateDB(tagihanTemplates).catch(() => {});
+            }
+          }
+        } catch {
+          // If table doesn't exist or offline, keep local state
         }
       } catch (e) {
         console.error("Gagal load tagihan/transaksi dari Supabase", e);
@@ -1126,6 +1177,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isElectron) {
+      localStorage.setItem("alittihad_template_tagihan", JSON.stringify(templateTagihanList));
+    } else {
+      (window as any).electronAPI.setStoreValue("alittihad_template_tagihan", templateTagihanList);
+    }
+  }, [templateTagihanList, isElectron]);
+
+  useEffect(() => {
+    if (!isElectron) {
       localStorage.setItem("alittihad_activity_log", JSON.stringify(activityLogs));
     } else {
       (window as any).electronAPI.setStoreValue("alittihad_activity_log", activityLogs);
@@ -1344,6 +1403,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setManualTransaksiList([]);
     setBankTransferList([]);
     setActivityLogs([]);
+    setTemplateTagihanList(tagihanTemplates);
 
     localStorage.removeItem("alittihad_siswa");
     localStorage.removeItem("alittihad_alumni");
@@ -1352,6 +1412,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("alittihad_jadwal_overrides");
     localStorage.removeItem("alittihad_tagihan");
     localStorage.removeItem("alittihad_transaksi");
+    localStorage.removeItem("alittihad_template_tagihan");
     localStorage.removeItem("alittihad_absensi_siswa");
     localStorage.removeItem("alittihad_absensi_siswa_history");
     localStorage.removeItem("alittihad_absensi_guru_history");
@@ -1711,6 +1772,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const addTemplateTagihan = (tmpl: Omit<Template, "id"> | Template): Template => {
+    const newId = "id" in tmpl && tmpl.id ? tmpl.id : Date.now();
+    const newTemplate: Template = {
+      ...tmpl,
+      id: newId,
+      total: tmpl.komponen.reduce((sum, k) => sum + k.jumlah, 0),
+      applied: 0,
+    };
+    setTemplateTagihanList(prev => [...prev, newTemplate]);
+    insertTemplateDB(newTemplate).catch(() => {});
+    logActivity({
+      tipe: "Penetapan Tagihan",
+      deskripsi: `Tambah template biaya: ${newTemplate.nama} (${fmt(newTemplate.total)})`,
+      ref: "—",
+    });
+    return newTemplate;
+  };
+
+  const updateTemplateTagihan = (id: number, data: Partial<Template>) => {
+    const target = templateTagihanList.find(t => t.id === id);
+    const updatedKomponen = data.komponen ?? target?.komponen ?? [];
+    const total = data.total ?? updatedKomponen.reduce((sum, k) => sum + k.jumlah, 0);
+
+    setTemplateTagihanList(prev => prev.map(t => t.id === id ? { ...t, ...data, total } : t));
+    updateTemplateDB(id, { ...data, total }).catch(() => {});
+    logActivity({
+      tipe: "Update Tagihan",
+      deskripsi: `Perbarui template biaya: ${data.nama || target?.nama || id}`,
+      ref: "—",
+    });
+  };
+
+  const deleteTemplateTagihan = (id: number): { success: boolean; message?: string } => {
+    const target = templateTagihanList.find(t => t.id === id);
+    if (!target) return { success: false, message: "Template tidak ditemukan." };
+
+    const countUsed = tagihanList.filter(t => t.kategori === target.nama).length;
+    if (countUsed > 0) {
+      return {
+        success: false,
+        message: `Template "${target.nama}" masih digunakan oleh ${countUsed} rincian tagihan siswa aktif. Hapus atau sesuaikan tagihan terkait terlebih dahulu.`,
+      };
+    }
+
+    setTemplateTagihanList(prev => prev.filter(t => t.id !== id));
+    deleteTemplateDB(id).catch(() => {});
+    logActivity({
+      tipe: "Hapus Tagihan",
+      deskripsi: `Hapus template biaya: ${target.nama}`,
+      ref: "—",
+    });
+    return { success: true };
+  };
+
   // Derived counts for sidebar badges
   const tunggakanCount = useMemo(() => {
     const today = new Date();
@@ -1849,6 +1964,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         absensiSiswaHistory,
         logActivity,
         tagihanList, transaksiList, addTagihan, updateTagihanSiswa, deleteTagihanSiswa, addTagihanSiswaManual, addTransaksi,
+        templateTagihanList, addTemplateTagihan, updateTemplateTagihan, deleteTemplateTagihan,
         isElectron,
         appSettings,
         setAppSettings,

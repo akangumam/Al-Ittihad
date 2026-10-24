@@ -1,6 +1,6 @@
 import React, { useState, useRef, useId, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Plus, Search, ChevronDown, AlertTriangle, Check, X, Trash2 } from "lucide-react";
+import { Plus, Search, ChevronDown, AlertTriangle, Check, X, Trash2, Edit2, Copy } from "lucide-react";
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
   useSensor, useSensors, type DragEndEvent,
@@ -17,7 +17,7 @@ import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
 import { tahunAjaranOptions } from "@/data/settings";
 
-import { tagihanTemplates as templates, templateOptions, Template, PPDB_DEFAULTS } from "@/data/pembayaran";
+import { type Template, PPDB_DEFAULTS } from "@/data/pembayaran";
 import { kelasOptions } from "@/data/constants";
 import { ProfilTagihanSheet } from "./ProfilTagihanSheet";
 
@@ -307,23 +307,37 @@ function KomponenRow({
 
 // ─── Sheet: TambahTemplateSheet ───────────────────────────────────────────────
 
-function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
-  const { tahunAjaran, setTahunAjaran } = useAppContext();
-  const [namaTemplate, setNamaTemplate] = useState("Administrasi PPDB");
-  const [tipe, setTipe]                 = useState("PPDB");
-  const [kelas, setKelas]               = useState("");
+function TambahTemplateSheet({
+  initialData,
+  onClose,
+}: {
+  initialData?: Template | null;
+  onClose: () => void;
+}) {
+  const { tahunAjaran, setTahunAjaran, addTemplateTagihan, updateTemplateTagihan } = useAppContext();
+  const [namaTemplate, setNamaTemplate] = useState(initialData?.nama ?? "");
+  const [tipe, setTipe]                 = useState(initialData?.tipe ?? "PPDB");
+  const [target, setTarget]             = useState(
+    initialData?.target ?? (tipe === "PPDB" ? "Siswa Baru" : tipe === "Daftar Ulang" ? "Siswa Lama (Kelas 8 & 9)" : "Khusus Kelas 9")
+  );
+  const [kelas, setKelas]               = useState(initialData?.kelas ?? "");
   const today = new Date();
   const formattedToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const [jatuhTempo, setJatuhTempo]     = useState(formattedToday);
-  const [komponen, setKomponen]         = useState<KRow[]>(PPDB_DEFAULTS);
-  const nextId = useRef(PPDB_DEFAULTS.length + 1);
+  const [jatuhTempo, setJatuhTempo]     = useState(initialData?.jatuhTempoDefault ?? formattedToday);
+
+  const initialKomps: KRow[] = initialData
+    ? initialData.komponen.map((k, i) => ({ id: i + 1, nama: k.nama, nominal: k.jumlah, keterangan: "" }))
+    : PPDB_DEFAULTS.map((k, i) => ({ id: i + 1, nama: k.nama, nominal: k.nominal, keterangan: "" }));
+
+  const [komponen, setKomponen]         = useState<KRow[]>(initialKomps);
+  const nextId = useRef(initialKomps.length + 10);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const total = komponen.reduce((sum, k) => sum + k.nominal, 0);
+  const total = komponen.reduce((sum, k) => sum + (Number(k.nominal) || 0), 0);
 
   const updateKomponen = (id: number, field: keyof KRow, value: string | number) =>
     setKomponen((prev) => prev.map((k) => (k.id === id ? { ...k, [field]: value } : k)));
@@ -349,28 +363,83 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const handleSave = () => {
+    const cleanNama = namaTemplate.trim();
+    if (!cleanNama) {
+      toast.error("Nama template wajib diisi");
+      return;
+    }
+
+    const validKomps = komponen
+      .filter((k) => k.nama.trim().length > 0 && Number(k.nominal) > 0)
+      .map((k) => ({
+        nama: k.nama.trim(),
+        jumlah: Number(k.nominal),
+      }));
+
+    if (validKomps.length === 0) {
+      toast.error("Minimal harus ada 1 komponen biaya dengan nama dan nominal valid");
+      return;
+    }
+
+    const totalBiaya = validKomps.reduce((sum, k) => sum + k.jumlah, 0);
+    const targetLabel = target.trim() || (tipe === "PPDB" ? "Siswa Baru" : tipe === "Daftar Ulang" ? "Siswa Lama (Kelas 8 & 9)" : "Khusus Kelas 9");
+
+    if (initialData) {
+      updateTemplateTagihan(initialData.id, {
+        nama: cleanNama,
+        tipe,
+        target: targetLabel,
+        komponen: validKomps,
+        total: totalBiaya,
+        kelas: kelas || undefined,
+        tahunAjaran,
+        jatuhTempoDefault: jatuhTempo,
+      });
+      toast.success(`Template "${cleanNama}" berhasil diperbarui`);
+    } else {
+      addTemplateTagihan({
+        nama: cleanNama,
+        tipe,
+        target: targetLabel,
+        komponen: validKomps,
+        total: totalBiaya,
+        applied: 0,
+        kelas: kelas || undefined,
+        tahunAjaran,
+        jatuhTempoDefault: jatuhTempo,
+      });
+      toast.success(`Template "${cleanNama}" berhasil ditambahkan`);
+    }
+    onClose();
+  };
+
   return (
     <>
       {/* Dim overlay */}
       <div
-        className="fixed inset-0 z-40"
-        style={{ background: "rgba(0,0,0,0.4)" }}
+        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Sheet panel */}
       <div
-        className="fixed right-0 top-0 h-full bg-white z-50 flex flex-col"
-        style={{ width: 640, boxShadow: "-4px 0 32px rgba(0,0,0,0.14)" }}
+        className="fixed right-0 top-0 h-full bg-white z-50 flex flex-col w-full max-w-[640px]"
+        style={{ boxShadow: "-4px 0 32px rgba(0,0,0,0.14)" }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-5 shrink-0"
           style={{ borderBottom: "1px solid #E2E8DE" }}
         >
-          <p className="font-semibold text-[#1C2517]" style={{ fontSize: "0.9375rem" }}>
-            Tambah Template Biaya
-          </p>
+          <div>
+            <p className="font-semibold text-[#1C2517]" style={{ fontSize: "0.9375rem" }}>
+              {initialData ? "Edit Template Biaya" : "Tambah Template Biaya"}
+            </p>
+            <p className="text-xs text-[#6B7769] mt-0.5">
+              {initialData ? `Perbarui konfigurasi biaya untuk "${initialData.nama}"` : "Susun komponen biaya dan nominal standar"}
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-[#6B7769] hover:bg-[#F3F4F6] transition-colors"
@@ -395,8 +464,13 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
               label="Tipe Template"
               required
               value={tipe}
-              onChange={setTipe}
-              options={["PPDB", "Daftar Ulang", "Kelas 9"]}
+              onChange={(v) => {
+                setTipe(v);
+                if (!initialData) {
+                  setTarget(v === "PPDB" ? "Siswa Baru" : v === "Daftar Ulang" ? "Siswa Lama (Kelas 8 & 9)" : "Khusus Kelas 9");
+                }
+              }}
+              options={["PPDB", "Daftar Ulang", "Kelas 9", "Lainnya"]}
             />
             <FloatSelect
               label="Tahun Ajaran"
@@ -406,7 +480,14 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
             />
           </div>
 
-          {/* 3. Kelas + Jatuh Tempo Default */}
+          {/* 3. Target Siswa / Sasaran */}
+          <FloatInput
+            label="Target Siswa / Sasaran"
+            value={target}
+            onChange={setTarget}
+          />
+
+          {/* 4. Kelas + Jatuh Tempo Default */}
           <div className="grid grid-cols-2 gap-4">
             <FloatSelect
               label="Kelas (Opsional)"
@@ -423,7 +504,7 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
             />
           </div>
 
-          {/* 4. Komponen Biaya */}
+          {/* 5. Komponen Biaya */}
           <div>
             <p className="text-sm font-semibold text-[#1C2517] mb-0.5">
               Komponen Biaya <span className="text-[#DC2626]">*</span>
@@ -488,7 +569,6 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          {/* Bottom spacer so footer doesn't overlap last item */}
           <div style={{ height: 8 }} />
         </div>
 
@@ -512,9 +592,10 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
               Batal
             </button>
             <button
+              onClick={handleSave}
               className="px-5 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors"
             >
-              Simpan Template
+              {initialData ? "Simpan Perubahan" : "Simpan Template"}
             </button>
           </div>
         </div>
@@ -525,10 +606,22 @@ function TambahTemplateSheet({ onClose }: { onClose: () => void }) {
 
 // ─── Template card ────────────────────────────────────────────────────────────
 
-function TemplateCard({ t }: { t: Template }) {
+function TemplateCard({
+  t,
+  appliedCount,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: {
+  t: Template;
+  appliedCount: number;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
   return (
     <div
-      className="bg-white rounded-xl p-6 flex flex-col"
+      className="bg-white rounded-xl p-6 flex flex-col transition-all hover:shadow-sm"
       style={{ border: "1px solid #E2E8DE" }}
     >
       {/* Name + badge */}
@@ -545,8 +638,8 @@ function TemplateCard({ t }: { t: Template }) {
       >
         {t.komponen.map((k, i) => (
           <div key={i} className="flex items-center justify-between">
-            <span className="text-sm text-[#6B7769]">{k.nama}</span>
-            <span className="text-sm tabular-nums text-[#1C2517]">{fmt(k.jumlah)}</span>
+            <span className="text-sm text-[#6B7769] truncate pr-2">{k.nama}</span>
+            <span className="text-sm tabular-nums text-[#1C2517] shrink-0">{fmt(k.jumlah)}</span>
           </div>
         ))}
       </div>
@@ -554,21 +647,34 @@ function TemplateCard({ t }: { t: Template }) {
       {/* Total */}
       <div className="flex items-center justify-between pt-4 mb-4">
         <span className="text-sm font-semibold text-[#1C2517]">Total</span>
-        <span className="text-sm font-bold tabular-nums text-[#1C2517]">{fmt(t.total)}</span>
+        <span className="text-sm font-bold tabular-nums text-[#3E8A2F]">{fmt(t.total)}</span>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pt-2">
         <span className="text-xs text-[#9CA3A0]">
           Diterapkan ke{" "}
-          <span className="font-semibold text-[#6B7769]">{t.applied}</span> siswa
+          <span className="font-semibold text-[#3E8A2F]">{appliedCount}</span> siswa
         </span>
-        <div className="flex gap-0.5">
-          <button className="text-xs font-medium text-[#6B7769] px-2.5 py-1 rounded-lg hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors">
-            Edit
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1 text-xs font-semibold text-[#374040] px-2.5 py-1.5 rounded-lg hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors"
+          >
+            <Edit2 size={12} /> Edit
           </button>
-          <button className="text-xs font-medium text-[#6B7769] px-2.5 py-1 rounded-lg hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors">
-            Duplikat
+          <button
+            onClick={onDuplicate}
+            className="flex items-center gap-1 text-xs font-semibold text-[#6B7769] px-2.5 py-1.5 rounded-lg hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors"
+          >
+            <Copy size={12} /> Duplikat
+          </button>
+          <button
+            onClick={onDelete}
+            title="Hapus template"
+            className="p-1.5 rounded-lg text-[#9CA3A0] hover:text-[#DC2626] hover:bg-[#FEE2E2] transition-colors"
+          >
+            <Trash2 size={13} />
           </button>
         </div>
       </div>
@@ -579,11 +685,107 @@ function TemplateCard({ t }: { t: Template }) {
 // ─── Template tab ─────────────────────────────────────────────────────────────
 
 function TemplateTab() {
+  const { templateTagihanList, tagihanList, addTemplateTagihan, deleteTemplateTagihan } = useAppContext();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+
+  // Compute how many unique active students have each template applied
+  const appliedCountMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    tagihanList.forEach((t) => {
+      if (!map.has(t.kategori)) map.set(t.kategori, new Set());
+      map.get(t.kategori)!.add(t.nis);
+    });
+    const counts = new Map<string, number>();
+    map.forEach((set, kat) => counts.set(kat, set.size));
+    return counts;
+  }, [tagihanList]);
+
+  const handleOpenCreate = () => {
+    setEditingTemplate(null);
+    setSheetOpen(true);
+  };
+
+  const handleOpenEdit = (t: Template) => {
+    setEditingTemplate(t);
+    setSheetOpen(true);
+  };
+
+  const handleDuplicate = (t: Template) => {
+    addTemplateTagihan({
+      nama: `${t.nama} (Salinan)`,
+      tipe: t.tipe,
+      target: t.target,
+      komponen: t.komponen.map((k) => ({ ...k })),
+      total: t.total,
+      applied: 0,
+      kelas: t.kelas,
+      tahunAjaran: t.tahunAjaran,
+      jatuhTempoDefault: t.jatuhTempoDefault,
+    });
+    toast.success(`Template "${t.nama}" berhasil diduplikat`);
+  };
+
+  const confirmDelete = () => {
+    if (pendingDeleteId === null) return;
+    const res = deleteTemplateTagihan(pendingDeleteId);
+    if (!res.success) {
+      toast.error(res.message || "Gagal menghapus template");
+    } else {
+      toast.success("Template berhasil dihapus");
+    }
+    setPendingDeleteId(null);
+  };
+
+  const templateToDelete = templateTagihanList.find((t) => t.id === pendingDeleteId);
 
   return (
     <>
-      {sheetOpen && <TambahTemplateSheet onClose={() => setSheetOpen(false)} />}
+      {sheetOpen && (
+        <TambahTemplateSheet
+          initialData={editingTemplate}
+          onClose={() => {
+            setSheetOpen(false);
+            setEditingTemplate(null);
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {pendingDeleteId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#FEE2E2] flex items-center justify-center shrink-0">
+                <Trash2 size={18} className="text-[#DC2626]" />
+              </div>
+              <div>
+                <p className="font-bold text-[#1C2517] text-base">Hapus Template Biaya?</p>
+                <p className="text-xs text-[#6B7769] mt-0.5">{templateToDelete?.nama}</p>
+              </div>
+            </div>
+            <p className="text-xs text-[#6B7769]">
+              Template yang dihapus tidak akan muncul lagi di pilihan penetapan tagihan siswa.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setPendingDeleteId(null)}
+                className="px-4 py-2 text-sm font-semibold text-[#374040] rounded-lg hover:bg-[#F5F9F4] transition-colors"
+                style={{ border: "1px solid #E2E8DE" }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm font-bold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div>
         {/* Section header */}
@@ -593,11 +795,11 @@ function TemplateTab() {
               Template Biaya
             </p>
             <p className="text-sm text-[#6B7769] mt-0.5">
-              Susun komponen biaya per jenis tagihan
+              Susun komponen biaya per jenis tagihan ({templateTagihanList.length} template aktif)
             </p>
           </div>
           <button
-            onClick={() => setSheetOpen(true)}
+            onClick={handleOpenCreate}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shrink-0 w-full sm:w-auto justify-center"
           >
             <Plus size={14} />
@@ -607,14 +809,21 @@ function TemplateTab() {
 
         {/* Cards grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {templates.map((t) => (
-            <TemplateCard key={t.id} t={t} />
+          {templateTagihanList.map((t) => (
+            <TemplateCard
+              key={t.id}
+              t={t}
+              appliedCount={appliedCountMap.get(t.nama) || 0}
+              onEdit={() => handleOpenEdit(t)}
+              onDuplicate={() => handleDuplicate(t)}
+              onDelete={() => setPendingDeleteId(t.id)}
+            />
           ))}
 
           {/* Empty slot */}
           <button
-            onClick={() => setSheetOpen(true)}
-            className="flex flex-col items-center justify-center rounded-xl transition-colors group"
+            onClick={handleOpenCreate}
+            className="flex flex-col items-center justify-center rounded-xl transition-colors group p-6"
             style={{ border: "2px dashed #D1D5DB", minHeight: "220px" }}
             onMouseOver={(e) => {
               (e.currentTarget as HTMLElement).style.borderColor = "#3E8A2F";
@@ -631,6 +840,9 @@ function TemplateTab() {
             <p className="text-sm font-semibold text-[#9CA3A0] group-hover:text-[#3E8A2F] transition-colors">
               Buat template baru
             </p>
+            <p className="text-xs text-[#9CA3A0] mt-1 text-center">
+              Tambah jenis tagihan baru dengan rincian komponen fleksibel
+            </p>
           </button>
         </div>
       </div>
@@ -641,12 +853,17 @@ function TemplateTab() {
 // ─── Sheet: pilih template untuk penetapan ───────────────────────────────────
 
 function PilihTemplateSheet({
-  jumlahSiswa, onClose, onTetapkan,
+  jumlahSiswa,
+  templates,
+  onClose,
+  onTetapkan,
 }: {
-  jumlahSiswa: number; onClose: () => void;
+  jumlahSiswa: number;
+  templates: Template[];
+  onClose: () => void;
   onTetapkan: (templateId: number, jatuhTempo: string) => void;
 }) {
-  const [selectedTmpl, setSelectedTmpl] = useState<number | null>(null);
+  const [selectedTmpl, setSelectedTmpl] = useState<number | null>(templates[0]?.id ?? null);
   const today = new Date();
   const dd = String(today.getDate() + 14).padStart(2, "0");
   const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -656,8 +873,8 @@ function PilihTemplateSheet({
 
   return (
     <>
-      <div className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.4)" }} onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full bg-white z-50 flex flex-col" style={{ width: 480, boxShadow: "-4px 0 32px rgba(0,0,0,0.14)" }}>
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full bg-white z-50 flex flex-col w-full max-w-[480px] shadow-2xl">
         <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
           <div>
             <p className="font-semibold text-[#1C2517]" style={{ fontSize: "0.9375rem" }}>Tetapkan Tagihan</p>
@@ -673,8 +890,15 @@ function PilihTemplateSheet({
               {templates.map((t) => {
                 const active = selectedTmpl === t.id;
                 return (
-                  <button key={t.id} onClick={() => setSelectedTmpl(t.id)} className="w-full text-left rounded-xl p-4 transition-all"
-                    style={{ border: active ? "2px solid #3E8A2F" : "1px solid #E2E8DE", background: active ? "#F5FBF4" : "#FAFBF9" }}>
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setSelectedTmpl(t.id);
+                      if (t.jatuhTempoDefault) setJatuhTempo(t.jatuhTempoDefault);
+                    }}
+                    className="w-full text-left rounded-xl p-4 transition-all"
+                    style={{ border: active ? "2px solid #3E8A2F" : "1px solid #E2E8DE", background: active ? "#F5FBF4" : "#FAFBF9" }}
+                  >
                     <div className="flex items-center justify-between mb-1">
                       <p className="text-sm font-semibold text-[#1C2517]">{t.nama}</p>
                       <span className="text-sm font-bold tabular-nums text-[#3E8A2F]">{fmt(t.total)}</span>
@@ -730,7 +954,7 @@ function PilihTemplateSheet({
 // ─── PenetapanTab ─────────────────────────────────────────────────────────────
 
 function PenetapanTab() {
-  const { siswaList, tagihanList, addTagihan } = useAppContext();
+  const { siswaList, tagihanList, addTagihan, templateTagihanList } = useAppContext();
   const [kelasFilter, setKelasFilter] = useState("Semua Kelas");
   const [templateFilter, setTemplateFilter] = useState("Semua Template");
   const [search, setSearch] = useState("");
@@ -738,8 +962,12 @@ function PenetapanTab() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [profilStudentId, setProfilStudentId] = useState<number | null>(null);
 
+  const templateOptions = useMemo(() => {
+    return ["Semua Template", ...templateTagihanList.map((t) => t.nama)];
+  }, [templateTagihanList]);
+
   const handleTetapkan = (templateId: number, jatuhTempo: string) => {
-    const tmpl = templates.find((t) => t.id === templateId);
+    const tmpl = templateTagihanList.find((t) => t.id === templateId);
     if (!tmpl) return;
 
     const now = Date.now();
@@ -800,7 +1028,7 @@ function PenetapanTab() {
       const matchKelas = kelasFilter === "Semua Kelas" || r.kelas === kelasFilter;
       const matchSearch = r.nama.toLowerCase().includes(search.toLowerCase()) || r.nis.includes(search);
       const matchTemplate = templateFilter === "Semua Template"
-        || r.templates.some((t) => t.label.includes(templateFilter.replace("Administrasi ", "")));
+        || r.templates.some((t) => t.label.toLowerCase() === templateFilter.toLowerCase() || t.label.includes(templateFilter.replace("Administrasi ", "")));
       return matchKelas && matchSearch && matchTemplate;
     });
   }, [penetapanRows, kelasFilter, search, templateFilter]);
@@ -817,7 +1045,14 @@ function PenetapanTab() {
 
   return (
     <div className="space-y-4">
-      {sheetOpen && <PilihTemplateSheet jumlahSiswa={checked.size} onClose={() => setSheetOpen(false)} onTetapkan={handleTetapkan} />}
+      {sheetOpen && (
+        <PilihTemplateSheet
+          jumlahSiswa={checked.size}
+          templates={templateTagihanList}
+          onClose={() => setSheetOpen(false)}
+          onTetapkan={handleTetapkan}
+        />
+      )}
       {profilStudentId !== null && (
         <ProfilTagihanSheet
           siswa={siswaList.find((s) => s.id === profilStudentId)!}

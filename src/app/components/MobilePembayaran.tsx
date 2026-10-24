@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Search, X, ChevronDown, Check } from "lucide-react";
+import { Search, X, ChevronDown, Check, Printer, MessageCircle } from "lucide-react";
 import { fmt, fmtNum } from "@/lib/formatters";
 import { useAppContext } from "@/context/AppContext";
 import { KAS_BANK_LIST, METODE_PEMBAYARAN_LIST } from "@/data/pembayaran";
+import { printReceipt, generateReceiptNumber } from "@/app/components/Pembayaran";
 
 function computeAlokasi(nominal: number, tagihanSiswa: any[]) {
   let rem = nominal;
@@ -93,11 +94,15 @@ function FloatingSelect({
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export function MobilePembayaran() {
-  const { siswaList, tagihanList, addTransaksi, appSettings, akunList } = useAppContext();
+  const { siswaList, tagihanList, transaksiList, addTransaksi, appSettings, akunList } = useAppContext();
 
   const [query, setQuery]       = useState("");
   const [dropOpen, setDropOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+
+  const [showReceipt, setShowReceipt]   = useState(false);
+  const [lastTx, setLastTx]             = useState<any>(null);
+  const [lastStudent, setLastStudent]   = useState<any>(null);
 
   const optionsAkun = useMemo(() => {
     return akunList.length > 0 ? akunList.map(a => a.nama) : KAS_BANK_LIST.map(k => k.nama);
@@ -162,6 +167,8 @@ export function MobilePembayaran() {
   const handleCatatPembayaran = () => {
     if (!rawSelectedStudent || nominal <= 0) return;
     
+    const nomorKuitansi = generateReceiptNumber(appSettings.formatKuitansi, transaksiList.length + 1);
+
     // Create new transaction
     const newTx = {
       id: "TX-" + Date.now(),
@@ -170,12 +177,17 @@ export function MobilePembayaran() {
       nominal,
       metode,
       akun,
-      nomorKuitansi: "KWT-" + Date.now().toString().slice(-6),
-      alokasi: alokasi.filter(a => a.alloc > 0).map(a => ({
-        tagihanId: a.id,
-        nominalAlokasi: a.alloc,
-        namaTagihan: a.namaTagihan
-      }))
+      nomorKuitansi,
+      alokasi: alokasi.filter(a => a.alloc > 0).map(a => {
+        const existing = tagihanList.find(t => t.id === a.id);
+        const willLunas = existing ? ((existing.terbayar || 0) + a.alloc >= existing.nominal) : true;
+        return {
+          tagihanId: a.id,
+          nominalAlokasi: a.alloc,
+          namaTagihan: a.namaTagihan,
+          isLunas: willLunas
+        };
+      })
     };
     
     const updatedTagihans = alokasi.filter(a => a.alloc > 0).map(a => ({
@@ -186,8 +198,12 @@ export function MobilePembayaran() {
     
     addTransaksi(newTx, updatedTagihans);
 
-    // Reset after success
-    toast.success(`Pembayaran berhasil dicatat! No. Kuitansi: ${newTx.nomorKuitansi}`);
+    setLastTx(newTx);
+    setLastStudent(rawSelectedStudent);
+    setShowReceipt(true);
+
+    // Reset form after recording
+    toast.success(`Pembayaran berhasil dicatat! No. Kuitansi: ${nomorKuitansi}`);
     setQuery("");
     setSelectedStudentId(null);
     setNominal(0);
@@ -689,6 +705,141 @@ export function MobilePembayaran() {
           </button>
         </div>
       )}
+
+      {/* ── Mobile Receipt Dialog / Sheet ── */}
+      {showReceipt && lastTx && lastStudent && (() => {
+        const waNumber = (lastStudent.waliHp || "").replace(/\D/g, "").replace(/^0/, "62");
+        const waLines = [
+          `Assalamu'alaikum Bapak/Ibu ${lastStudent.waliNama || lastStudent.nama},`,
+          ``,
+          `Berikut kuitansi pembayaran TA ${appSettings.tahunAjaran}:`,
+          ``,
+          `No. Kuitansi : ${lastTx.nomorKuitansi}`,
+          `Siswa        : ${lastStudent.nama} (Kelas ${lastStudent.kelas})`,
+          `Nominal      : ${fmt(lastTx.nominal)}`,
+          `Tanggal      : ${tanggal}`,
+          `Metode       : ${lastTx.metode}`,
+          ``,
+          `Rincian Alokasi:`,
+          ...lastTx.alokasi
+            .filter((a: any) => a.nominalAlokasi > 0)
+            .map((a: any) => `• ${a.namaTagihan}: ${fmt(a.nominalAlokasi)}${a.isLunas ? " (LUNAS)" : ""}`),
+          ``,
+          `Terima kasih atas kepercayaan Bapak/Ibu.`,
+          appSettings.namaMadrasah,
+        ];
+        const waUrl = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waLines.join("\n"))}` : "";
+
+        const handleMobilePrint = () => {
+          printReceipt({
+            nomorKuitansi: lastTx.nomorKuitansi,
+            namaMadrasah: appSettings.namaMadrasah,
+            tahunAjaran: appSettings.tahunAjaran,
+            student: lastStudent,
+            nominal: lastTx.nominal,
+            tanggal: tanggal,
+            metode: lastTx.metode,
+            alokasi: lastTx.alokasi.map((a: any) => ({
+              kategori: a.namaTagihan,
+              alloc: a.nominalAlokasi,
+              lunas: a.isLunas ?? false
+            })),
+          });
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in">
+            <div 
+              className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-6 max-h-[90vh] overflow-y-auto space-y-4"
+              style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-14 h-14 rounded-full bg-[#DCFCE7] flex items-center justify-center mb-3">
+                  <Check size={28} className="text-[#3E8A2F]" />
+                </div>
+                <h3 className="text-base font-bold text-[#1C2517]">Pembayaran Berhasil Dicatat</h3>
+                <p className="text-xs text-[#9CA3A0] mt-0.5">
+                  No. Kuitansi: <span className="font-mono font-semibold text-[#374040]">{lastTx.nomorKuitansi}</span>
+                </p>
+              </div>
+
+              {/* Detail Ringkas */}
+              <div className="bg-[#F5F9F4] rounded-xl p-3.5 space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-[#6B7769]">Siswa</span>
+                  <span className="font-semibold text-[#1C2517]">{lastStudent.nama}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#6B7769]">Nominal</span>
+                  <span className="font-bold text-[#3E8A2F] text-sm tabular-nums">{fmt(lastTx.nominal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#6B7769]">Tanggal</span>
+                  <span className="font-medium text-[#1C2517]">{tanggal}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#6B7769]">Metode / Akun</span>
+                  <span className="font-medium text-[#1C2517]">{lastTx.metode} ({lastTx.akun})</span>
+                </div>
+              </div>
+
+              {/* Alokasi */}
+              <div>
+                <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-wider mb-2">
+                  Alokasi Pembayaran
+                </p>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {lastTx.alokasi.filter((a: any) => a.nominalAlokasi > 0).map((item: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center text-xs py-1.5 border-b border-[#F0F7EE]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[#374040] font-medium">{item.namaTagihan}</span>
+                        {item.isLunas && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#DCFCE7] text-[#166534]">
+                            LUNAS
+                          </span>
+                        )}
+                      </div>
+                      <span className="tabular-nums font-semibold text-[#374040]">{fmt(item.nominalAlokasi)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-2">
+                {waUrl ? (
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full py-3 rounded-xl bg-[#3E8A2F] text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-[#2E6B22] transition-colors"
+                  >
+                    <MessageCircle size={16} /> Kirim Kuitansi via WA
+                  </a>
+                ) : (
+                  <div className="text-center text-xs text-[#9CA3A0] py-2 bg-[#F3F4F6] rounded-lg">
+                    Nomor WA wali belum terdaftar
+                  </div>
+                )}
+
+                <button
+                  onClick={handleMobilePrint}
+                  className="w-full py-2.5 rounded-xl border border-[#E2E8DE] text-sm font-semibold text-[#374040] flex items-center justify-center gap-2 hover:bg-[#FAFBF9] transition-colors"
+                >
+                  <Printer size={15} /> Cetak Kuitansi
+                </button>
+
+                <button
+                  onClick={() => setShowReceipt(false)}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold text-[#6B7769] hover:text-[#1C2517] transition-colors"
+                >
+                  Selesai / Transaksi Baru
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

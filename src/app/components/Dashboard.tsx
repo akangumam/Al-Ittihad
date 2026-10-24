@@ -185,18 +185,37 @@ function IncomeExpenseChart({ chartData, ayStart }: { chartData: ChartEntry[]; a
 }
 
 function PiutangDonut() {
-  const { siswaList, siswaLoading } = useAppContext();
+  const { siswaList, siswaLoading, tagihanList } = useAppContext();
   const piutangData = useMemo(() => {
     const aktif = siswaList.filter(s => s.status === "Aktif");
-    const lunas    = aktif.filter(s => s.statusTagihan === "Lunas").length;
-    const mencicil = aktif.filter(s => s.statusTagihan === "Mencicil").length;
-    const menunggak = aktif.filter(s => s.statusTagihan === "Menunggak").length;
+    let lunas = 0;
+    let mencicil = 0;
+    let menunggak = 0;
+
+    aktif.forEach(s => {
+      const sTagihan = tagihanList.filter(t => t.nis === s.nis);
+      if (sTagihan.length === 0) {
+        lunas++;
+      } else {
+        const totalNominal = sTagihan.reduce((sum, t) => sum + t.nominal, 0);
+        const totalTerbayar = sTagihan.reduce((sum, t) => sum + t.terbayar, 0);
+        const sisa = totalNominal - totalTerbayar;
+        if (sisa <= 0) {
+          lunas++;
+        } else if (totalTerbayar > 0) {
+          mencicil++;
+        } else {
+          menunggak++;
+        }
+      }
+    });
+
     return [
       { name: "Lunas",     value: lunas,     color: "#3E8A2F" },
       { name: "Mencicil",  value: mencicil,  color: "#F6B31E" },
       { name: "Menunggak", value: menunggak, color: "#DC2626" },
     ];
-  }, [siswaList]);
+  }, [siswaList, tagihanList]);
 
   const total = piutangData.reduce((s, d) => s + d.value, 0);
   const currentYear = new Date().getFullYear();
@@ -496,23 +515,35 @@ function TunggakanTable() {
 }
 
 function TransaksiTerbaru() {
-  const { transaksiList, siswaList } = useAppContext();
+  const { transaksiList, siswaList, tagihanList } = useAppContext();
+  const navigate = useNavigate();
+
   const rows = useMemo(() => {
     return [...transaksiList]
       .sort((a, b) => b.tanggal.localeCompare(a.tanggal))
       .slice(0, 8)
       .map(t => {
         const siswa = siswaList.find(s => s.nis === t.nis);
+        const sTagihans = tagihanList.filter(tg => tg.nis === t.nis);
+        let status = "Lunas";
+        if (sTagihans.length > 0) {
+          const totNom = sTagihans.reduce((sum, tg) => sum + tg.nominal, 0);
+          const totTer = sTagihans.reduce((sum, tg) => sum + tg.terbayar, 0);
+          const sisa = totNom - totTer;
+          if (sisa <= 0) status = "Lunas";
+          else if (totTer > 0) status = "Mencicil";
+          else status = "Menunggak";
+        }
         return {
           tanggal:  fmtTgl(t.tanggal),
           siswa:    siswa?.nama ?? t.nis,
           kategori: t.alokasi[0]?.namaTagihan ?? "—",
           metode:   t.metode,
           jumlah:   t.nominal,
-          status:   siswa?.statusTagihan ?? "Mencicil",
+          status,
         };
       });
-  }, [transaksiList, siswaList]);
+  }, [transaksiList, siswaList, tagihanList]);
 
   return (
     <div className="bg-white rounded-xl p-6" style={{ border: "1px solid #E2E8DE" }}>
@@ -521,7 +552,12 @@ function TransaksiTerbaru() {
           <p className="text-sm font-semibold text-[#1C2517]">Transaksi Terbaru</p>
           <p className="text-xs text-[#6B7769]">{rows.length} transaksi terakhir</p>
         </div>
-        <button className="text-xs font-semibold text-[#3E8A2F] hover:underline">Lihat semua</button>
+        <button
+          onClick={() => navigate("/keuangan/pembayaran")}
+          className="text-xs font-semibold text-[#3E8A2F] hover:underline cursor-pointer"
+        >
+          Lihat semua
+        </button>
       </div>
       {rows.length === 0 ? (
         <p className="text-sm text-[#6B7769] py-6 text-center">Belum ada transaksi.</p>

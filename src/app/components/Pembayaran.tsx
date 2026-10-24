@@ -137,6 +137,152 @@ function FloatingSelect({
 
 // ─── receipt dialog ───────────────────────────────────────────────────────────
 
+export function printReceipt(receiptData: {
+  nomorKuitansi: string;
+  namaMadrasah: string;
+  tahunAjaran: string;
+  student: { nama: string; nis: string; kelas: string; waliNama?: string };
+  nominal: number;
+  tanggal: string;
+  metode: string;
+  alokasi: Array<{ kategori: string; alloc: number; lunas: boolean }>;
+}) {
+  const win = window.open("", "_blank", "width=800,height=600");
+  if (!win) {
+    window.print();
+    return;
+  }
+  const dateFormatted = new Date(receiptData.tanggal).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+
+  const alokasiRows = receiptData.alokasi
+    .filter(a => a.alloc > 0)
+    .map((a, i) => `
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${i + 1}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">${a.kategori} ${a.lunas ? '<span style="color: #15803d; font-weight: bold; font-size: 11px; margin-left: 6px;">[LUNAS]</span>' : ''}</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600;">Rp ${a.alloc.toLocaleString("id-ID")}</td>
+      </tr>
+    `).join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Kuitansi ${receiptData.nomorKuitansi}</title>
+      <style>
+        @page { size: auto; margin: 12mm; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; padding: 20px; font-size: 13px; line-height: 1.5; }
+        .receipt-container { max-width: 650px; margin: 0 auto; border: 1.5px solid #d1d5db; padding: 28px; border-radius: 8px; }
+        .header { text-align: center; border-bottom: 2px double #9ca3af; padding-bottom: 16px; margin-bottom: 20px; }
+        .school-name { font-size: 18px; font-weight: bold; text-transform: uppercase; color: #166534; letter-spacing: 0.5px; margin: 0; }
+        .school-sub { font-size: 12px; color: #6b7280; margin: 4px 0 0; }
+        .title { font-size: 16px; font-weight: bold; margin: 16px 0 4px; text-decoration: underline; }
+        .receipt-no { font-family: monospace; font-size: 12px; color: #4b5563; }
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; font-size: 12.5px; }
+        .meta-item { display: flex; margin-bottom: 4px; }
+        .meta-label { width: 110px; color: #6b7280; }
+        .meta-value { font-weight: 600; color: #111827; flex: 1; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #f3f4f6; padding: 8px 12px; text-align: left; font-size: 12px; border-bottom: 1.5px solid #d1d5db; }
+        .total-row td { padding: 12px; font-size: 14px; font-weight: bold; border-top: 2px solid #111827; }
+        .signature-section { display: grid; grid-template-columns: 1fr 1fr; margin-top: 40px; text-align: center; }
+        .signature-box { padding: 0 20px; }
+        .sign-space { height: 60px; }
+        .note { margin-top: 24px; padding-top: 12px; border-top: 1px dashed #d1d5db; font-size: 11px; color: #9ca3af; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="receipt-container">
+        <div class="header">
+          <h1 class="school-name">${receiptData.namaMadrasah}</h1>
+          <p class="school-sub">KUITANSI PEMBAYARAN SISWA · TAHUN AJARAN ${receiptData.tahunAjaran}</p>
+          <div class="title">BUKTI PEMBAYARAN RESMI</div>
+          <div class="receipt-no">Nomor: ${receiptData.nomorKuitansi}</div>
+        </div>
+
+        <div class="meta-grid">
+          <div>
+            <div class="meta-item"><span class="meta-label">Nama Siswa</span><span class="meta-value">: ${receiptData.student.nama}</span></div>
+            <div class="meta-item"><span class="meta-label">NIS</span><span class="meta-value">: ${receiptData.student.nis}</span></div>
+            <div class="meta-item"><span class="meta-label">Kelas</span><span class="meta-value">: ${receiptData.student.kelas}</span></div>
+          </div>
+          <div>
+            <div class="meta-item"><span class="meta-label">Tanggal Bayar</span><span class="meta-value">: ${dateFormatted}</span></div>
+            <div class="meta-item"><span class="meta-label">Metode</span><span class="meta-value">: ${receiptData.metode}</span></div>
+            <div class="meta-item"><span class="meta-label">Wali Siswa</span><span class="meta-value">: ${receiptData.student.waliNama || '-'}</span></div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 40px;">No</th>
+              <th>Pos Tagihan / Alokasi Pembayaran</th>
+              <th style="text-align: right; width: 140px;">Jumlah</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${alokasiRows}
+            <tr class="total-row">
+              <td colspan="2" style="text-align: right; text-transform: uppercase;">Total Pembayaran:</td>
+              <td style="text-align: right; color: #15803d;">Rp ${receiptData.nominal.toLocaleString("id-ID")}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="signature-section">
+          <div class="signature-box">
+            <p>Orang Tua / Wali Murid</p>
+            <div class="sign-space"></div>
+            <p style="font-weight: 600; text-decoration: underline;">( ${receiptData.student.waliNama || receiptData.student.nama} )</p>
+          </div>
+          <div class="signature-box">
+            <p>Petugas Kasir / Bendahara</p>
+            <div class="sign-space"></div>
+            <p style="font-weight: 600; text-decoration: underline;">( Bendahara Madrasah )</p>
+          </div>
+        </div>
+
+        <div class="note">
+          Simpan kuitansi ini sebagai bukti pembayaran yang sah. Dicetak otomatis oleh Sistem Informasi Madrasah.
+        </div>
+      </div>
+      <script>
+        window.onload = function() {
+          window.print();
+          setTimeout(function() { window.close(); }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  win.document.write(html);
+  win.document.close();
+}
+
+export function generateReceiptNumber(formatTemplate: string | undefined, indexCount: number): string {
+  const now = new Date();
+  const tahun = now.getFullYear().toString();
+  const bulan = String(now.getMonth() + 1).padStart(2, "0");
+  const urut = String(indexCount).padStart(4, "0");
+
+  const template = formatTemplate?.trim() || "KW/{TAHUN}/{BULAN}/{URUT}";
+  return template
+    .replace("{TAHUN}", tahun)
+    .replace("{BULAN}", bulan)
+    .replace("{URUT}", urut)
+    .replace("{YYYY}", tahun)
+    .replace("{MM}", bulan)
+    .replace("{NNNN}", urut)
+    .replace("{NNN}", urut.slice(-3));
+}
+
 interface ReceiptDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -154,9 +300,9 @@ interface ReceiptDialogProps {
 function ReceiptDialog({
   open, onOpenChange, onNextTransaction, student, nominal, tanggal, metode, nomorKuitansi, alokasi, tahunAjaran, namaMadrasah
 }: ReceiptDialogProps) {
-  const waNumber = student.waliHp.replace(/\D/g, "").replace(/^0/, "62");
+  const waNumber = (student.waliHp || "").replace(/\D/g, "").replace(/^0/, "62");
   const waLines = [
-    `Assalamu'alaikum Bapak/Ibu ${student.waliNama},`,
+    `Assalamu'alaikum Bapak/Ibu ${student.waliNama || student.nama},`,
     ``,
     `Berikut kuitansi pembayaran TA ${tahunAjaran}:`,
     ``,
@@ -174,7 +320,20 @@ function ReceiptDialog({
     `Terima kasih atas kepercayaan Bapak/Ibu.`,
     namaMadrasah,
   ];
-  const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(waLines.join("\n"))}`;
+  const waUrl = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(waLines.join("\n"))}` : "";
+
+  const handlePrint = () => {
+    printReceipt({
+      nomorKuitansi,
+      namaMadrasah,
+      tahunAjaran,
+      student,
+      nominal,
+      tanggal,
+      metode,
+      alokasi,
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -226,27 +385,41 @@ function ReceiptDialog({
             {alokasi.filter((a) => a.alloc > 0).map((item, i) => (
               <div
                 key={i}
-                className="flex justify-between text-sm py-2"
+                className="flex justify-between items-center text-sm py-2"
                 style={{ borderBottom: "1px solid #F0F7EE" }}
               >
-                <span className="text-[#374040]">{item.kategori}</span>
-                <span className="tabular-nums text-[#374040]">{fmt(item.alloc)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[#374040]">{item.kategori}</span>
+                  {item.lunas && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#DCFCE7] text-[#166534]">
+                      LUNAS
+                    </span>
+                  )}
+                </div>
+                <span className="tabular-nums font-medium text-[#374040]">{fmt(item.alloc)}</span>
               </div>
             ))}
           </div>
 
           {/* Buttons */}
           <div className="w-full space-y-2.5">
-            <a
-              href={waUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="w-full py-3 rounded-lg bg-[#3E8A2F] text-white font-semibold text-sm hover:bg-[#2E6B22] transition-colors flex items-center justify-center gap-2"
-            >
-              <MessageCircle size={15} />
-              Kirim Kuitansi via WA
-            </a>
+            {waUrl ? (
+              <a
+                href={waUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-3 rounded-lg bg-[#3E8A2F] text-white font-semibold text-sm hover:bg-[#2E6B22] transition-colors flex items-center justify-center gap-2"
+              >
+                <MessageCircle size={15} />
+                Kirim Kuitansi via WA
+              </a>
+            ) : (
+              <div className="text-xs text-[#9CA3A0] py-2 bg-[#F3F4F6] rounded-lg">
+                Nomor WA wali belum terdaftar
+              </div>
+            )}
             <button
+              onClick={handlePrint}
               className="w-full py-3 rounded-lg text-sm font-semibold text-[#374040] hover:bg-[#FAFBF9] transition-colors flex items-center justify-center gap-2"
               style={{ border: "1px solid #E2E8DE" }}
             >
@@ -265,7 +438,7 @@ function ReceiptDialog({
           </div>
 
           <p className="text-xs text-[#9CA3A0] mt-4">
-            Dikirim ke {student.waliNama} — {student.waliHp}
+            Dikirim ke {student.waliNama || student.nama} {student.waliHp ? `— ${student.waliHp}` : ""}
           </p>
         </div>
       </DialogContent>
@@ -276,7 +449,7 @@ function ReceiptDialog({
 // ─── page component ───────────────────────────────────────────────────────────
 
 export function Pembayaran() {
-  const { siswaList, tagihanList, addTransaksi, appSettings, akunList } = useAppContext();
+  const { siswaList, tagihanList, transaksiList, addTransaksi, appSettings, akunList } = useAppContext();
   const [searchParams] = useSearchParams();
   const initialStudentId = searchParams.get("siswaId") ? Number(searchParams.get("siswaId")) : null;
   
@@ -352,6 +525,8 @@ export function Pembayaran() {
   const handleCatatPembayaran = () => {
     if (!rawSelectedStudent || nominal <= 0) return;
     
+    const nomorKuitansi = generateReceiptNumber(appSettings.formatKuitansi, transaksiList.length + 1);
+
     // Create new transaction
     const newTx = {
       id: "TX-" + Date.now(),
@@ -360,12 +535,17 @@ export function Pembayaran() {
       nominal,
       metode,
       akun,
-      nomorKuitansi: "KWT-" + Date.now().toString().slice(-6),
-      alokasi: alokasi.filter(a => a.alloc > 0).map(a => ({
-        tagihanId: a.id,
-        nominalAlokasi: a.alloc,
-        namaTagihan: a.namaTagihan
-      }))
+      nomorKuitansi,
+      alokasi: alokasi.filter(a => a.alloc > 0).map(a => {
+        const existing = tagihanList.find(t => t.id === a.id);
+        const willLunas = existing ? ((existing.terbayar || 0) + a.alloc >= existing.nominal) : true;
+        return {
+          tagihanId: a.id,
+          nominalAlokasi: a.alloc,
+          namaTagihan: a.namaTagihan,
+          isLunas: willLunas
+        };
+      })
     };
     
     // Create updated tagihans for context
@@ -886,7 +1066,7 @@ export function Pembayaran() {
           alokasi={lastTx.alokasi.map((a: any) => ({
             kategori: a.namaTagihan,
             alloc: a.nominalAlokasi,
-            lunas: false // compute lunas status if needed
+            lunas: a.isLunas ?? false
           }))}
           tahunAjaran={appSettings.tahunAjaran}
           namaMadrasah={appSettings.namaMadrasah}

@@ -1,5 +1,34 @@
 import { supabase } from "@/lib/supabase";
-import type { TagihanSiswa, TransaksiPembayaran } from "@/data/pembayaran";
+import type { TagihanSiswa, TransaksiPembayaran, Template } from "@/data/pembayaran";
+
+export function rowToTemplate(r: Record<string, any>): Template {
+  return {
+    id:                Number(r.id),
+    nama:              r.nama,
+    tipe:              r.tipe,
+    target:            r.target,
+    komponen:          Array.isArray(r.komponen) ? r.komponen : [],
+    total:             Number(r.total),
+    applied:           0,
+    jatuhTempoDefault: r.jatuh_tempo_default ?? undefined,
+    kelas:             r.kelas ?? undefined,
+    tahunAjaran:       r.tahun_ajaran ?? undefined,
+  };
+}
+
+export function templateToPayload(t: Template): Record<string, unknown> {
+  return {
+    id:                  t.id,
+    nama:                t.nama,
+    tipe:                t.tipe,
+    target:              t.target,
+    komponen:            t.komponen,
+    total:               t.total,
+    jatuh_tempo_default: t.jatuhTempoDefault ?? null,
+    kelas:               t.kelas ?? null,
+    tahun_ajaran:        t.tahunAjaran ?? null,
+  };
+}
 
 // ─── Type mapping: DB (snake_case) ↔ App (camelCase) ─────────────────────────
 
@@ -126,4 +155,56 @@ export async function insertTransaksiDB(
       .upsert(payload, { onConflict: "id" });
     if (tagihanError) throw tagihanError;
   }
+}
+
+export async function loadTemplateFromDB(): Promise<Template[]> {
+  const { data, error } = await supabase
+    .from("template_tagihan")
+    .select("*")
+    .order("id", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []).map(rowToTemplate);
+}
+
+export async function insertTemplateDB(template: Template): Promise<void> {
+  const { error } = await supabase
+    .from("template_tagihan")
+    .upsert(templateToPayload(template), { onConflict: "id" });
+  if (error) throw error;
+}
+
+export async function bulkInsertTemplateDB(templates: Template[]): Promise<void> {
+  if (templates.length === 0) return;
+  const payload = templates.map(templateToPayload);
+  const { error } = await supabase
+    .from("template_tagihan")
+    .upsert(payload, { onConflict: "id" });
+  if (error) throw error;
+}
+
+export async function updateTemplateDB(id: number, data: Partial<Template>): Promise<void> {
+  const payload: Record<string, unknown> = {};
+  if (data.nama !== undefined) payload.nama = data.nama;
+  if (data.tipe !== undefined) payload.tipe = data.tipe;
+  if (data.target !== undefined) payload.target = data.target;
+  if (data.komponen !== undefined) payload.komponen = data.komponen;
+  if (data.total !== undefined) payload.total = data.total;
+  if (data.jatuhTempoDefault !== undefined) payload.jatuh_tempo_default = data.jatuhTempoDefault;
+  if (data.kelas !== undefined) payload.kelas = data.kelas;
+  if (data.tahunAjaran !== undefined) payload.tahun_ajaran = data.tahunAjaran;
+
+  const { error } = await supabase
+    .from("template_tagihan")
+    .update(payload)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteTemplateDB(id: number): Promise<void> {
+  const { error } = await supabase
+    .from("template_tagihan")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
 }
