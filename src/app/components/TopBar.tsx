@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import {
   Search, Bell, ChevronDown, LogOut, KeyRound, Eye, EyeOff,
   X, AlertTriangle, UserX, Calendar, Wallet, CheckCircle, RefreshCw, FileText, Settings,
@@ -228,9 +228,20 @@ export function NotifPanel({ onClose }: { onClose: () => void }) {
 
 export function TopBar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { tahunAjaran, setTahunAjaran, refreshAllCloudData, isSyncing, appSettings } = useAppContext();
   const { user, signOut, updatePassword } = useAuth();
   const alerts = useAlerts();
+
+  // Tampilkan pemilih Tahun Ajaran hanya pada halaman yang relevan (Dashboard, Keuangan, Akademik/Siswa, Kalender)
+  // Sembunyikan pada modul Sistem (Pengaturan, Pengguna, Log Aktivitas, WA Blast) dan Kepegawaian Guru
+  const showYearSelector = useMemo(() => {
+    const p = location.pathname;
+    if (p.startsWith("/sistem") || p.startsWith("/pengaturan") || p === "/akademik/guru") {
+      return false;
+    }
+    return true;
+  }, [location.pathname]);
 
   const availableYears = useMemo(() => {
     if (appSettings?.tahunAjaranRows && appSettings.tahunAjaranRows.length > 0) {
@@ -332,55 +343,57 @@ export function TopBar() {
           <span className="hidden sm:inline">{isSyncing ? "Menyinkronkan..." : "Sinkron Server"}</span>
         </button>
 
-        {/* Academic year selector */}
-        <div className="relative" ref={dropdownRef}>
-          <button
-            onClick={() => setYearOpen(!yearOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors hover:bg-[#EDF7EC]"
-            style={{ border: "1.5px solid #3E8A2F", color: "#3E8A2F" }}
-          >
-            {`TA ${tahunAjaran}`}
-            <ChevronDown
-              size={13}
-              className="transition-transform"
-              style={{ transform: yearOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-            />
-          </button>
-
-          {yearOpen && (
-            <div
-              className="absolute right-0 mt-1.5 bg-white rounded-xl shadow-xl py-1 z-50 min-w-[170px]"
-              style={{ border: "1px solid #E2E8DE" }}
+        {/* Academic year selector (hanya pada modul yang relevan) */}
+        {showYearSelector && (
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setYearOpen(!yearOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors hover:bg-[#EDF7EC]"
+              style={{ border: "1.5px solid #3E8A2F", color: "#3E8A2F" }}
             >
-              <div className="px-3 py-1.5 text-[11px] font-semibold text-[#9CA3A0] uppercase tracking-wider border-b border-[#F0F7EE]">
-                Pilih Tahun Ajaran
-              </div>
-              {availableYears.map((ta) => (
-                <button
-                  key={ta}
-                  onClick={() => { setTahunAjaran(ta); setYearOpen(false); }}
-                  className={[
-                    "w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#EDF7EC] flex items-center justify-between",
-                    ta === tahunAjaran ? "text-[#3E8A2F] font-semibold bg-[#F5F9F4]" : "text-[#374040]",
-                  ].join(" ")}
-                >
-                  <span>TA {ta}</span>
-                  {ta === tahunAjaran && (
-                    <CheckCircle size={14} className="text-[#3E8A2F]" />
-                  )}
-                </button>
-              ))}
-              <div className="h-px bg-[#E2E8DE] my-1" />
-              <button
-                onClick={() => { setYearOpen(false); navigate("/sistem/pengaturan"); }}
-                className="w-full text-left px-3.5 py-2 text-xs text-[#6B7769] hover:text-[#3E8A2F] hover:bg-[#F5F9F4] flex items-center gap-2 transition-colors font-medium"
+              {`TA ${tahunAjaran}`}
+              <ChevronDown
+                size={13}
+                className="transition-transform"
+                style={{ transform: yearOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+              />
+            </button>
+
+            {yearOpen && (
+              <div
+                className="absolute right-0 mt-1.5 bg-white rounded-xl shadow-xl py-1 z-50 min-w-[170px]"
+                style={{ border: "1px solid #E2E8DE" }}
               >
-                <Settings size={13} className="text-[#6B7769]" />
-                <span>Kelola Tahun Ajaran...</span>
-              </button>
-            </div>
-          )}
-        </div>
+                <div className="px-3 py-1.5 text-[11px] font-semibold text-[#9CA3A0] uppercase tracking-wider border-b border-[#F0F7EE]">
+                  Pilih Tahun Ajaran
+                </div>
+                {availableYears.map((ta) => (
+                  <button
+                    key={ta}
+                    onClick={() => { setTahunAjaran(ta); setYearOpen(false); }}
+                    className={[
+                      "w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#EDF7EC] flex items-center justify-between",
+                      ta === tahunAjaran ? "text-[#3E8A2F] font-semibold bg-[#F5F9F4]" : "text-[#374040]",
+                    ].join(" ")}
+                  >
+                    <span>TA {ta}</span>
+                    {ta === tahunAjaran && (
+                      <CheckCircle size={14} className="text-[#3E8A2F]" />
+                    )}
+                  </button>
+                ))}
+                <div className="h-px bg-[#E2E8DE] my-1" />
+                <button
+                  onClick={() => { setYearOpen(false); navigate("/sistem/pengaturan"); }}
+                  className="w-full text-left px-3.5 py-2 text-xs text-[#6B7769] hover:text-[#3E8A2F] hover:bg-[#F5F9F4] flex items-center gap-2 transition-colors font-medium"
+                >
+                  <Settings size={13} className="text-[#6B7769]" />
+                  <span>Kelola Tahun Ajaran...</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Notification bell */}
         <button
