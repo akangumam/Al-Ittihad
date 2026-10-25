@@ -935,14 +935,8 @@ function RealisasiTab({ tahunAjaran }: { tahunAjaran: string }) {
 
       const totalExpenseInMonth = expenses.reduce((sum, tx) => sum + tx.jumlah, 0);
 
-      // If no transactions in manualTransaksiList yet for that month, provide realistic proportional proportion from TOTAL_T
-      // to ensure rich initial visual experience without broken 0 lines
-      const computedRealisasi =
-        totalExpenseInMonth > 0
-          ? totalExpenseInMonth
-          : TOTAL_T > 0 && def.monthIndex <= new Date().getMonth()
-          ? Math.round(TOTAL_T / 8)
-          : 0;
+      // Realisasi bulanan 100% murni dihitung dari total transaksi pengeluaran kas riil di bulan & tahun ini
+      const computedRealisasi = totalExpenseInMonth;
 
       return {
         m: def.m,
