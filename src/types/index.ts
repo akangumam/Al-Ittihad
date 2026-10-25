@@ -109,6 +109,7 @@ export interface ManualTransaksiRow {
   catatan?: string;
   dicatatOleh: string;
   waktuCatat: string;     // ISO timestamp
+  rabId?: number;         // Alokasi mata anggaran RAB (opsional)
 }
 
 export interface BankTransferRow {
@@ -134,7 +135,9 @@ export type ActivityLogTipe =
   | "Mutasi Siswa"
   | "Absensi Siswa"
   | "Absensi Guru"
-  | "Kelola Akun Bank";
+  | "Kelola Akun Bank"
+  | "Transaksi Kas"
+  | "Kelola Anggaran";
 
 export interface ActivityLogEntry {
   id: string;

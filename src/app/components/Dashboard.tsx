@@ -114,7 +114,7 @@ function SaldoAkunCard() {
         {accounts.map((akun, i) => (
           <div key={String(akun.id)} className={`flex flex-col ${accounts.length <= 3 && i > 0 ? "sm:pl-6 pt-3 sm:pt-0" : "p-3 bg-[#FAFBF9] rounded-xl border border-[#E2E8DE]/60"}`}>
             <p className="text-xs text-[#6B7769] font-medium mb-1 truncate">{akun.nama}</p>
-            <p className="tabular-nums font-bold text-[#1C2517] tracking-tight">{fmt(akun.saldo)}</p>
+            <p className="tabular-nums font-bold text-[#1C2517] tracking-tight">{fmt(akun.saldoBerjalan)}</p>
           </div>
         ))}
       </div>
@@ -751,7 +751,7 @@ export function Dashboard() {
   );
 
   const saldoKas = useMemo(() => {
-    return computedAkunList.reduce((s, a) => s + a.saldo, 0);
+    return computedAkunList.reduce((s, a) => s + a.saldoBerjalan, 0);
   }, [computedAkunList]);
 
   const totalPengeluaran = useMemo(() => {
@@ -952,7 +952,7 @@ export function Dashboard() {
           {mobileAkun.map((akun, i) => (
             <div key={i} className="flex items-center justify-between" style={{ padding: "10px 0", minHeight: 44, borderBottom: i < mobileAkun.length - 1 ? "1px solid #F0F7EE" : "none" }}>
               <span className="text-[13px] text-[#374040]">{akun.nama}</span>
-              <span className="text-[13px] font-bold tabular-nums text-[#1C2517]">{fmt(akun.saldo)}</span>
+              <span className="text-[13px] font-bold tabular-nums text-[#1C2517]">{fmt(akun.saldoBerjalan)}</span>
             </div>
           ))}
         </div>

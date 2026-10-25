@@ -17,11 +17,12 @@ export function rowToManualTransaksi(r: Record<string, any>): ManualTransaksiRow
     catatan:     r.catatan ?? undefined,
     dicatatOleh: r.dicatat_oleh ?? "Admin",
     waktuCatat:  r.waktu_catat ?? new Date().toISOString(),
+    rabId:       r.rab_id ? Number(r.rab_id) : undefined,
   };
 }
 
 export function manualTransaksiToPayload(m: ManualTransaksiRow): Record<string, unknown> {
-  return {
+  const payload: Record<string, unknown> = {
     id:           m.id,
     tipe:         m.tipe,
     tanggal:      m.tanggal,
@@ -34,6 +35,10 @@ export function manualTransaksiToPayload(m: ManualTransaksiRow): Record<string, 
     dicatat_oleh: m.dicatatOleh,
     waktu_catat:  m.waktuCatat,
   };
+  if (m.rabId !== undefined) {
+    payload.rab_id = m.rabId;
+  }
+  return payload;
 }
 
 export async function loadManualTransaksiFromDB(): Promise<ManualTransaksiRow[]> {
@@ -48,6 +53,11 @@ export async function loadManualTransaksiFromDB(): Promise<ManualTransaksiRow[]>
 
 export async function insertManualTransaksiDB(t: ManualTransaksiRow): Promise<void> {
   const { error } = await supabase.from("manual_transaksi").insert(manualTransaksiToPayload(t));
+  if (error) throw error;
+}
+
+export async function deleteManualTransaksiDB(id: string): Promise<void> {
+  const { error } = await supabase.from("manual_transaksi").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -93,6 +103,11 @@ export async function loadBankTransferFromDB(): Promise<BankTransferRow[]> {
 
 export async function insertBankTransferDB(bt: BankTransferRow): Promise<void> {
   const { error } = await supabase.from("bank_transfer").insert(bankTransferToPayload(bt));
+  if (error) throw error;
+}
+
+export async function deleteBankTransferDB(id: string): Promise<void> {
+  const { error } = await supabase.from("bank_transfer").delete().eq("id", id);
   if (error) throw error;
 }
 

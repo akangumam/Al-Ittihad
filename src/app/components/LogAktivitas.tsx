@@ -19,11 +19,13 @@ const TIPE_STYLE: Record<ActivityLogTipe, string> = {
   "Absensi Siswa":     "bg-[#DCFCE7] text-[#166534]",
   "Absensi Guru":      "bg-[#DCFCE7] text-[#166534]",
   "Kelola Akun Bank":  "bg-[#E0F2FE] text-[#0369A1]",
+  "Transaksi Kas":     "bg-[#DCFCE7] text-[#166534]",
+  "Kelola Anggaran":   "bg-[#FEF3C7] text-[#92400E]",
 };
 
 function TipeBadge({ tipe }: { tipe: ActivityLogTipe }) {
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${TIPE_STYLE[tipe]}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${TIPE_STYLE[tipe] || "bg-[#F3F4F6] text-[#374151]"}`}>
       {tipe}
     </span>
   );
@@ -55,6 +57,8 @@ const TIPE_OPTIONS: string[] = [
   "Absensi Siswa",
   "Absensi Guru",
   "Kelola Akun Bank",
+  "Transaksi Kas",
+  "Kelola Anggaran",
 ];
 
 const PERIODE_OPTIONS = [

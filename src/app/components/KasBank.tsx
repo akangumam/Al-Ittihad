@@ -4,12 +4,13 @@ import {
   Plus, Search, ChevronDown, ChevronLeft, ChevronRight,
   Calendar, MoreHorizontal, ArrowRight, Landmark, Wallet, X,
   TrendingUp, TrendingDown, Edit2, Trash2, AlertTriangle, Building,
+  Printer, Download, Eye, FileText, CheckCircle2,
 } from "lucide-react";
 import { fmt } from "@/lib/formatters";
 import { StatusBadge } from "@/app/components/shared/StatusBadge";
 import { DataTable, Th } from "@/app/components/shared/DataTable";
 import { useAppContext } from "@/context/AppContext";
-import type { AkunNama, ManualTransaksiRow } from "@/types";
+import type { AkunNama, ManualTransaksiRow, BankTransferRow } from "@/types";
 import { toast } from "sonner";
 
 import {
@@ -52,7 +53,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   );
 }
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── helpers & reporting ──────────────────────────────────────────────────────
 
 function fmtTanggal(isoOrStr: string): string {
   const d = new Date(isoOrStr);
@@ -64,6 +65,653 @@ function getAkunForTrx(metode: string, customAkun?: string, list?: AkunRow[]): A
   return (customAkun || resolveAkunForPembayaran(metode, customAkun, list)) as AkunNama;
 }
 
+function downloadCSV(filename: string, rows: (string | number)[][]): void {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
+    .join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function terbilang(n: number): string {
+  const bilangan = [
+    "", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"
+  ];
+  n = Math.floor(Math.abs(n));
+  if (n < 12) return bilangan[n];
+  if (n < 20) return terbilang(n - 10) + " Belas";
+  if (n < 100) return terbilang(Math.floor(n / 10)) + " Puluh " + bilangan[n % 10];
+  if (n < 200) return "Seratus " + terbilang(n - 100);
+  if (n < 1000) return bilangan[Math.floor(n / 100)] + " Ratus " + terbilang(n % 100);
+  if (n < 2000) return "Seribu " + terbilang(n - 1000);
+  if (n < 1000000) return terbilang(Math.floor(n / 1000)) + " Ribu " + terbilang(n % 1000);
+  if (n < 1000000000) return terbilang(Math.floor(n / 1000000)) + " Juta " + terbilang(n % 1000000);
+  if (n < 1000000000000) return terbilang(Math.floor(n / 1000000000)) + " Miliar " + terbilang(n % 1000000000);
+  return "";
+}
+
+function fmtTerbilang(n: number): string {
+  const str = terbilang(n).trim().replace(/\s+/g, " ");
+  return str ? `${str} Rupiah` : "Nol Rupiah";
+}
+
+// ─── printable Bukti Kas (BKM / BKK) ─────────────────────────────────────────
+
+function printBuktiKas(tx: {
+  ref: string;
+  tanggal: string;
+  tipe: "masuk" | "keluar";
+  keterangan: string;
+  kategori: string;
+  akun: string;
+  jumlah: number;
+  catatan?: string;
+  dicatatOleh?: string;
+  rabNama?: string;
+}, madrasahInfo: {
+  namaMadrasah: string;
+  alamatMadrasah: string;
+  tahunAjaran: string;
+}) {
+  const isMasuk = tx.tipe === "masuk";
+  const judul = isMasuk ? "BUKTI KAS MASUK (BKM)" : "BUKTI KAS KELUAR (BKK)";
+  const win = window.open("", "_blank", "width=850,height=700");
+  if (!win) {
+    window.print();
+    return;
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>${judul} - ${tx.ref}</title>
+      <style>
+        @page { size: A5 landscape; margin: 12mm; }
+        body { font-family: Arial, sans-serif; color: #1c2517; margin: 0; padding: 16px; font-size: 13px; }
+        .header { text-align: center; border-bottom: 2px double #333; padding-bottom: 8px; margin-bottom: 12px; }
+        .header h2 { margin: 0; font-size: 17px; text-transform: uppercase; color: #166534; }
+        .header h3 { margin: 2px 0 4px 0; font-size: 14px; color: #374151; }
+        .header p { margin: 0; font-size: 11px; color: #6b7280; }
+        .title-badge { text-align: center; font-weight: bold; font-size: 14px; text-decoration: underline; margin: 12px 0; text-transform: uppercase; }
+        .meta-box { display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 12px; }
+        .table-info { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        .table-info td { padding: 6px 4px; vertical-align: top; }
+        .table-info td.label { width: 170px; color: #4b5563; font-weight: 500; }
+        .amount-box {
+          background: ${isMasuk ? "#f0fdf4" : "#fef2f2"};
+          border: 1.5px solid ${isMasuk ? "#86efac" : "#fca5a5"};
+          padding: 10px 14px; border-radius: 6px; margin: 12px 0;
+          display: flex; justify-content: space-between; align-items: center;
+        }
+        .signatures { margin-top: 30px; display: flex; justify-content: space-between; text-align: center; page-break-inside: avoid; }
+        .sig-block { width: 28%; }
+        .sig-line { margin-top: 55px; border-bottom: 1px solid #333; font-weight: bold; }
+        @media print { body { padding: 0; } }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h2>YAYASAN PENDIDIKAN ISLAM AL-ITTIHAD</h2>
+        <h3>${madrasahInfo.namaMadrasah || "MTs Al-Ittihad Pedaleman"}</h3>
+        <p>${madrasahInfo.alamatMadrasah || "Kec. Tanara, Kab. Serang, Banten"}</p>
+      </div>
+
+      <div class="title-badge">${judul}</div>
+
+      <div class="meta-box">
+        <div><strong>No. Bukti / Voucher:</strong> ${tx.ref}</div>
+        <div><strong>Tanggal Transaksi:</strong> ${tx.tanggal}</div>
+      </div>
+
+      <table class="table-info">
+        <tr>
+          <td class="label">${isMasuk ? "Diterima Dari" : "Dibayarkan Kepada"}</td>
+          <td>: <strong>${tx.keterangan}</strong></td>
+        </tr>
+        <tr>
+          <td class="label">Akun Keuangan</td>
+          <td>: ${tx.akun}</td>
+        </tr>
+        <tr>
+          <td class="label">Kategori Transaksi</td>
+          <td>: ${tx.kategori}</td>
+        </tr>
+        ${tx.rabNama ? `
+        <tr>
+          <td class="label">Alokasi Mata Anggaran (RAB)</td>
+          <td>: <strong style="color: #166534;">${tx.rabNama}</strong></td>
+        </tr>` : ""}
+        ${tx.catatan ? `
+        <tr>
+          <td class="label">Catatan Tambahan</td>
+          <td>: ${tx.catatan}</td>
+        </tr>` : ""}
+      </table>
+
+      <div class="amount-box">
+        <div>
+          <span style="font-size: 11px; color: #4b5563; display: block;">Jumlah Terbilang:</span>
+          <em style="font-size: 13px; font-weight: 600;">${fmtTerbilang(tx.jumlah)}</em>
+        </div>
+        <div style="text-align: right;">
+          <span style="font-size: 11px; color: #4b5563; display: block;">Total Nominal:</span>
+          <span style="font-size: 18px; font-weight: bold; color: ${isMasuk ? "#166534" : "#dc2626"};">
+            Rp ${tx.jumlah.toLocaleString("id-ID")}
+          </span>
+        </div>
+      </div>
+
+      <div class="signatures">
+        <div class="sig-block">
+          <div>Mengetahui,</div>
+          <div style="font-size: 11px; color: #6b7280;">Kepala Madrasah</div>
+          <div class="sig-line">( ................................ )</div>
+        </div>
+        <div class="sig-block">
+          <div>Bendahara Madrasah,</div>
+          <div style="font-size: 11px; color: #6b7280;">Dicatat: ${tx.dicatatOleh || "Bendahara"}</div>
+          <div class="sig-line">( ................................ )</div>
+        </div>
+        <div class="sig-block">
+          <div>${isMasuk ? "Penyetor / Wajib Bayar" : "Penerima Dana"},</div>
+          <div style="font-size: 11px; color: #6b7280;">Pihak Terkait</div>
+          <div class="sig-line">( ................................ )</div>
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  win.document.write(html);
+  win.document.close();
+}
+
+// ─── printable Buku Kas Umum ─────────────────────────────────────────────────
+
+function printBukuKas(
+  rows: any[],
+  madrasahInfo: { namaMadrasah: string; alamatMadrasah: string; tahunAjaran: string },
+  filterLabel: string
+) {
+  const win = window.open("", "_blank", "width=950,height=700");
+  if (!win) {
+    window.print();
+    return;
+  }
+
+  const totalMasuk = rows.filter(r => r.tipe === "masuk").reduce((s, r) => s + r.jumlah, 0);
+  const totalKeluar = rows.filter(r => r.tipe === "keluar").reduce((s, r) => s + r.jumlah, 0);
+  const saldoBersih = totalMasuk - totalKeluar;
+  const todayFormatted = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+
+  const tableRowsHtml = rows.map((r, i) => `
+    <tr>
+      <td style="padding: 6px 8px; text-align: center; border-bottom: 1px solid #e5e7eb;">${i + 1}</td>
+      <td style="padding: 6px 8px; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">${r.tanggal}</td>
+      <td style="padding: 6px 8px; border-bottom: 1px solid #e5e7eb; font-family: monospace; font-size: 11px;">${r.ref}</td>
+      <td style="padding: 6px 8px; border-bottom: 1px solid #e5e7eb;">
+        <div style="font-weight: 600;">${r.keterangan}</div>
+        <div style="font-size: 11px; color: #6b7280;">${r.kategori} ${r.rabNama ? `• [${r.rabNama}]` : ""}</div>
+      </td>
+      <td style="padding: 6px 8px; border-bottom: 1px solid #e5e7eb;">${r.akun}</td>
+      <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; color: #166534;">
+        ${r.tipe === "masuk" ? "Rp " + r.jumlah.toLocaleString("id-ID") : "—"}
+      </td>
+      <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; color: #dc2626;">
+        ${r.tipe === "keluar" ? "Rp " + r.jumlah.toLocaleString("id-ID") : "—"}
+      </td>
+    </tr>
+  `).join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Buku Kas Umum - ${madrasahInfo.namaMadrasah}</title>
+      <style>
+        @page { size: A4 landscape; margin: 12mm; }
+        body { font-family: Arial, sans-serif; color: #1c2517; margin: 0; padding: 12px; font-size: 12px; }
+        .header { text-align: center; border-bottom: 2px solid #166534; padding-bottom: 8px; margin-bottom: 14px; }
+        .header h2 { margin: 0; font-size: 16px; color: #166534; }
+        .header h3 { margin: 2px 0; font-size: 13px; color: #374151; }
+        .header p { margin: 0; font-size: 10px; color: #6b7280; }
+        .summary-grid { display: flex; gap: 12px; margin-bottom: 14px; }
+        .summary-card { flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #e5e7eb; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th { background: #f8fafc; border-bottom: 2px solid #cbd5e1; padding: 7px 8px; font-weight: bold; text-align: left; }
+        tfoot tr { background: #f1f5f9; font-weight: bold; font-size: 11px; }
+        .signatures { margin-top: 24px; display: flex; justify-content: space-between; text-align: center; page-break-inside: avoid; }
+        .sig-block { width: 35%; }
+        .sig-line { margin-top: 55px; border-bottom: 1px solid #333; font-weight: bold; }
+        @media print { body { padding: 0; } }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h2>YAYASAN PENDIDIKAN ISLAM AL-ITTIHAD</h2>
+        <h3>${madrasahInfo.namaMadrasah} — BUKU KAS UMUM & REKAP TRANSAKSI</h3>
+        <p>${madrasahInfo.alamatMadrasah} | TA ${madrasahInfo.tahunAjaran}</p>
+        <p style="margin-top: 4px; font-weight: bold; color: #166534;">Filter: ${filterLabel} | Dicetak: ${todayFormatted}</p>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card" style="background: #f0fdf4; border-color: #bbf7d0;">
+          <div style="font-size: 10px; color: #166534;">Total Pemasukan</div>
+          <div style="font-size: 15px; font-weight: bold; color: #166534;">Rp ${totalMasuk.toLocaleString("id-ID")}</div>
+        </div>
+        <div class="summary-card" style="background: #fef2f2; border-color: #fecaca;">
+          <div style="font-size: 10px; color: #991b1b;">Total Pengeluaran</div>
+          <div style="font-size: 15px; font-weight: bold; color: #dc2626;">Rp ${totalKeluar.toLocaleString("id-ID")}</div>
+        </div>
+        <div class="summary-card" style="background: #eff6ff; border-color: #bfdbfe;">
+          <div style="font-size: 10px; color: #1e40af;">Saldo Bersih Terhitung</div>
+          <div style="font-size: 15px; font-weight: bold; color: ${saldoBersih >= 0 ? "#166534" : "#dc2626"};">
+            Rp ${saldoBersih.toLocaleString("id-ID")}
+          </div>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 30px; text-align: center;">No</th>
+            <th style="width: 85px;">Tanggal</th>
+            <th style="width: 120px;">No. Bukti / Ref</th>
+            <th>Keterangan / Kategori</th>
+            <th style="width: 120px;">Akun</th>
+            <th style="width: 110px; text-align: right;">Masuk (Rp)</th>
+            <th style="width: 110px; text-align: right;">Keluar (Rp)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRowsHtml}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" style="padding: 8px; text-align: right;">TOTAL:</td>
+            <td style="padding: 8px; text-align: right; color: #166534;">Rp ${totalMasuk.toLocaleString("id-ID")}</td>
+            <td style="padding: 8px; text-align: right; color: #dc2626;">Rp ${totalKeluar.toLocaleString("id-ID")}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="signatures">
+        <div class="sig-block">
+          <div>Mengetahui,</div>
+          <div style="font-size: 11px; color: #6b7280;">Kepala Madrasah</div>
+          <div class="sig-line">( ................................ )</div>
+        </div>
+        <div class="sig-block">
+          <div>Tanara, ${todayFormatted}</div>
+          <div style="font-size: 11px; color: #6b7280;">Bendahara Madrasah</div>
+          <div class="sig-line">( ................................ )</div>
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  win.document.write(html);
+  win.document.close();
+}
+
+// ─── printable Bukti Transfer ────────────────────────────────────────────────
+
+function printBuktiTransfer(
+  bt: BankTransferRow,
+  madrasahInfo: { namaMadrasah: string; alamatMadrasah: string; tahunAjaran: string }
+) {
+  const win = window.open("", "_blank", "width=850,height=650");
+  if (!win) {
+    window.print();
+    return;
+  }
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Bukti Mutasi Kas - ${bt.id}</title>
+      <style>
+        @page { size: A5 landscape; margin: 12mm; }
+        body { font-family: Arial, sans-serif; color: #1c2517; margin: 0; padding: 16px; font-size: 13px; }
+        .header { text-align: center; border-bottom: 2px double #333; padding-bottom: 8px; margin-bottom: 12px; }
+        .header h2 { margin: 0; font-size: 16px; color: #166534; }
+        .header h3 { margin: 2px 0; font-size: 13px; color: #374151; }
+        .header p { margin: 0; font-size: 10px; color: #6b7280; }
+        .title { text-align: center; font-weight: bold; font-size: 14px; text-decoration: underline; margin: 12px 0; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .info-table td { padding: 6px 4px; vertical-align: top; }
+        .info-table td.lbl { width: 150px; color: #4b5563; }
+        .transfer-box {
+          background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 6px; padding: 12px;
+          display: flex; justify-content: space-between; align-items: center; margin: 12px 0;
+        }
+        .signatures { margin-top: 30px; display: flex; justify-content: space-around; text-align: center; }
+        .sig-block { width: 35%; }
+        .sig-line { margin-top: 55px; border-bottom: 1px solid #333; font-weight: bold; }
+        @media print { body { padding: 0; } }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h2>YAYASAN PENDIDIKAN ISLAM AL-ITTIHAD</h2>
+        <h3>${madrasahInfo.namaMadrasah}</h3>
+        <p>${madrasahInfo.alamatMadrasah}</p>
+      </div>
+
+      <div class="title">BUKTI MUTASI KAS / TRANSFER ANTAR-AKUN</div>
+
+      <table class="info-table">
+        <tr><td class="lbl">ID Mutasi</td><td>: <strong>${bt.id}</strong></td></tr>
+        <tr><td class="lbl">Tanggal</td><td>: ${fmtTanggal(bt.tanggal)}</td></tr>
+        <tr><td class="lbl">Dari Akun (Sumber)</td><td>: <strong style="color: #dc2626;">${bt.dari}</strong></td></tr>
+        <tr><td class="lbl">Ke Akun (Tujuan)</td><td>: <strong style="color: #166534;">${bt.ke}</strong></td></tr>
+        <tr><td class="lbl">Catatan / Alasan</td><td>: ${bt.catatan || "—"}</td></tr>
+        <tr><td class="lbl">Status Mutasi</td><td>: <strong>${bt.status}</strong></td></tr>
+      </table>
+
+      <div class="transfer-box">
+        <div>
+          <span style="font-size: 11px; color: #4b5563; display: block;">Terbilang:</span>
+          <em>${fmtTerbilang(bt.nominal)}</em>
+        </div>
+        <div style="text-align: right;">
+          <span style="font-size: 11px; color: #4b5563; display: block;">Nominal Transfer:</span>
+          <span style="font-size: 18px; font-weight: bold; color: #1e40af;">Rp ${bt.nominal.toLocaleString("id-ID")}</span>
+        </div>
+      </div>
+
+      <div class="signatures">
+        <div class="sig-block">
+          <div>Mengetahui,</div>
+          <div style="font-size: 11px; color: #6b7280;">Kepala Madrasah</div>
+          <div class="sig-line">( ................................ )</div>
+        </div>
+        <div class="sig-block">
+          <div>Dilaksanakan Oleh,</div>
+          <div style="font-size: 11px; color: #6b7280;">${bt.dicatatOleh || "Bendahara"}</div>
+          <div class="sig-line">( ................................ )</div>
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  win.document.write(html);
+  win.document.close();
+}
+
+// ─── Transaksi Detail Modal ──────────────────────────────────────────────────
+
+function TransaksiDetailModal({
+  tx,
+  onClose,
+  onPrint,
+  onDelete,
+  canDelete,
+}: {
+  tx: any;
+  onClose: () => void;
+  onPrint: () => void;
+  onDelete?: () => void;
+  canDelete?: boolean;
+}) {
+  const isMasuk = tx.tipe === "masuk";
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-[#1C2517]/30" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-[#E2E8DE] overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-[#E2E8DE] bg-[#FAFBF9]">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isMasuk ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#FEE2E2] text-[#991B1B]"}`}>
+                {isMasuk ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+              </div>
+              <div>
+                <h3 className="font-bold text-[#1C2517] text-sm">Detail Transaksi {isMasuk ? "Pemasukan" : "Pengeluaran"}</h3>
+                <p className="text-xs text-[#6B7769]">{tx.ref}</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-[#9CA3A0] hover:text-[#1C2517] hover:bg-black/5 transition-colors">
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-6 space-y-4">
+            {/* Amount card */}
+            <div className={`p-4 rounded-xl border flex items-center justify-between ${isMasuk ? "bg-[#F0FDF4] border-[#BBF7D0]" : "bg-[#FEF2F2] border-[#FECACA]"}`}>
+              <div>
+                <span className="text-xs text-[#6B7769] block">Nominal Transaksi</span>
+                <span className={`text-2xl font-bold tabular-nums ${isMasuk ? "text-[#166534]" : "text-[#DC2626]"}`}>
+                  {isMasuk ? "+" : "−"}{fmt(tx.jumlah)}
+                </span>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${isMasuk ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#FEE2E2] text-[#991B1B]"}`}>
+                {isMasuk ? "Pemasukan Kas" : "Pengeluaran Kas"}
+              </span>
+            </div>
+
+            {/* Field breakdown */}
+            <div className="grid grid-cols-2 gap-3.5 text-xs">
+              <div className="p-3 bg-[#FAFBF9] rounded-lg border border-[#E2E8DE]">
+                <span className="text-[#9CA3A0] block text-[11px] mb-0.5">Tanggal</span>
+                <span className="font-semibold text-[#1C2517]">{tx.tanggal}</span>
+              </div>
+              <div className="p-3 bg-[#FAFBF9] rounded-lg border border-[#E2E8DE]">
+                <span className="text-[#9CA3A0] block text-[11px] mb-0.5">Akun Kas / Bank</span>
+                <span className="font-semibold text-[#1C2517]">{tx.akun}</span>
+              </div>
+              <div className="p-3 bg-[#FAFBF9] rounded-lg border border-[#E2E8DE]">
+                <span className="text-[#9CA3A0] block text-[11px] mb-0.5">Kategori</span>
+                <span className="font-semibold text-[#1C2517]">{tx.kategori}</span>
+              </div>
+              <div className="p-3 bg-[#FAFBF9] rounded-lg border border-[#E2E8DE]">
+                <span className="text-[#9CA3A0] block text-[11px] mb-0.5">Dicatat Oleh</span>
+                <span className="font-semibold text-[#1C2517]">{tx.dicatatOleh || "Sistem"}</span>
+              </div>
+            </div>
+
+            {/* Description & Note */}
+            <div className="space-y-2 text-xs">
+              <div className="p-3 bg-[#FAFBF9] rounded-lg border border-[#E2E8DE]">
+                <span className="text-[#9CA3A0] block text-[11px] mb-0.5">Keterangan Transaksi</span>
+                <span className="font-medium text-[#1C2517] text-sm">{tx.keterangan}</span>
+              </div>
+              {tx.rabNama && (
+                <div className="p-3 bg-[#EDF7EC] rounded-lg border border-[#BBF7D0]">
+                  <span className="text-[#166534] block text-[11px] font-semibold mb-0.5">Alokasi Mata Anggaran (RAB)</span>
+                  <span className="font-bold text-[#166534]">{tx.rabNama}</span>
+                </div>
+              )}
+              {tx.catatan && (
+                <div className="p-3 bg-[#FAFBF9] rounded-lg border border-[#E2E8DE]">
+                  <span className="text-[#9CA3A0] block text-[11px] mb-0.5">Catatan Tambahan</span>
+                  <p className="text-[#374040] italic">{tx.catatan}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-6 py-4 border-t border-[#E2E8DE] bg-[#FAFBF9]">
+            {canDelete && onDelete ? (
+              <button
+                onClick={onDelete}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#DC2626] hover:bg-[#FEE2E2] rounded-lg transition-colors"
+              >
+                <Trash2 size={13} />
+                Hapus Transaksi
+              </button>
+            ) : <div />}
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onPrint}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold text-[#374040] bg-white border border-[#E2E8DE] hover:bg-[#F5F9F4] transition-colors"
+              >
+                <Printer size={13} />
+                Cetak Bukti (Voucher)
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#3E8A2F] hover:bg-[#2E6B22] transition-colors"
+              >
+                Selesai
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Delete Transaksi Dialog ─────────────────────────────────────────────────
+
+function DeleteTransaksiDialog({
+  tx,
+  onClose,
+  onConfirm,
+}: {
+  tx: any;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-[#1C2517]/40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#E2E8DE] p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#FEE2E2] flex items-center justify-center shrink-0">
+              <AlertTriangle size={18} className="text-[#DC2626]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-[#1C2517]">Hapus Transaksi Keuangan</h3>
+              <p className="text-xs text-[#6B7769] mt-0.5">Tindakan ini tidak dapat dibatalkan</p>
+            </div>
+          </div>
+
+          <p className="text-sm text-[#374040] leading-relaxed">
+            Anda akan menghapus transaksi <strong>{tx.ref}</strong> (<em>{tx.keterangan}</em>) sebesar{" "}
+            <strong className="text-[#DC2626]">{fmt(tx.jumlah)}</strong> pada akun <strong>{tx.akun}</strong>.
+          </p>
+
+          {tx.rabNama && (
+            <div className="p-3 bg-[#FEF3C7] rounded-lg border border-[#FDE68A] text-xs text-[#92400E]">
+              <strong>Perhatian:</strong> Pengeluaran ini sebelumnya dialokasikan pada mata anggaran{" "}
+              <strong>{tx.rabNama}</strong>. Menghapus transaksi ini akan secara otomatis mengembalikan (rollback) serapan anggaran tersebut.
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-[#374040] hover:bg-[#F5F9F4] border border-[#E2E8DE] transition-colors"
+            >
+              Batal
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] transition-colors shadow-sm"
+            >
+              Ya, Hapus Transaksi
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Delete Bank Transfer Dialog ──────────────────────────────────────────────
+
+function DeleteBankTransferDialog({
+  transfer,
+  onClose,
+  onConfirm,
+}: {
+  transfer: BankTransferRow;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-[#1C2517]/40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-[#E2E8DE] p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#FEE2E2] flex items-center justify-center shrink-0">
+              <AlertTriangle size={18} className="text-[#DC2626]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-[#1C2517]">Batalkan Mutasi Transfer</h3>
+              <p className="text-xs text-[#6B7769] mt-0.5">Kembalikan saldo transfer antar akun</p>
+            </div>
+          </div>
+
+          <p className="text-sm text-[#374040] leading-relaxed">
+            Apakah Anda yakin ingin membatalkan mutasi transfer <strong>{fmt(transfer.nominal)}</strong> dari akun{" "}
+            <strong>{transfer.dari}</strong> ke <strong>{transfer.ke}</strong>?
+          </p>
+
+          <p className="text-xs text-[#6B7769] bg-[#FAFBF9] p-2.5 rounded border border-[#E2E8DE]">
+            Saldo berjalan kedua akun keuangan akan secara otomatis disesuaikan kembali ke keadaan sebelum transfer.
+          </p>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-[#374040] hover:bg-[#F5F9F4] border border-[#E2E8DE] transition-colors"
+            >
+              Batal
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] transition-colors shadow-sm"
+            >
+              Ya, Batalkan Mutasi
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Transaksi form sheet ─────────────────────────────────────────────────────
 
 function TransaksiSheet({
@@ -73,9 +721,9 @@ function TransaksiSheet({
 }: {
   tipe: "masuk" | "keluar";
   onClose: () => void;
-  onSave: (data: Omit<ManualTransaksiRow, "id" | "dicatatOleh" | "waktuCatat" | "ref">) => void;
+  onSave: (data: Omit<ManualTransaksiRow, "id" | "dicatatOleh" | "waktuCatat" | "ref"> & { rabId?: number }) => void;
 }) {
-  const { akunList } = useAppContext();
+  const { akunList, rabList } = useAppContext();
   const optionsAkun = akunList.length > 0 ? akunList.map(a => a.nama) : AKUN_OPTIONS;
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState({
@@ -85,6 +733,7 @@ function TransaksiSheet({
     akun: (optionsAkun[0] || "Bank BSI") as AkunNama,
     jumlah: "",
     catatan: "",
+    rabId: undefined as number | undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -103,9 +752,16 @@ function TransaksiSheet({
     const e = validate();
     if (Object.keys(e).length > 0) { setErrors(e); return; }
     const nominal = parseInt(form.jumlah.replace(/\D/g, ""), 10);
-    onSave({ tipe, tanggal: form.tanggal, keterangan: form.keterangan.trim(),
-      kategori: form.kategori, akun: form.akun, jumlah: nominal,
-      catatan: form.catatan.trim() || undefined });
+    onSave({
+      tipe,
+      tanggal: form.tanggal,
+      keterangan: form.keterangan.trim(),
+      kategori: form.kategori,
+      akun: form.akun,
+      jumlah: nominal,
+      catatan: form.catatan.trim() || undefined,
+      rabId: form.rabId,
+    });
   }
 
   function fmtInput(v: string) {
@@ -195,6 +851,33 @@ function TransaksiSheet({
               <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
             </div>
           </div>
+
+          {/* Alokasi Mata Anggaran RAB (hanya untuk pengeluaran) */}
+          {!isIncome && rabList.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-[#6B7769] mb-1.5">
+                Alokasi ke Mata Anggaran (RAB) <span className="text-xs font-normal text-[#9CA3A0]">(opsional)</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={form.rabId || ""}
+                  onChange={e => setForm(f => ({ ...f, rabId: e.target.value ? Number(e.target.value) : undefined }))}
+                  className="w-full appearance-none px-3 py-2.5 rounded-lg text-sm text-[#1C2517] outline-none border border-[#E2E8DE] focus:border-[#3E8A2F] transition-colors"
+                >
+                  <option value="">-- Tanpa Alokasi RAB --</option>
+                  {rabList.map(r => (
+                    <option key={r.id} value={r.id}>
+                      [{r.group}] {r.nama} (Sisa: {fmt(r.anggaran - r.terpakai)})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3A0] pointer-events-none" />
+              </div>
+              <p className="text-[11px] text-[#9CA3A0] mt-1">
+                Jika dipilih, pengeluaran ini otomatis menambah serapan dana pada mata anggaran tersebut.
+              </p>
+            </div>
+          )}
 
           {/* Akun & Jumlah */}
           <div className="grid grid-cols-2 gap-3">
@@ -297,7 +980,8 @@ const PAGE_SIZE = 15;
 function TransaksiTab() {
   const {
     transaksiList, siswaList, tagihanList,
-    manualTransaksiList, addManualTransaksi, nextBVRef, role, akunList,
+    manualTransaksiList, addManualTransaksi, deleteManualTransaksi, nextBVRef,
+    role, akunList, rabList, appSettings,
   } = useAppContext();
 
   const [filter, setFilter] = useState<FilterType>("Semua");
@@ -305,6 +989,8 @@ function TransaksiTab() {
   const [kategoriFilter, setKategoriFilter] = useState("Semua Kategori");
   const [page, setPage] = useState(1);
   const [sheetTipe, setSheetTipe] = useState<"masuk" | "keluar" | null>(null);
+  const [detailRow, setDetailRow] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
 
   // Map real siswa payments (always masuk)
   const pemasukanRows = useMemo(() =>
@@ -324,24 +1010,39 @@ function TransaksiTab() {
         ref: t.nomorKuitansi,
         jumlah: t.nominal,
         tipe: "masuk" as const,
+        catatan: t.catatan || `Pembayaran oleh ${nama} (${siswa?.kelas || ""}) via ${t.metode}`,
+        dicatatOleh: t.dicatatOleh,
+        waktuCatat: t.tanggal,
+        rabId: undefined,
+        rabNama: undefined,
+        isManual: false,
       };
     }).sort((a, b) => b.tanggalRaw.localeCompare(a.tanggalRaw)),
   [transaksiList, siswaList, tagihanList, akunList]);
 
   // Manual entries (both masuk and keluar)
   const manualRows = useMemo(() =>
-    manualTransaksiList.map(t => ({
-      id: t.id,
-      tanggal: fmtTanggal(t.tanggal),
-      tanggalRaw: t.tanggal,
-      keterangan: t.keterangan,
-      kategori: t.kategori,
-      akun: t.akun,
-      ref: t.ref,
-      jumlah: t.jumlah,
-      tipe: t.tipe,
-    })),
-  [manualTransaksiList]);
+    manualTransaksiList.map(t => {
+      const linkedRab = t.rabId ? rabList.find(r => r.id === t.rabId) : undefined;
+      return {
+        id: t.id,
+        tanggal: fmtTanggal(t.tanggal),
+        tanggalRaw: t.tanggal,
+        keterangan: t.keterangan,
+        kategori: t.kategori,
+        akun: t.akun,
+        ref: t.ref,
+        jumlah: t.jumlah,
+        tipe: t.tipe,
+        catatan: t.catatan,
+        dicatatOleh: t.dicatatOleh,
+        waktuCatat: t.waktuCatat,
+        rabId: t.rabId,
+        rabNama: linkedRab ? `[${linkedRab.group}] ${linkedRab.nama}` : undefined,
+        isManual: true,
+      };
+    }),
+  [manualTransaksiList, rabList]);
 
   const allRows = useMemo(() => {
     const combined = [...pemasukanRows, ...manualRows];
@@ -377,7 +1078,7 @@ function TransaksiTab() {
 
   const canEdit = role === "Admin" || role === "Bendahara";
 
-  function handleSave(data: Omit<ManualTransaksiRow, "id" | "dicatatOleh" | "waktuCatat" | "ref">) {
+  function handleSave(data: Omit<ManualTransaksiRow, "id" | "dicatatOleh" | "waktuCatat" | "ref"> & { rabId?: number }) {
     const ref = nextBVRef(data.tipe);
     addManualTransaksi({
       ...data,
@@ -388,6 +1089,44 @@ function TransaksiTab() {
     });
     setSheetTipe(null);
     toast.success(`${data.tipe === "masuk" ? "Pemasukan" : "Pengeluaran"} berhasil dicatat (${ref})`);
+  }
+
+  function handleExportCSV() {
+    const headers = ["No. Ref", "Tanggal", "Tipe", "Keterangan", "Kategori", "Akun", "Jumlah (Rp)", "Alokasi RAB", "Dicatat Oleh", "Catatan"];
+    const rows = filteredRows.map(r => [
+      r.ref,
+      r.tanggal,
+      r.tipe === "masuk" ? "Pemasukan" : "Pengeluaran",
+      r.keterangan,
+      r.kategori,
+      r.akun,
+      r.jumlah,
+      r.rabNama || "—",
+      r.dicatatOleh || "—",
+      r.catatan || "—",
+    ]);
+    downloadCSV(`buku-kas-${filter.toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows]);
+    toast.success(`${filteredRows.length} transaksi berhasil diekspor ke CSV`);
+  }
+
+  function handlePrintRekap() {
+    printBukuKas(
+      filteredRows,
+      {
+        namaMadrasah: appSettings.namaMadrasah,
+        alamatMadrasah: appSettings.alamatMadrasah,
+        tahunAjaran: appSettings.tahunAjaran,
+      },
+      `${filter} (${kategoriFilter})`
+    );
+  }
+
+  function handlePrintItem(r: any) {
+    printBuktiKas(r, {
+      namaMadrasah: appSettings.namaMadrasah,
+      alamatMadrasah: appSettings.alamatMadrasah,
+      tahunAjaran: appSettings.tahunAjaran,
+    });
   }
 
   return (
@@ -411,16 +1150,6 @@ function TransaksiTab() {
             ))}
           </div>
 
-          {/* Date (display only) */}
-          <button
-            className="flex items-center gap-2 px-3 py-2 rounded-lg shrink-0"
-            style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}
-          >
-            <Calendar size={13} className="text-[#6B7769] shrink-0" />
-            <span className="text-sm text-[#374040]">Semua periode</span>
-            <ChevronDown size={12} className="text-[#9CA3A0]" />
-          </button>
-
           {/* Search */}
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ border: "1px solid #E2E8DE", background: "#FAFBF9" }}>
             <Search size={13} className="text-[#9CA3A0] shrink-0" />
@@ -437,6 +1166,26 @@ function TransaksiTab() {
               {kategoriOptions.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
             <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+          </div>
+
+          {/* Export & Print Rekap */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#374040] bg-white hover:bg-[#F5F9F4] border border-[#E2E8DE] transition-colors"
+              title="Ekspor CSV"
+            >
+              <Download size={13} className="text-[#6B7769]" />
+              <span className="hidden sm:inline">CSV</span>
+            </button>
+            <button
+              onClick={handlePrintRekap}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#374040] bg-white hover:bg-[#F5F9F4] border border-[#E2E8DE] transition-colors"
+              title="Cetak Rekap Buku Kas"
+            >
+              <Printer size={13} className="text-[#6B7769]" />
+              <span className="hidden sm:inline">Cetak Buku Kas</span>
+            </button>
           </div>
 
           {/* Action buttons */}
@@ -474,7 +1223,7 @@ function TransaksiTab() {
             <span className="text-xs sm:text-sm font-bold tabular-nums text-[#DC2626] ml-auto">{fmt(totalKeluar)}</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#F5F9F4]">
-            <span className="text-xs text-[#6B7769]">Saldo:</span>
+            <span className="text-xs text-[#6B7769]">Saldo Berjalan:</span>
             <span className={`text-xs sm:text-sm font-bold tabular-nums ml-auto ${totalMasuk - totalKeluar >= 0 ? "text-[#3E8A2F]" : "text-[#DC2626]"}`}>
               {fmt(totalMasuk - totalKeluar)}
             </span>
@@ -488,28 +1237,67 @@ function TransaksiTab() {
           <div className="text-center py-8 text-sm text-[#9CA3A0]">Belum ada transaksi</div>
         ) : (
           paged.map((row) => (
-            <div key={row.id} className="bg-white rounded-xl p-3.5 border border-[#E2E8DE] shadow-sm flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2.5 min-w-0">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${row.tipe === "masuk" ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#FEE2E2] text-[#991B1B]"}`}>
-                  {row.tipe === "masuk" ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[#1C2517] leading-tight truncate">{row.keterangan}</p>
-                  <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                    <span className="text-[10px] text-[#6B7769] font-medium bg-[#F5F9F4] px-1.5 py-0.5 rounded">
-                      {row.kategori}
-                    </span>
-                    <span className="text-[10px] text-[#9CA3A0]">•</span>
-                    <span className="text-[11px] text-[#6B7769]">{row.akun}</span>
-                    <span className="text-[10px] text-[#9CA3A0]">•</span>
-                    <span className="text-[11px] text-[#9CA3A0]">{row.tanggal}</span>
+            <div key={row.id} className="bg-white rounded-xl p-3.5 border border-[#E2E8DE] shadow-sm flex flex-col gap-2.5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${row.tipe === "masuk" ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#FEE2E2] text-[#991B1B]"}`}>
+                    {row.tipe === "masuk" ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[#1C2517] leading-tight truncate">{row.keterangan}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                      <span className="text-[10px] text-[#6B7769] font-medium bg-[#F5F9F4] px-1.5 py-0.5 rounded">
+                        {row.kategori}
+                      </span>
+                      {row.rabNama && (
+                        <span className="text-[10px] text-[#166534] font-semibold bg-[#DCFCE7] px-1.5 py-0.5 rounded truncate max-w-[150px]">
+                          RAB: {row.rabNama}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-[#9CA3A0]">•</span>
+                      <span className="text-[11px] text-[#6B7769]">{row.akun}</span>
+                      <span className="text-[10px] text-[#9CA3A0]">•</span>
+                      <span className="text-[11px] text-[#9CA3A0]">{row.tanggal}</span>
+                    </div>
                   </div>
                 </div>
+                <div className="text-right shrink-0">
+                  <span className={`text-sm font-bold tabular-nums ${row.tipe === "masuk" ? "text-[#3E8A2F]" : "text-[#DC2626]"}`}>
+                    {row.tipe === "masuk" ? "+" : "−"}{fmt(row.jumlah)}
+                  </span>
+                </div>
               </div>
-              <div className="text-right shrink-0">
-                <span className={`text-sm font-bold tabular-nums ${row.tipe === "masuk" ? "text-[#3E8A2F]" : "text-[#DC2626]"}`}>
-                  {row.tipe === "masuk" ? "+" : "−"}{fmt(row.jumlah)}
-                </span>
+
+              {/* Action buttons on mobile */}
+              <div className="flex items-center justify-between pt-2 border-t border-[#F0F7EE]">
+                <code className="text-[10px] text-[#6B7769] bg-[#FAFBF9] px-1.5 py-0.5 rounded border border-[#E2E8DE]">
+                  {row.ref}
+                </code>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setDetailRow(row)}
+                    className="p-1 rounded-md text-[#6B7769] hover:bg-[#F5F9F4]"
+                    title="Lihat Detail"
+                  >
+                    <Eye size={14} />
+                  </button>
+                  <button
+                    onClick={() => handlePrintItem(row)}
+                    className="p-1 rounded-md text-[#6B7769] hover:bg-[#F5F9F4]"
+                    title="Cetak Bukti"
+                  >
+                    <Printer size={14} />
+                  </button>
+                  {row.isManual && canEdit && (
+                    <button
+                      onClick={() => setDeleteTarget(row)}
+                      className="p-1 rounded-md text-[#DC2626] hover:bg-[#FEE2E2]"
+                      title="Hapus Transaksi"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))
@@ -522,11 +1310,11 @@ function TransaksiTab() {
           <thead>
             <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
               <Th className="pl-6 pr-4 whitespace-nowrap">Tanggal</Th>
-              <Th className="pr-4">Keterangan</Th>
+              <Th className="pr-4">Keterangan &amp; Kategori</Th>
               <Th className="pr-4 whitespace-nowrap">Akun</Th>
               <Th className="pr-4">Ref</Th>
               <Th align="right" className="pr-4">Jumlah</Th>
-              <th className="py-3 pr-6 w-10" />
+              <th className="py-3 pr-6 text-right w-24">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -544,9 +1332,16 @@ function TransaksiTab() {
                 </td>
                 <td className="py-3.5 pr-4">
                   <p className="text-sm font-semibold text-[#1C2517]">{row.keterangan}</p>
-                  <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-[#F5F9F4] text-[#6B7769]">
-                    {row.kategori}
-                  </span>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#F5F9F4] text-[#6B7769]">
+                      {row.kategori}
+                    </span>
+                    {row.rabNama && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#DCFCE7] text-[#166534]">
+                        RAB: {row.rabNama}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="py-3.5 pr-4 text-sm text-[#6B7769] whitespace-nowrap">{row.akun}</td>
                 <td className="py-3.5 pr-4">
@@ -563,10 +1358,32 @@ function TransaksiTab() {
                     {row.tipe === "masuk" ? "+" : "−"}{fmt(row.jumlah)}
                   </span>
                 </td>
-                <td className="py-3.5 pr-6">
-                  <button className="w-7 h-7 rounded-lg flex items-center justify-center text-[#9CA3A0] hover:bg-[#F5F9F4] hover:text-[#374040] transition-colors">
-                    <MoreHorizontal size={14} />
-                  </button>
+                <td className="py-3.5 pr-6 text-right whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => setDetailRow(row)}
+                      className="p-1.5 rounded-lg text-[#6B7769] hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors"
+                      title="Lihat Detail Transaksi"
+                    >
+                      <Eye size={14} />
+                    </button>
+                    <button
+                      onClick={() => handlePrintItem(row)}
+                      className="p-1.5 rounded-lg text-[#6B7769] hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors"
+                      title="Cetak Bukti (Voucher)"
+                    >
+                      <Printer size={14} />
+                    </button>
+                    {row.isManual && canEdit && (
+                      <button
+                        onClick={() => setDeleteTarget(row)}
+                        className="p-1.5 rounded-lg text-[#6B7769] hover:bg-[#FEE2E2] hover:text-[#DC2626] transition-colors"
+                        title="Hapus Transaksi"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -603,12 +1420,38 @@ function TransaksiTab() {
       </div>
     </div>
 
-    {/* Sheet */}
+    {/* Sheet Add */}
     {sheetTipe && (
       <TransaksiSheet
         tipe={sheetTipe}
         onClose={() => setSheetTipe(null)}
         onSave={handleSave}
+      />
+    )}
+
+    {/* Detail Modal */}
+    {detailRow && (
+      <TransaksiDetailModal
+        tx={detailRow}
+        onClose={() => setDetailRow(null)}
+        onPrint={() => handlePrintItem(detailRow)}
+        onDelete={detailRow.isManual && canEdit ? () => {
+          setDeleteTarget(detailRow);
+          setDetailRow(null);
+        } : undefined}
+        canDelete={detailRow.isManual && canEdit}
+      />
+    )}
+
+    {/* Confirm Delete */}
+    {deleteTarget && (
+      <DeleteTransaksiDialog
+        tx={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          deleteManualTransaksi(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
       />
     )}
     </>
@@ -910,9 +1753,14 @@ function AkunTab() {
                 </div>
               </div>
 
-              <p className="tabular-nums font-bold text-[#1C2517] tracking-tight mb-3" style={{ fontSize: "1.20rem" }}>
-                {fmt(akun.saldo)}
+              <p className="tabular-nums font-bold text-[#1C2517] tracking-tight mb-1" style={{ fontSize: "1.20rem" }}>
+                {fmt(akun.saldoBerjalan)}
               </p>
+              {akun.saldo !== akun.saldoBerjalan && (
+                <p className="text-[11px] text-[#9CA3A0] mb-2 tabular-nums">
+                  Saldo awal: {fmt(akun.saldo)}
+                </p>
+              )}
               <div className="flex-1 flex items-end mb-3">
                 <Sparkline data={akun.spark ?? [0, 0, 0]} color={akun.sparkColor ?? "#3E8A2F"} />
               </div>
@@ -1126,30 +1974,69 @@ function BuatTransferSheet({ onClose }: { onClose: () => void }) {
 // ─── Mutasi tab ───────────────────────────────────────────────────────────────
 
 function MutasiTab() {
-  const { bankTransferList } = useAppContext();
+  const { bankTransferList, deleteBankTransfer, role, appSettings } = useAppContext();
   const [showSheet, setShowSheet] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<BankTransferRow | null>(null);
+
+  const canEdit = role === "Admin" || role === "Bendahara";
 
   function fmtTglISO(iso: string) {
     const d = new Date(iso + "T00:00:00");
     return `${d.getDate()} ${d.toLocaleString("id-ID", { month: "short" })} ${d.getFullYear()}`;
   }
 
+  function handleExportMutasiCSV() {
+    const headers = ["ID Mutasi", "Tanggal", "Dari Akun", "Ke Akun", "Nominal (Rp)", "Catatan", "Status", "Dicatat Oleh"];
+    const rows = bankTransferList.map(b => [
+      b.id,
+      b.tanggal,
+      b.dari,
+      b.ke,
+      b.nominal,
+      b.catatan || "—",
+      b.status,
+      b.dicatatOleh || "—",
+    ]);
+    downloadCSV(`mutasi-bank-${new Date().toISOString().slice(0, 10)}.csv`, [headers, ...rows]);
+    toast.success(`${bankTransferList.length} mutasi berhasil diekspor ke CSV`);
+  }
+
+  function handlePrintTransfer(row: BankTransferRow) {
+    printBuktiTransfer(row, {
+      namaMadrasah: appSettings.namaMadrasah,
+      alamatMadrasah: appSettings.alamatMadrasah,
+      tahunAjaran: appSettings.tahunAjaran,
+    });
+  }
+
   return (
     <div>
       {showSheet && <BuatTransferSheet onClose={() => setShowSheet(false)} />}
 
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
           <p className="font-semibold text-[#1C2517]" style={{ fontSize: "0.9375rem" }}>Mutasi Antar Akun</p>
           <p className="text-sm text-[#6B7769] mt-0.5">Transfer dana antara akun keuangan</p>
         </div>
-        <button
-          onClick={() => setShowSheet(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-colors shrink-0"
-        >
-          <Plus size={14} />
-          Buat Transfer
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportMutasiCSV}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-[#374040] bg-white hover:bg-[#F5F9F4] border border-[#E2E8DE] transition-colors"
+            title="Ekspor CSV Riwayat Mutasi"
+          >
+            <Download size={13} className="text-[#6B7769]" />
+            <span>Ekspor CSV</span>
+          </button>
+          {canEdit && (
+            <button
+              onClick={() => setShowSheet(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3E8A2F] text-white text-xs sm:text-sm font-semibold hover:bg-[#2E6B22] transition-colors shrink-0 shadow-sm"
+            >
+              <Plus size={14} />
+              Buat Transfer
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Mobile Transfer Cards (md:hidden) ── */}
@@ -1174,6 +2061,26 @@ function MutasiTab() {
                 <span className="text-xs text-[#6B7769] truncate max-w-[180px]">{row.catatan || "—"}</span>
                 <span className="text-sm font-bold tabular-nums text-[#1C2517]">{fmt(row.nominal)}</span>
               </div>
+              <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#F0F7EE]">
+                <button
+                  onClick={() => handlePrintTransfer(row)}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs text-[#6B7769] hover:bg-[#F5F9F4] rounded border border-[#E2E8DE]"
+                  title="Cetak Bukti Transfer"
+                >
+                  <Printer size={12} />
+                  <span>Cetak</span>
+                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => setDeleteTarget(row)}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs text-[#DC2626] hover:bg-[#FEE2E2] rounded border border-[#FECACA]"
+                    title="Batalkan Mutasi"
+                  >
+                    <Trash2 size={12} />
+                    <span>Batal</span>
+                  </button>
+                )}
+              </div>
             </div>
           ))
         )}
@@ -1189,12 +2096,13 @@ function MutasiTab() {
                 <Th className="pr-4">Dari Akun → Ke Akun</Th>
                 <Th align="right" className="pr-4">Nominal</Th>
                 <Th className="pr-4">Catatan</Th>
-                <Th className="pr-6">Status</Th>
+                <Th className="pr-4">Status</Th>
+                <th className="py-3 pr-6 text-right w-24">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {bankTransferList.length === 0 ? (
-                <tr><td colSpan={5} className="py-10 text-center text-sm text-[#9CA3A0]">Belum ada mutasi antar akun</td></tr>
+                <tr><td colSpan={6} className="py-10 text-center text-sm text-[#9CA3A0]">Belum ada mutasi antar akun</td></tr>
               ) : bankTransferList.map((row, i) => (
                 <tr key={row.id} className="hover:bg-[#FAFBF9] transition-colors"
                   style={{ borderBottom: i < bankTransferList.length - 1 ? "1px solid #F0F7EE" : "none" }}>
@@ -1209,9 +2117,29 @@ function MutasiTab() {
                   <td className="py-3.5 pr-4 text-right">
                     <span className="text-sm font-bold tabular-nums text-[#1C2517]">{fmt(row.nominal)}</span>
                   </td>
-                  <td className="py-3.5 pr-4 text-sm text-[#6B7769]">{row.catatan}</td>
-                  <td className="py-3.5 pr-6">
+                  <td className="py-3.5 pr-4 text-sm text-[#6B7769]">{row.catatan || "—"}</td>
+                  <td className="py-3.5 pr-4">
                     <StatusBadge status={row.status} />
+                  </td>
+                  <td className="py-3.5 pr-6 text-right whitespace-nowrap">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => handlePrintTransfer(row)}
+                        className="p-1.5 rounded-lg text-[#6B7769] hover:bg-[#EDF7EC] hover:text-[#3E8A2F] transition-colors"
+                        title="Cetak Bukti Transfer"
+                      >
+                        <Printer size={14} />
+                      </button>
+                      {canEdit && (
+                        <button
+                          onClick={() => setDeleteTarget(row)}
+                          className="p-1.5 rounded-lg text-[#6B7769] hover:bg-[#FEE2E2] hover:text-[#DC2626] transition-colors"
+                          title="Batalkan Transfer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1219,6 +2147,18 @@ function MutasiTab() {
           </DataTable>
         </div>
       </div>
+
+      {/* Confirm Delete / Cancel Bank Transfer */}
+      {deleteTarget && (
+        <DeleteBankTransferDialog
+          transfer={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            deleteBankTransfer(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }

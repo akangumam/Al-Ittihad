@@ -43,9 +43,11 @@ import {
 import {
   loadManualTransaksiFromDB,
   insertManualTransaksiDB,
+  deleteManualTransaksiDB,
   manualTransaksiToPayload,
   loadBankTransferFromDB,
   insertBankTransferDB,
+  deleteBankTransferDB,
   bankTransferToPayload,
   loadRabFromDB,
   insertRabDB,
@@ -173,6 +175,7 @@ interface AppContextValue {
 
   manualTransaksiList: ManualTransaksiRow[];
   addManualTransaksi: (t: ManualTransaksiRow) => void;
+  deleteManualTransaksi: (id: string) => void;
   nextBVRef: (tipe: "masuk" | "keluar") => string;
 
   rabList: RABRow[];
@@ -182,6 +185,7 @@ interface AppContextValue {
 
   bankTransferList: BankTransferRow[];
   addBankTransfer: (row: Omit<BankTransferRow, "id" | "dicatatOleh" | "waktuCatat">) => void;
+  deleteBankTransfer: (id: string) => void;
 
   akunList: AkunRow[];
   computedAkunList: (AkunRow & { saldoBerjalan: number })[];
@@ -1344,6 +1348,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const deleteBankTransfer = (id: string) => {
+    const target = bankTransferList.find(b => b.id === id);
+    if (!target) return;
+
+    setBankTransferList(prev => prev.filter(b => b.id !== id));
+    deleteBankTransferDB(id).catch(err => {
+      console.error("Gagal hapus transfer di Supabase:", err);
+      toast.error("Gagal menghapus transfer dari server");
+    });
+
+    logActivity({
+      tipe: "Pembatalan",
+      deskripsi: `[Batal Transfer] ${target.dari} → ${target.ke} (${fmt(target.nominal)})`,
+      ref: target.id,
+    });
+    toast.success(`Mutasi transfer ${fmt(target.nominal)} berhasil dibatalkan`);
+  };
+
   const addRab = (row: Omit<RABRow, "id">) => {
     const tempId = rabList.length > 0 ? Math.max(...rabList.map(r => r.id)) + 1 : 1;
     const optimistic: RABRow = { ...row, id: tempId };
@@ -1380,11 +1402,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error("Gagal simpan manual transaksi ke Supabase:", err);
       toast.error("Gagal menyimpan transaksi ke server");
     });
+
+    // Otomatis tambah serapan anggaran bila dialokasikan ke mata anggaran RAB
+    if (t.tipe === "keluar" && t.rabId) {
+      const targetRab = rabList.find(r => r.id === t.rabId);
+      if (targetRab) {
+        updateRab(t.rabId, {
+          terpakai: (targetRab.terpakai || 0) + t.jumlah,
+        });
+      }
+    }
+
     logActivity({
-      tipe: t.tipe === "masuk" ? "Pembayaran" : "Pembatalan",
+      tipe: "Transaksi Kas",
       deskripsi: `[${t.tipe === "masuk" ? "Pemasukan" : "Pengeluaran"} Manual] ${t.keterangan} — ${fmt(t.jumlah)}`,
       ref: t.ref,
     });
+  };
+
+  const deleteManualTransaksi = (id: string) => {
+    const target = manualTransaksiList.find(t => t.id === id);
+    if (!target) return;
+
+    // Rollback serapan anggaran jika transaksi terkait dengan RAB
+    if (target.tipe === "keluar" && target.rabId) {
+      const targetRab = rabList.find(r => r.id === target.rabId);
+      if (targetRab) {
+        updateRab(target.rabId, {
+          terpakai: Math.max(0, (targetRab.terpakai || 0) - target.jumlah),
+        });
+      }
+    }
+
+    setManualTransaksiList(prev => prev.filter(t => t.id !== id));
+    deleteManualTransaksiDB(id).catch(err => {
+      console.error("Gagal hapus manual transaksi di Supabase:", err);
+      toast.error("Gagal menghapus transaksi dari server");
+    });
+
+    logActivity({
+      tipe: "Pembatalan",
+      deskripsi: `[Hapus Transaksi] ${target.ref} - ${target.keterangan} (${fmt(target.jumlah)})`,
+      ref: target.ref,
+    });
+    toast.success(`Transaksi ${target.ref} berhasil dihapus`);
   };
 
   const resetToCleanData = () => {
@@ -1970,9 +2031,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setAppSettings,
         activityLogs,
         mutasiList, addMutasi,
-        manualTransaksiList, addManualTransaksi, nextBVRef,
+        manualTransaksiList, addManualTransaksi, deleteManualTransaksi, nextBVRef,
         rabList, addRab, updateRab, deleteRab,
-        bankTransferList, addBankTransfer,
+        bankTransferList, addBankTransfer, deleteBankTransfer,
         akunList, computedAkunList, addAkun, updateAkun, deleteAkun,
         resetToCleanData,
         refreshAllCloudData,
