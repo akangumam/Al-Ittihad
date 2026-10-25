@@ -1011,7 +1011,7 @@ function TransaksiTab() {
         jumlah: t.nominal,
         tipe: "masuk" as const,
         catatan: t.catatan || `Pembayaran oleh ${nama} (${siswa?.kelas || ""}) via ${t.metode}`,
-        dicatatOleh: t.dicatatOleh,
+        dicatatOleh: t.dicatatOleh || "Bendahara",
         waktuCatat: t.tanggal,
         rabId: undefined,
         rabNama: undefined,

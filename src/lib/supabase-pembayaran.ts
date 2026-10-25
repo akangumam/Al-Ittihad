@@ -71,11 +71,14 @@ export function rowToTransaksi(r: Record<string, any>): TransaksiPembayaran {
     metode:        r.metode,
     nomorKuitansi: r.nomor_kuitansi,
     alokasi:       Array.isArray(r.alokasi) ? r.alokasi : [],
+    akun:          r.akun ?? undefined,
+    catatan:       r.catatan ?? undefined,
+    dicatatOleh:   r.dicatat_oleh ?? undefined,
   };
 }
 
 export function transaksiToPayload(tr: TransaksiPembayaran): Record<string, unknown> {
-  return {
+  const payload: Record<string, unknown> = {
     id:             tr.id,
     nis:            tr.nis,
     tanggal:        tr.tanggal,
@@ -84,6 +87,10 @@ export function transaksiToPayload(tr: TransaksiPembayaran): Record<string, unkn
     nomor_kuitansi: tr.nomorKuitansi,
     alokasi:        tr.alokasi,
   };
+  if (tr.akun) payload.akun = tr.akun;
+  if (tr.catatan) payload.catatan = tr.catatan;
+  if (tr.dicatatOleh) payload.dicatat_oleh = tr.dicatatOleh;
+  return payload;
 }
 
 // ─── Database Operations ──────────────────────────────────────────────────────

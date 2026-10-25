@@ -30,6 +30,8 @@ export interface TransaksiPembayaran {
   nomorKuitansi: string;
   alokasi: TransaksiAlokasi[];
   akun?: string;
+  catatan?: string;
+  dicatatOleh?: string;
 }
 
 // ─── Template komponen (mirrors tagihanTemplates below, used by generator) ────
