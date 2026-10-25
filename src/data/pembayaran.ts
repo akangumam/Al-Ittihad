@@ -150,8 +150,16 @@ export const METODE_PEMBAYARAN_LIST = ["Tunai", "Transfer", "QRIS"];
 
 export interface TemplateComponent { nama: string; jumlah: number }
 export interface Template {
-  id: number; nama: string; tipe: string; target: string;
-  komponen: TemplateComponent[]; total: number; applied: number;
+  id: number;
+  nama: string;
+  tipe: string;
+  target: string;
+  komponen: TemplateComponent[];
+  total: number;
+  applied: number;
+  jatuhTempoDefault?: string;
+  kelas?: string;
+  tahunAjaran?: string;
 }
 
 export const tagihanTemplates: Template[] = [
