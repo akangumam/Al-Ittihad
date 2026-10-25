@@ -99,6 +99,18 @@ const DUMMY_GURU_NAMES = new Set([
   "Ust. Kevin Sanjaya, S.Pd"
 ]);
 
+export const DUMMY_RAB_NAMES = new Set([
+  "Listrik & Air",
+  "ATK & Administrasi",
+  "Pemeliharaan Gedung",
+  "Kegiatan Porseni",
+  "Study Tour & Outing",
+  "Pengadaan Perangkat TIK",
+  "Renovasi Perpustakaan",
+  "Gaji & Tunjangan GTY",
+  "Honor Kegiatan & Panitia",
+]);
+
 interface AppContextValue {
   tahunAjaran: string;
   setTahunAjaran: (ta: string) => void;
@@ -277,14 +289,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [rabList, setRabList] = useState<RABRow[]>(() => {
     try {
-      const isCleaned = localStorage.getItem("alittihad_rab_cleaned_v2");
-      if (!isCleaned) {
-        localStorage.removeItem("alittihad_rab");
-        localStorage.setItem("alittihad_rab_cleaned_v2", "true");
-        return [];
-      }
       const s = localStorage.getItem("alittihad_rab");
-      return s ? JSON.parse(s) : [];
+      if (!s) return [];
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) {
+        const clean = parsed.filter((r: any) => !DUMMY_RAB_NAMES.has(r.nama));
+        if (clean.length !== parsed.length) {
+          if (clean.length > 0) {
+            localStorage.setItem("alittihad_rab", JSON.stringify(clean));
+          } else {
+            localStorage.removeItem("alittihad_rab");
+          }
+        }
+        return clean;
+      }
+      return [];
     } catch { return []; }
   });
 
@@ -735,11 +754,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         if (dbRab && dbRab.length > 0) {
-          setRabList(dbRab);
+          const cleanRab = dbRab.filter(r => !DUMMY_RAB_NAMES.has(r.nama));
+          if (cleanRab.length !== dbRab.length) {
+            supabase
+              .from("rab_anggaran")
+              .delete()
+              .in("nama", Array.from(DUMMY_RAB_NAMES))
+              .then(({ error }) => {
+                if (error) console.error("Gagal purge dummy RAB dari Supabase:", error);
+              });
+          }
+          setRabList(cleanRab);
+          try {
+            if (cleanRab.length > 0) {
+              localStorage.setItem("alittihad_rab", JSON.stringify(cleanRab));
+            } else {
+              localStorage.removeItem("alittihad_rab");
+            }
+          } catch {}
         } else {
           setRabList([]);
           try {
-            localStorage.setItem("alittihad_rab", JSON.stringify([]));
+            localStorage.removeItem("alittihad_rab");
           } catch {}
         }
 
@@ -1471,6 +1507,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMutasiList([]);
     setManualTransaksiList([]);
     setBankTransferList([]);
+    setRabList([]);
     setActivityLogs([]);
     setTemplateTagihanList(tagihanTemplates);
 
@@ -1488,6 +1525,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("alittihad_mutasi");
     localStorage.removeItem("alittihad_manual_transaksi");
     localStorage.removeItem("alittihad_bank_transfer");
+    localStorage.removeItem("alittihad_rab");
     localStorage.removeItem("alittihad_activity_log");
     localStorage.setItem("alittihad_db_v", "2026_clean_v2");
 
@@ -1954,7 +1992,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsSyncing(true);
     try {
       const today = getTodayDateString();
-      const [siswaRes, alumniRes, guruRes, absSiswaRes, absGuruRes, tagihanRes, trxRes] = await Promise.allSettled([
+      const [siswaRes, alumniRes, guruRes, absSiswaRes, absGuruRes, tagihanRes, trxRes, rabRes] = await Promise.allSettled([
         loadSiswaFromDB(),
         loadAlumniFromDB(),
         loadGuruFromDB(),
@@ -1962,6 +2000,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loadAbsensiGuruHariIniDB(today),
         loadTagihanFromDB(),
         loadTransaksiFromDB(),
+        loadRabFromDB(),
       ]);
 
       const summary: string[] = [];
@@ -2002,6 +2041,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (trxRes.status === "fulfilled" && trxRes.value.length > 0) {
         setTransaksiList(trxRes.value);
+      }
+      if (rabRes.status === "fulfilled") {
+        const cleanRab = (rabRes.value || []).filter(r => !DUMMY_RAB_NAMES.has(r.nama));
+        if (cleanRab.length !== (rabRes.value || []).length) {
+          supabase.from("rab_anggaran").delete().in("nama", Array.from(DUMMY_RAB_NAMES)).then(() => {});
+        }
+        setRabList(cleanRab);
+        if (cleanRab.length > 0) {
+          try { localStorage.setItem("alittihad_rab", JSON.stringify(cleanRab)); } catch {}
+          summary.push(`${cleanRab.length} Mata Anggaran`);
+        } else {
+          try { localStorage.removeItem("alittihad_rab"); } catch {}
+        }
       }
 
       toast.success(`Data server berhasil disinkronkan (${summary.join(", ") || "Terbaru"})`);
