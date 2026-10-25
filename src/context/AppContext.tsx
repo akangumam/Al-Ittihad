@@ -277,9 +277,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [rabList, setRabList] = useState<RABRow[]>(() => {
     try {
+      const isCleaned = localStorage.getItem("alittihad_rab_cleaned_v2");
+      if (!isCleaned) {
+        localStorage.removeItem("alittihad_rab");
+        localStorage.setItem("alittihad_rab_cleaned_v2", "true");
+        return [];
+      }
       const s = localStorage.getItem("alittihad_rab");
-      return s ? JSON.parse(s) : RAB_DATA;
-    } catch { return RAB_DATA; }
+      return s ? JSON.parse(s) : [];
+    } catch { return []; }
   });
 
   const [bankTransferList, setBankTransferList] = useState<BankTransferRow[]>(() => {
@@ -723,16 +729,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        if (dbRab.length > 0) {
+        if (dbRab && dbRab.length > 0) {
           setRabList(dbRab);
         } else {
+          setRabList([]);
           try {
-            const seeded = await bulkInsertRabDB(RAB_DATA);
-            setRabList(seeded);
-          } catch (seedErr) {
-            console.error("Gagal seed RAB ke Supabase", seedErr);
-            setRabList(RAB_DATA);
-          }
+            localStorage.setItem("alittihad_rab", JSON.stringify([]));
+          } catch {}
         }
 
         try {

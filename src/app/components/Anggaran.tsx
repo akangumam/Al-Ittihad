@@ -675,203 +675,233 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
         </div>
       </div>
 
-      {/* Toolbar filter & search */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-[#E2E8DE]">
-        <div className="flex items-center gap-2 flex-1 max-w-md px-3 py-2 rounded-lg bg-[#FAFBF9] border border-[#E2E8DE]">
-          <Search size={14} className="text-[#9CA3A0] shrink-0" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari mata anggaran / kelompok..."
-            className="bg-transparent outline-none text-xs sm:text-sm text-[#1C2517] w-full"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="text-[#9CA3A0] hover:text-[#374040]">
-              <X size={13} />
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 sm:flex-initial">
-            <select
-              value={kelompokFilter}
-              onChange={(e) => setKelompokFilter(e.target.value)}
-              className="appearance-none w-full sm:w-auto pl-3 pr-8 py-2 rounded-lg text-xs sm:text-sm text-[#374040] outline-none border border-[#E2E8DE] bg-[#FAFBF9]"
+      {rabList.length === 0 ? (
+        <div
+          className="bg-white rounded-2xl p-8 sm:p-12 text-center border border-[#E2E8DE] space-y-4 max-w-xl mx-auto my-6"
+          style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.03)" }}
+        >
+          <div className="w-16 h-16 rounded-2xl bg-[#EAF5E6] text-[#3E8A2F] flex items-center justify-center mx-auto shadow-sm">
+            <FileText size={32} />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-bold text-[#1C2517]">Mata Anggaran (RAB) Masih Kosong</h3>
+            <p className="text-xs sm:text-sm text-[#6B7769] leading-relaxed max-w-md mx-auto">
+              Belum ada mata anggaran yang didaftarkan untuk Tahun Ajaran <strong>{tahunAjaran}</strong>. Daftarkan pos rencana kerja dan anggaran madrasah (RKAM) untuk memulai pencatatan serta monitoring serapan belanja.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={() => setSheetRow("new")}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#3E8A2F] text-white text-sm font-semibold hover:bg-[#2E6B22] transition-all shadow-sm"
             >
-              <option value="Semua Kelompok">Semua Kelompok ({rabList.length})</option>
-              {groups.map((g) => (
-                <option key={g} value={g}>
-                  {g} ({rabList.filter((r) => r.group === g).length})
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
+              <Plus size={16} /> Tambah Mata Anggaran Pertama
+            </button>
+          </div>
+          <div className="pt-3 border-t border-[#F0F7EE] text-[11px] text-[#9CA3A0]">
+            Pos kelompok standar: <span className="text-[#374040] font-medium">Operasional, Kegiatan Siswa, Sarana Prasarana, Gaji & Honor</span>
           </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Toolbar filter & search */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-xl border border-[#E2E8DE]">
+            <div className="flex items-center gap-2 flex-1 max-w-md px-3 py-2 rounded-lg bg-[#FAFBF9] border border-[#E2E8DE]">
+              <Search size={14} className="text-[#9CA3A0] shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari mata anggaran / kelompok..."
+                className="bg-transparent outline-none text-xs sm:text-sm text-[#1C2517] w-full"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery("")} className="text-[#9CA3A0] hover:text-[#374040]">
+                  <X size={13} />
+                </button>
+              )}
+            </div>
 
-      {/* Table (Desktop) */}
-      <div className="hidden md:block bg-white rounded-xl overflow-hidden" style={{ border: "1px solid #E2E8DE" }}>
-        <DataTable>
-          <thead>
-            <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
-              <Th className="px-6">Mata Anggaran</Th>
-              <Th align="right" className="px-4">Pagu Anggaran</Th>
-              <Th align="right" className="px-4">Terpakai</Th>
-              <Th align="right" className="px-4">Sisa</Th>
-              <Th className="px-4">Serapan</Th>
-              <th className="py-3 pr-6 w-10" />
-            </tr>
-          </thead>
-          {activeGroups.map((group) => {
-            const rows = filteredRabList.filter((r) => r.group === group);
-            if (rows.length === 0) return null;
-
-            const subA = rows.reduce((s, r) => s + r.anggaran, 0);
-            const subT = rows.reduce((s, r) => s + r.terpakai, 0);
-            const subS = subA - subT;
-            const subP = subA > 0 ? Math.round((subT / subA) * 100) : 0;
-
-            return (
-              <tbody key={group}>
-                {/* Group header */}
-                <tr>
-                  <td colSpan={6} className="px-6 py-2.5" style={{ background: "#F5F9F4", borderBottom: "1px solid #E2E8DE" }}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-[#3E8A2F] uppercase tracking-wider">{group}</span>
-                      <span className="text-xs text-[#6B7769] tabular-nums">
-                        Subtotal: <strong>{IDR(subA)}</strong> · Terpakai: <strong className="text-[#D97706]">{IDR(subT)}</strong> ({subP}%)
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-                {/* Data rows */}
-                {rows.map((row, ri) => {
-                  const sisa = row.anggaran - row.terpakai;
-                  const pct = row.anggaran > 0 ? Math.round((row.terpakai / row.anggaran) * 100) : 0;
-                  const overBudget = sisa < 0;
-                  const isLast = ri === rows.length - 1;
-
-                  return (
-                    <tr
-                      key={row.id}
-                      className="hover:bg-[#FAFBF9] transition-colors"
-                      style={{ borderBottom: isLast ? "2px solid #E2E8DE" : "1px solid #F0F7EE" }}
-                    >
-                      <td className="px-6 py-3.5 text-sm font-medium text-[#1C2517]">{row.nama}</td>
-                      <td className="px-4 py-3.5 text-sm tabular-nums text-right text-[#374040]">{IDR(row.anggaran)}</td>
-                      <td className="px-4 py-3.5 text-sm tabular-nums text-right text-[#374040]">
-                        {row.terpakai === 0 ? <span className="text-[#D1D5DB]">—</span> : IDR(row.terpakai)}
-                      </td>
-                      <td className={`px-4 py-3.5 text-sm tabular-nums text-right font-semibold ${overBudget ? "text-[#DC2626]" : "text-[#374040]"}`}>
-                        {IDR(sisa)}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <SerapanBar pct={pct} />
-                      </td>
-                      <td className="py-3.5 pr-6">
-                        <RowMenu
-                          onEdit={() => setSheetRow(row)}
-                          onDelete={() => setDeleteConfirm(row)}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            );
-          })}
-
-          {filteredRabList.length === 0 && (
-            <tbody>
-              <tr>
-                <td colSpan={6} className="text-center py-10 text-sm text-[#9CA3A0]">
-                  Tidak ada mata anggaran yang cocok dengan filter pencarian.
-                </td>
-              </tr>
-            </tbody>
-          )}
-
-          {/* Footer total row */}
-          <tfoot>
-            <tr style={{ borderTop: "2px solid #E2E8DE", background: "#F5F9F4" }}>
-              <td className="px-6 py-3.5 text-sm font-bold text-[#1C2517]">Total RAB Terfilter</td>
-              <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#1C2517]">{IDR(TOTAL_A)}</td>
-              <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#D97706]">{IDR(TOTAL_T)}</td>
-              <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#3E8A2F]">{IDR(TOTAL_S)}</td>
-              <td className="px-4 py-3.5">
-                <SerapanBar pct={TOTAL_P} />
-              </td>
-              <td className="pr-6" />
-            </tr>
-          </tfoot>
-        </DataTable>
-      </div>
-
-      {/* Cards View (Mobile) */}
-      <div className="md:hidden space-y-3">
-        {filteredRabList.map((row) => {
-          const sisa = row.anggaran - row.terpakai;
-          const pct = row.anggaran > 0 ? Math.round((row.terpakai / row.anggaran) * 100) : 0;
-          return (
-            <div key={row.id} className="bg-white rounded-xl p-4 border border-[#E2E8DE] space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-[10px] font-bold text-[#3E8A2F] uppercase tracking-wider">{row.group}</span>
-                  <h4 className="text-sm font-semibold text-[#1C2517] mt-0.5">{row.nama}</h4>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setSheetRow(row)}
-                    className="p-1.5 rounded-lg text-[#6B7769] hover:bg-[#F5F9F4]"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    onClick={() => setDeleteConfirm(row)}
-                    className="p-1.5 rounded-lg text-[#DC2626] hover:bg-[#FEF2F2]"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 py-2 border-y border-[#F0F7EE] text-xs">
-                <div>
-                  <span className="text-[#9CA3A0] block text-[10px]">Pagu</span>
-                  <span className="font-semibold text-[#1C2517]">{IDR(row.anggaran)}</span>
-                </div>
-                <div>
-                  <span className="text-[#9CA3A0] block text-[10px]">Terpakai</span>
-                  <span className="font-semibold text-[#D97706]">{IDR(row.terpakai)}</span>
-                </div>
-                <div>
-                  <span className="text-[#9CA3A0] block text-[10px]">Sisa</span>
-                  <span className={`font-semibold ${sisa < 0 ? "text-[#DC2626]" : "text-[#3E8A2F]"}`}>{IDR(sisa)}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs pt-0.5">
-                <span className="text-[#6B7769]">Serapan Anggaran</span>
-                <SerapanBar pct={pct} />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 sm:flex-initial">
+                <select
+                  value={kelompokFilter}
+                  onChange={(e) => setKelompokFilter(e.target.value)}
+                  className="appearance-none w-full sm:w-auto pl-3 pr-8 py-2 rounded-lg text-xs sm:text-sm text-[#374040] outline-none border border-[#E2E8DE] bg-[#FAFBF9]"
+                >
+                  <option value="Semua Kelompok">Semua Kelompok ({rabList.length})</option>
+                  {groups.map((g) => (
+                    <option key={g} value={g}>
+                      {g} ({rabList.filter((r) => r.group === g).length})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6B7769] pointer-events-none" />
               </div>
             </div>
-          );
-        })}
-
-        {filteredRabList.length === 0 && (
-          <div className="text-center py-8 bg-white rounded-xl border border-[#E2E8DE] text-[#9CA3A0] text-sm">
-            Tidak ada mata anggaran ditemukan.
           </div>
-        )}
-      </div>
 
-      {/* Caption */}
-      <p className="text-xs text-[#9CA3A0]">
-        * Serapan dihitung dari data realisasi pengeluaran madrasah yang dialokasikan pada mata anggaran.
-      </p>
+          {/* Table (Desktop) */}
+          <div className="hidden md:block bg-white rounded-xl overflow-hidden" style={{ border: "1px solid #E2E8DE" }}>
+            <DataTable>
+              <thead>
+                <tr style={{ borderBottom: "1px solid #E2E8DE" }}>
+                  <Th className="px-6">Mata Anggaran</Th>
+                  <Th align="right" className="px-4">Pagu Anggaran</Th>
+                  <Th align="right" className="px-4">Terpakai</Th>
+                  <Th align="right" className="px-4">Sisa</Th>
+                  <Th className="px-4">Serapan</Th>
+                  <th className="py-3 pr-6 w-10" />
+                </tr>
+              </thead>
+              {activeGroups.map((group) => {
+                const rows = filteredRabList.filter((r) => r.group === group);
+                if (rows.length === 0) return null;
+
+                const subA = rows.reduce((s, r) => s + r.anggaran, 0);
+                const subT = rows.reduce((s, r) => s + r.terpakai, 0);
+                const subS = subA - subT;
+                const subP = subA > 0 ? Math.round((subT / subA) * 100) : 0;
+
+                return (
+                  <tbody key={group}>
+                    {/* Group header */}
+                    <tr>
+                      <td colSpan={6} className="px-6 py-2.5" style={{ background: "#F5F9F4", borderBottom: "1px solid #E2E8DE" }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-[#3E8A2F] uppercase tracking-wider">{group}</span>
+                          <span className="text-xs text-[#6B7769] tabular-nums">
+                            Subtotal: <strong>{IDR(subA)}</strong> · Terpakai: <strong className="text-[#D97706]">{IDR(subT)}</strong> ({subP}%)
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {/* Data rows */}
+                    {rows.map((row, ri) => {
+                      const sisa = row.anggaran - row.terpakai;
+                      const pct = row.anggaran > 0 ? Math.round((row.terpakai / row.anggaran) * 100) : 0;
+                      const overBudget = sisa < 0;
+                      const isLast = ri === rows.length - 1;
+
+                      return (
+                        <tr
+                          key={row.id}
+                          className="hover:bg-[#FAFBF9] transition-colors"
+                          style={{ borderBottom: isLast ? "2px solid #E2E8DE" : "1px solid #F0F7EE" }}
+                        >
+                          <td className="px-6 py-3.5 text-sm font-medium text-[#1C2517]">{row.nama}</td>
+                          <td className="px-4 py-3.5 text-sm tabular-nums text-right text-[#374040]">{IDR(row.anggaran)}</td>
+                          <td className="px-4 py-3.5 text-sm tabular-nums text-right text-[#374040]">
+                            {row.terpakai === 0 ? <span className="text-[#D1D5DB]">—</span> : IDR(row.terpakai)}
+                          </td>
+                          <td className={`px-4 py-3.5 text-sm tabular-nums text-right font-semibold ${overBudget ? "text-[#DC2626]" : "text-[#374040]"}`}>
+                            {IDR(sisa)}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <SerapanBar pct={pct} />
+                          </td>
+                          <td className="py-3.5 pr-6">
+                            <RowMenu
+                              onEdit={() => setSheetRow(row)}
+                              onDelete={() => setDeleteConfirm(row)}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                );
+              })}
+
+              {filteredRabList.length === 0 && (
+                <tbody>
+                  <tr>
+                    <td colSpan={6} className="text-center py-10 text-sm text-[#9CA3A0]">
+                      Tidak ada mata anggaran yang cocok dengan filter pencarian.
+                    </td>
+                  </tr>
+                </tbody>
+              )}
+
+              {/* Footer total row */}
+              <tfoot>
+                <tr style={{ borderTop: "2px solid #E2E8DE", background: "#F5F9F4" }}>
+                  <td className="px-6 py-3.5 text-sm font-bold text-[#1C2517]">Total RAB Terfilter</td>
+                  <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#1C2517]">{IDR(TOTAL_A)}</td>
+                  <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#D97706]">{IDR(TOTAL_T)}</td>
+                  <td className="px-4 py-3.5 text-sm tabular-nums text-right font-bold text-[#3E8A2F]">{IDR(TOTAL_S)}</td>
+                  <td className="px-4 py-3.5">
+                    <SerapanBar pct={TOTAL_P} />
+                  </td>
+                  <td className="pr-6" />
+                </tr>
+              </tfoot>
+            </DataTable>
+          </div>
+
+          {/* Cards View (Mobile) */}
+          <div className="md:hidden space-y-3">
+            {filteredRabList.map((row) => {
+              const sisa = row.anggaran - row.terpakai;
+              const pct = row.anggaran > 0 ? Math.round((row.terpakai / row.anggaran) * 100) : 0;
+              return (
+                <div key={row.id} className="bg-white rounded-xl p-4 border border-[#E2E8DE] space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-[10px] font-bold text-[#3E8A2F] uppercase tracking-wider">{row.group}</span>
+                      <h4 className="text-sm font-semibold text-[#1C2517] mt-0.5">{row.nama}</h4>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setSheetRow(row)}
+                        className="p-1.5 rounded-lg text-[#6B7769] hover:bg-[#F5F9F4]"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm(row)}
+                        className="p-1.5 rounded-lg text-[#DC2626] hover:bg-[#FEF2F2]"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 py-2 border-y border-[#F0F7EE] text-xs">
+                    <div>
+                      <span className="text-[#9CA3A0] block text-[10px]">Pagu</span>
+                      <span className="font-semibold text-[#1C2517]">{IDR(row.anggaran)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#9CA3A0] block text-[10px]">Terpakai</span>
+                      <span className="font-semibold text-[#D97706]">{IDR(row.terpakai)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[#9CA3A0] block text-[10px]">Sisa</span>
+                      <span className={`font-semibold ${sisa < 0 ? "text-[#DC2626]" : "text-[#3E8A2F]"}`}>{IDR(sisa)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs pt-0.5">
+                    <span className="text-[#6B7769]">Serapan Anggaran</span>
+                    <SerapanBar pct={pct} />
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredRabList.length === 0 && (
+              <div className="text-center py-8 bg-white rounded-xl border border-[#E2E8DE] text-[#9CA3A0] text-sm">
+                Tidak ada mata anggaran ditemukan.
+              </div>
+            )}
+          </div>
+
+          {/* Caption */}
+          <p className="text-xs text-[#9CA3A0]">
+            * Serapan dihitung dari data realisasi pengeluaran madrasah yang dialokasikan pada mata anggaran.
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -879,6 +909,7 @@ function RABTab({ tahunAjaran }: { tahunAjaran: string }) {
 // ─── Realisasi Tab ────────────────────────────────────────────────────────────
 
 function RealisasiTab({ tahunAjaran }: { tahunAjaran: string }) {
+  const navigate = useNavigate();
   const { rabList, manualTransaksiList } = useAppContext();
 
   const TOTAL_A = useMemo(() => rabList.reduce((s, r) => s + r.anggaran, 0), [rabList]);
@@ -949,6 +980,21 @@ function RealisasiTab({ tahunAjaran }: { tahunAjaran: string }) {
 
   return (
     <div className="space-y-5">
+      {rabList.length === 0 && (
+        <div className="bg-[#FAFBF9] border border-[#E2E8DE] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm text-[#6B7769]">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle size={18} className="text-[#D97706] shrink-0" />
+            <span>Mata anggaran RAB belum didaftarkan. Pagu rata-rata dan serapan bulanan akan aktif setelah pos anggaran ditambahkan di tab <strong>RAB</strong>.</span>
+          </div>
+          <button
+            onClick={() => navigate(`/keuangan/anggaran/rab`)}
+            className="shrink-0 px-3.5 py-1.5 rounded-lg bg-[#3E8A2F] text-white text-xs font-semibold hover:bg-[#2E6B22] transition-colors self-start sm:self-auto"
+          >
+            Buka Tab RAB
+          </button>
+        </div>
+      )}
+
       {/* KPI chips */}
       <div className="flex items-center gap-2 flex-wrap">
         {[
