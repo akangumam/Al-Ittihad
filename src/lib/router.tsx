@@ -169,6 +169,7 @@ export const router = createBrowserRouter([
         path: "sistem/wa-blast",
         element: <RequireRole roles={["Admin"]}><WABlast /></RequireRole>,
       },
+      { path: "pengaturan", element: <Navigate to="/sistem/pengaturan" replace /> },
     ],
   },
 ]);

@@ -314,7 +314,13 @@ function TambahTemplateSheet({
   initialData?: Template | null;
   onClose: () => void;
 }) {
-  const { tahunAjaran, setTahunAjaran, addTemplateTagihan, updateTemplateTagihan } = useAppContext();
+  const { tahunAjaran, setTahunAjaran, addTemplateTagihan, updateTemplateTagihan, appSettings } = useAppContext();
+  const availableYears = useMemo(() => {
+    if (appSettings?.tahunAjaranRows && appSettings.tahunAjaranRows.length > 0) {
+      return appSettings.tahunAjaranRows.map((r) => r.year);
+    }
+    return tahunAjaranOptions;
+  }, [appSettings?.tahunAjaranRows]);
   const [namaTemplate, setNamaTemplate] = useState(initialData?.nama ?? "");
   const [tipe, setTipe]                 = useState(initialData?.tipe ?? "PPDB");
   const [target, setTarget]             = useState(
@@ -476,7 +482,7 @@ function TambahTemplateSheet({
               label="Tahun Ajaran"
               value={tahunAjaran}
               onChange={setTahunAjaran}
-              options={tahunAjaranOptions}
+              options={availableYears}
             />
           </div>
 

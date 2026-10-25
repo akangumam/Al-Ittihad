@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
   Search, Bell, ChevronDown, LogOut, KeyRound, Eye, EyeOff,
-  X, AlertTriangle, UserX, Calendar, Wallet, CheckCircle, RefreshCw, FileText,
+  X, AlertTriangle, UserX, Calendar, Wallet, CheckCircle, RefreshCw, FileText, Settings,
 } from "lucide-react";
 import { useAppContext } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -227,9 +227,17 @@ export function NotifPanel({ onClose }: { onClose: () => void }) {
 // ─── TopBar ───────────────────────────────────────────────────────────────────
 
 export function TopBar() {
-  const { tahunAjaran, setTahunAjaran, refreshAllCloudData, isSyncing } = useAppContext();
+  const navigate = useNavigate();
+  const { tahunAjaran, setTahunAjaran, refreshAllCloudData, isSyncing, appSettings } = useAppContext();
   const { user, signOut, updatePassword } = useAuth();
   const alerts = useAlerts();
+
+  const availableYears = useMemo(() => {
+    if (appSettings?.tahunAjaranRows && appSettings.tahunAjaranRows.length > 0) {
+      return appSettings.tahunAjaranRows.map((r) => r.year);
+    }
+    return tahunAjaranOptions;
+  }, [appSettings?.tahunAjaranRows]);
 
   const [yearOpen, setYearOpen]   = useState(false);
   const [userOpen, setUserOpen]   = useState(false);
@@ -341,21 +349,35 @@ export function TopBar() {
 
           {yearOpen && (
             <div
-              className="absolute right-0 mt-1.5 bg-white rounded-xl shadow-xl py-1 z-50 min-w-[164px]"
+              className="absolute right-0 mt-1.5 bg-white rounded-xl shadow-xl py-1 z-50 min-w-[170px]"
               style={{ border: "1px solid #E2E8DE" }}
             >
-              {tahunAjaranOptions.map((ta) => (
+              <div className="px-3 py-1.5 text-[11px] font-semibold text-[#9CA3A0] uppercase tracking-wider border-b border-[#F0F7EE]">
+                Pilih Tahun Ajaran
+              </div>
+              {availableYears.map((ta) => (
                 <button
                   key={ta}
                   onClick={() => { setTahunAjaran(ta); setYearOpen(false); }}
                   className={[
-                    "w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#EDF7EC]",
-                    ta === tahunAjaran ? "text-[#3E8A2F] font-semibold" : "text-[#374040]",
+                    "w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-[#EDF7EC] flex items-center justify-between",
+                    ta === tahunAjaran ? "text-[#3E8A2F] font-semibold bg-[#F5F9F4]" : "text-[#374040]",
                   ].join(" ")}
                 >
-                  TA {ta}
+                  <span>TA {ta}</span>
+                  {ta === tahunAjaran && (
+                    <CheckCircle size={14} className="text-[#3E8A2F]" />
+                  )}
                 </button>
               ))}
+              <div className="h-px bg-[#E2E8DE] my-1" />
+              <button
+                onClick={() => { setYearOpen(false); navigate("/sistem/pengaturan"); }}
+                className="w-full text-left px-3.5 py-2 text-xs text-[#6B7769] hover:text-[#3E8A2F] hover:bg-[#F5F9F4] flex items-center gap-2 transition-colors font-medium"
+              >
+                <Settings size={13} className="text-[#6B7769]" />
+                <span>Kelola Tahun Ajaran...</span>
+              </button>
             </div>
           )}
         </div>

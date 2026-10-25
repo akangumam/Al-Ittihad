@@ -124,9 +124,9 @@ const TA_STATUS_STYLE: Record<string, string> = {
 type TARow = { year: string; status: "Aktif" | "Arsip" | "Draft" };
 
 const DEFAULT_TA_ROWS: TARow[] = [
-  { year: "2024/2025", status: "Arsip" },
   { year: "2025/2026", status: "Aktif" },
-  { year: "2026/2027", status: "Draft" },
+  { year: "2024/2025", status: "Arsip" },
+  { year: "2023/2024", status: "Arsip" },
 ];
 
 function TARowMenu({ row, onJadikanAktif, onHapus }: { row: TARow; onJadikanAktif: () => void; onHapus: () => void }) {

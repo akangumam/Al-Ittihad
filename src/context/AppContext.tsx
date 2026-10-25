@@ -318,6 +318,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     namaMadrasah: "MTs Al-Ittihad Pedaleman",
     alamatMadrasah: "Jl. Syekh Nawawi Kp. Pesisir Pedaleman, Kec. Tanara, Kab. Serang, Prov. Banten 42194",
     kirimWA: true,
+    tahunAjaranRows: [
+      { year: "2025/2026", status: "Aktif" },
+      { year: "2024/2025", status: "Arsip" },
+      { year: "2023/2024", status: "Arsip" },
+    ],
     wahaEnabled: false,
     wahaUrl: "",
     wahaApiKey: "",
