@@ -9,7 +9,7 @@ Versi 1.2 · 23 Oktober 2026
 ## Daftar Isi
 
 - [Bab 1 — Pendahuluan](#m9facynzpdk.96)
-  - Tentang Sistem · Peran Pengguna · Login & Logout · Sinkron Server · Navigasi · Konvensi
+  - Tentang Sistem · Peran Pengguna · Login & Logout · Sinkron Server · Navigasi · Konvensi · **Panduan Alur & Urutan Prioritas Pengisian Data Awal (Database Kosong)**
 - [Bab 2 — Setup Awal](#m9facynzpdk.3331) `[Admin]`
   - Identitas Madrasah · Tahun Ajaran · Operasional · Akun Kas & Bank
 - [Bab 3 — Manajemen Guru](#m9facynzpdk.6611) `[Admin]` `[TU]`
@@ -30,8 +30,8 @@ Versi 1.2 · 23 Oktober 2026
   - Daftar Transaksi · Input Manual · Akun · Mutasi
 - [Bab 11 — Anggaran](#m9facynzpdk.33618) `[Bendahara]` `[Admin]`
   - RAB · Realisasi
-- [Bab 12 — Laporan Keuangan](#m9facynzpdk.35803) `[Bendahara]` `[Admin]`
-  - BKU · Dana BOS · Neraca · Penerimaan Siswa · Export & Cetak
+- [Bab 12 — Pusat Laporan](#m9facynzpdk.35803) `[Bendahara]` `[Admin]`
+  - BKU · Dana BOS · Neraca Keuangan · Arus Kas · Rekap Tunggakan · Rekap Absensi Guru · Format Cetak PDF Resmi & Excel
 - [Bab 13 — Kalender](#m9facynzpdk.38776)
   - Tampilan · Tambah Event · Edit & Hapus
 - [Bab 14 — Sistem](#m9facynzpdk.40875) `[Admin]`
@@ -191,6 +191,57 @@ Navigasi utama mobile berada di bilah bawah (*bottom navigation bar*), dengan to
 | Uang | Rp (spasi) angka titik-ribuan | Rp 1.500.000 |
 | Jam | HH.MM | 07.00 |
 | Nomor Kuitansi | KW/{TAHUN}/{BULAN}/{URUT} | KW/2026/10/001 |
+
+### 1.6 Panduan Alur & Urutan Prioritas Pengisian Data Awal (Database Kosong / Mulai dari Nol)
+
+Apabila madrasah baru pertama kali menggunakan sistem atau database dalam kondisi **bersih tanpa data (clean slate / Rp 0)**, pengisian data **TIDAK BOLEH DILAKUKAN SEMBARANGAN**. Sistem memiliki ketergantungan relasional antar-modul (*data dependency*).
+
+Contoh ketergantungan sistem:
+* Anda **tidak bisa** menginput siswa jika **Data Kelas** belum dibuat.
+* Anda **tidak bisa** menentukan Wali Kelas jika **Data Guru** belum didaftarkan.
+* Anda **tidak bisa** menerima pembayaran kasir jika **Akun Kas** dan **Tagihan Siswa** belum ada.
+* Anda **tidak bisa** menyusun jadwal KBM jika **Guru**, **Kelas**, dan **Jam Masuk** belum ditentukan.
+
+Berikut adalah **Roadmap 4 Fase Pengisian Data Awal** yang wajib diikuti secara berurutan:
+
+```
+[FASE 1: SETUP FONDASI & SISTEM] (Admin)
+1. Identitas Madrasah ➔ 2. Tahun Ajaran ➔ 3. Operasional ➔ 4. Akun Kas & Bank
+                           │
+                           ▼
+[FASE 2: MASTER DATA AKADEMIK] (Admin & TU)
+5. Data Guru ➔ 6. Data Kelas (Wali Kelas) ➔ 7. Data Siswa ➔ 8. Jadwal Pelajaran
+                           │
+                           ▼
+[FASE 3: MASTER DATA KEUANGAN] (Admin & Bendahara)
+9. Template Tagihan ➔ 10. Penetapan Tagihan Siswa ➔ 11. RAB Anggaran Madrasah
+                           │
+                           ▼
+[FASE 4: OPERASIONAL RUTIN & PELAPORAN] (Semua Staf)
+12. Presensi Harian ➔ 13. Kasir Pembayaran ➔ 14. Kas & Bank ➔ 15. Cetak Laporan
+```
+
+#### Tabel Matriks Urutan & Ketergantungan Prasyarat
+
+| No. Langkah | Modul / Halaman | Menu Navigasi | Penanggung Jawab | Prasyarat Wajib Sebelum Mengisi |
+| :---: | :--- | :--- | :---: | :--- |
+| **1** | **Identitas Madrasah** | Sistem ➔ Pengaturan | Admin | Tidak ada. Diisi paling awal (nama madrasah, NSM, NPSN, nama Kepala Madrasah & NIP untuk kop surat). |
+| **2** | **Tahun Ajaran** | Sistem ➔ Pengaturan | Admin | Tidak ada. Daftarkan tahun ajaran aktif (misal `2025/2026`) dan aktifkan statusnya. |
+| **3** | **Jam Operasional** | Sistem ➔ Pengaturan | Admin | Tidak ada. Tentukan jam masuk (misal `07.00`) untuk penentuan status Hadir vs Terlambat otomatis. |
+| **4** | **Akun Kas & Bank** | Keuangan ➔ Kas & Bank (Tab Akun) | Bendahara / Admin | Tentukan rekening penampung (misal: *Kas Tunai*, *Bank BSI*) beserta **Saldo Awal Riil** (bisa Rp 0 jika mulai dari nol). |
+| **5** | **Data Guru** | Akademik ➔ Guru | Admin / TU | Diisi sebelum kelas dan jadwal. Diperlukan untuk penunjukan Wali Kelas dan pengampu mata pelajaran. |
+| **6** | **Data Kelas** | Akademik ➔ Kelas & Jadwal (Tab Data Kelas) | Admin / TU | **Wajib Langkah 5 selesai.** Setiap rombel (7A, 7B, dst.) membutuhkan penetapan Wali Kelas dari daftar guru. |
+| **7** | **Data Siswa** | Akademik ➔ Siswa | Admin / TU | **Wajib Langkah 6 selesai.** Setiap siswa wajib ditempatkan pada kelas/rombel yang sudah terdaftar. |
+| **8** | **Jadwal Pelajaran** | Akademik ➔ Kelas & Jadwal (Tab Jadwal) | Admin / TU | **Wajib Langkah 5 & 6 selesai.** Menghubungkan Guru + Mapel + Kelas + Jam Pelajaran. |
+| **9** | **Template Tagihan** | Keuangan ➔ Tagihan (Tab Template) | Bendahara / Admin | Tentukan master komponen biaya (SPP, Daftar Ulang, Ujian, Infak) beserta nominal acuannya. |
+| **10** | **Penetapan Tagihan** | Keuangan ➔ Tagihan (Tab Penetapan) | Bendahara | **Wajib Langkah 7 & 9 selesai.** Tagihan ditempelkan secara massal ke siswa per kelas dengan tanggal jatuh tempo. |
+| **11** | **RAB Anggaran** | Keuangan ➔ Anggaran (Tab RAB) | Bendahara / Admin | Buat mata anggaran rencana belanja per kelompok (Operasional, Sarpras, Kegiatan, Honor). |
+| **12** | **Presensi Harian** | Akademik ➔ Absensi | TU / Piket | **Wajib Langkah 5 & 7 selesai.** Presensi harian siswa dan guru berjalan (manual checklist atau Scan QR). |
+| **13** | **Kasir Pembayaran** | Keuangan ➔ Pembayaran | Bendahara | **Wajib Langkah 4, 7, & 10 selesai.** Kasir menerima pembayaran tagihan siswa, cetak bukti kuitansi, dan kirim WA. |
+| **14** | **Buku Kas & BOS** | Keuangan ➔ Kas & Bank | Bendahara | Catat penerimaan non-siswa (misal pencairan Dana BOS) dan pengeluaran operasional madrasah. |
+| **15** | **Pusat Laporan** | Keuangan ➔ Laporan | Bendahara / Kepala | Otomatis terakumulasi real-time. BKU, Neraca, Realisasi BOS, Arus Kas, dan Tunggakan siap dicetak resmi. |
+
+---
 
 ## Bab 2 — Setup Awal `[Admin]`
 
@@ -1206,120 +1257,141 @@ Setiap transaksi manual di Kas & Bank memiliki field **Kategori** yang terhubung
 2. Pilih **Sumber Dana** (opsional)
 3. Klik **Export PDF** untuk laporan siap cetak, atau **Export Excel** untuk diolah lebih lanjut
 
-## Bab 12 — Laporan Keuangan `[Bendahara]` `[Admin]`
+## Bab 12 — Pusat Laporan `[Bendahara]` `[Admin]`
 
-Buka melalui sidebar: **Keuangan → Laporan**, lalu pilih jenis laporan dari tab yang tersedia.
+Buka melalui sidebar: **Keuangan → Laporan**, lalu pilih jenis laporan dari 6 kartu laporan yang tersedia.
+
+Sistem Pusat Laporan telah dirancang secara **100% dinamis**, terhubung langsung dengan basis data transaksi riil tanpa ada angka fiktif/dummy, serta dilengkapi filter periode dan tata letak cetak kedinasan resmi.
 
 ### 12.1 Buku Kas Umum (BKU)
 
-BKU adalah laporan kronologis seluruh arus kas madrasah, diurutkan berdasarkan tanggal transaksi.
+BKU adalah buku kas induk yang mencatat seluruh mutasi uang masuk (debit) dan uang keluar (kredit) secara kronologis beserta saldo berjalan.
 
 ![Buku Kas Umum](docs/screenshots/15-laporan-bku.png)
-*Gambar 12.1: Buku Kas Umum (BKU) dengan Saldo Berjalan Kronologis*
+*Gambar 12.1: Buku Kas Umum (BKU) dengan Saldo Awal Dinamis dan Saldo Berjalan Kronologis*
 
-**Parameter laporan:**
+**Fitur & Parameter Filter:**
 
-| Field | Keterangan | Wajib |
+| Kontrol Filter | Pilihan Nilai | Keterangan |
 | --- | --- | --- |
-| **Periode** | Pilih bulan dan tahun, atau rentang tanggal custom | \* |
-| **Akun** | Semua akun atau pilih akun tertentu |  |
+| **Pilih Akun Kas** | Semua Akun Kas & Bank / Akun Tertentu | Memfilter buku kas umum gabungan atau per rekening (misal: hanya Kas Tunai atau Bank BSI) |
+| **Pilih Bulan** | Januari s.d. Desember | Menentukan periode pembukuan bulanan |
+| **Pilih Tahun** | 2024, 2025, 2026, 2027 | Menentukan tahun anggaran buku |
 
-**Kolom BKU:**
+**Kalkulasi Saldo Awal Riil:**
+* Saldo awal pada tanggal 1 di bulan yang dipilih dihitung secara matematis dari: *(Total Saldo Awal Akun Kas + Seluruh kas masuk sebelum tanggal 1 − Seluruh kas keluar sebelum tanggal 1)*.
+* Jika madrasah baru beroperasi dan belum ada transaksi sebelumnya, saldo awal otomatis bernilai **Rp 0** (tanpa angka rekaan).
 
-| Kolom | Isi |
-| --- | --- |
-| **No.** | Nomor urut baris |
-| **Tanggal** | Tanggal transaksi |
-| **No. Bukti** | Nomor referensi (kuitansi/BV/—) |
-| **Uraian** | Keterangan transaksi |
-| **Penerimaan** | Uang masuk (Rp) |
-| **Pengeluaran** | Uang keluar (Rp) |
-| **Saldo** | Saldo berjalan |
+**Kolom Tabel BKU:**
+* **No**: Urutan nomor baris transaksi.
+* **Tanggal**: Tanggal transaksi dicatat.
+* **Uraian Transaksi**: Keterangan pembayaran siswa atau belanja kas manual.
+* **Ref / Bukti**: Nomor kuitansi resmi atau referensi nota kasir.
+* **Akun**: Nama rekening kas penampung.
+* **Debit (Rp)**: Uang masuk (berwarna hijau).
+* **Kredit (Rp)**: Uang keluar (berwarna merah).
+* **Saldo (Rp)**: Posisi saldo kas berjalan setelah mutasi terkait.
 
-BKU dimulai dengan baris **Saldo Awal** di atas dan diakhiri baris **Saldo Akhir** di bawah.
+Di baris penutup terbawah ditampilkan **Saldo Akhir Periode** yang nilainya persis sama dengan saldo kas madrasah saat itu.
 
-**Mengunduh BKU:**
+---
 
-1. Pilih periode
-2. Klik **Export PDF** untuk laporan berformat resmi siap tanda tangan, atau **Export Excel** untuk pengolahan data
+### 12.2 Laporan Realisasi Dana BOS
 
-### 12.2 Laporan Dana BOS
-
-Laporan khusus untuk pertanggungjawaban dana Bantuan Operasional Sekolah (BOS).
+Laporan pertanggungjawaban khusus untuk memantau penerimaan pencairan dan pembelanjaan dana Bantuan Operasional Sekolah (BOS) secara transparan.
 
 ![Laporan Dana BOS](docs/screenshots/16-laporan-bos.png)
-*Gambar 12.2: Laporan Pertanggungjawaban Realisasi Dana BOS*
+*Gambar 12.2: Laporan Realisasi Belanja Dana BOS Madrasah*
 
-**Parameter laporan:**
+**Sumber Data Riil:**
+* Sistem secara otomatis menyaring seluruh transaksi pada modul **Kas & Bank** yang memiliki kategori **"Dana BOS"** atau keterangan terkait BOS.
+* **Dana BOS Diterima**: Akumulasi kas masuk dari pencairan dana BOS.
+* **Total Realisasi Belanja**: Akumulasi pengeluaran belanja barang/jasa/kegiatan BOS.
+* **Sisa Saldo BOS**: Sisa kas dana BOS yang belum terbelanjakan.
+* **Tingkat Serapan (%)**: Rasio serapan anggaran belanja BOS terhadap total dana yang diterima.
 
-| Field | Keterangan | Wajib |
-| --- | --- | --- |
-| **Triwulan** | Pilih Triwulan 1 / 2 / 3 / 4 | \* |
-| **Tahun** | Tahun anggaran | \* |
+Jika madrasah belum mencatatkan transaksi BOS, sistem menampilkan kartu panduan kosong (*empty state*) dengan tombol pintasan langsung ke menu Kas & Bank untuk mencatat kas masuk/keluar BOS.
 
-Laporan Dana BOS menampilkan:
+---
 
-- Saldo awal dana BOS
-- Rincian penerimaan dana BOS
-- Rincian penggunaan per komponen (sesuai juknis BOS)
-- Saldo akhir
+### 12.3 Neraca Keuangan (Posisi Keuangan)
 
-Format laporan menyesuaikan format resmi Kementerian Agama. Pastikan setiap transaksi yang menggunakan dana BOS sudah dikategorikan dengan benar saat input di Kas & Bank.
-
-### 12.3 Neraca
-
-Neraca menampilkan posisi keuangan madrasah pada tanggal tertentu (total aset, kewajiban, dan ekuitas).
+Neraca menampilkan posisi kekayaan bersih madrasah pada waktu tertentu dengan menganut prinsip dasar persamaan akuntansi: **Total Aset = Total Kewajiban + Total Ekuitas**.
 
 ![Neraca Keuangan](docs/screenshots/17-laporan-neraca.png)
-*Gambar 12.3: Laporan Neraca Keuangan Madrasah (Aset vs Kewajiban)*
+*Gambar 12.3: Laporan Neraca Keuangan Madrasah dengan Jaminan Keseimbangan Otomatis*
 
-**Parameter laporan:**
+**Struktur Neraca Dua Sisi:**
 
-| Field | Keterangan | Wajib |
-| --- | --- | --- |
-| **Per Tanggal** | Tanggal neraca yang ingin dilihat (dd/mm/yyyy) | \* |
-
-Neraca ditampilkan dalam dua kolom:
-
-| Sisi Kiri (Aset) | Sisi Kanan (Kewajiban + Ekuitas) |
+| Sisi Kiri (Aset Madrasah) | Sisi Kanan (Kewajiban & Ekuitas) |
 | --- | --- |
-| Kas Tunai | Kewajiban jangka pendek |
-| Rekening BSI | Kewajiban jangka panjang |
-| Rekening Mandiri Syariah | Ekuitas / Dana Madrasah |
-| Aset lainnya |  |
+| **Kas & Bank**: Saldo riil setiap rekening kas tunai, bank, dan dompet digital yang aktif | **Kewajiban**: Titipan atau hutang jangka pendek (Rp 0 jika tidak ada) |
+| **Piutang Tagihan Siswa**: Total tagihan siswa aktif yang belum lunas | **Modal Awal Kas**: Akumulasi saldo awal seluruh rekening kas saat pertama didaftarkan |
+| | **Surplus / (Defisit) Berjalan**: Total kas masuk operasional − total kas keluar operasional |
+| | **Piutang Siswa Terakui**: Nilai piutang siswa yang diakui sebagai ekuitas madrasah |
+| **TOTAL ASET** | **TOTAL KEWAJIBAN & EKUITAS** *(Persis Seimbang)* |
 
-### 12.4 Laporan Penerimaan Siswa
+Di bagian atas neraca terdapat lencana hijau penjamin mutu: **"✓ Neraca Seimbang (Aset = Kewajiban + Ekuitas)"**.
 
-Laporan ringkasan semua pembayaran yang diterima dari siswa dalam periode tertentu.
+---
 
-**Parameter laporan:**
+### 12.4 Laporan Pemasukan & Pengeluaran (Arus Kas)
 
-| Field | Keterangan | Wajib |
-| --- | --- | --- |
-| **Periode** | Rentang tanggal | \* |
-| **Kelas** | Semua kelas atau kelas tertentu |  |
-| **Paket** | Semua paket atau paket tertentu |  |
+Menyajikan rekapitulasi ringkasan kas masuk dan kas keluar yang dikelompokkan berdasarkan kategori pembiayaan madrasah.
 
-Laporan menampilkan rincian: nama siswa, kelas, paket, komponen, tanggal bayar, nominal, metode pembayaran, dan nomor kuitansi.
+**Fitur yang Tersedia:**
+* **Filter Periode**: Pilihan per bulan atau *Semua Bulan* dalam tahun terpilih.
+* **Pengelompokan Kategori**:
+  - *Pemasukan*: Pembayaran SPP, Daftar Ulang, Dana BOS, Infak/Donasi, PPDB, dll.
+  - *Pengeluaran*: Gaji & Tunjangan Guru, Listrik & Air, ATK, Pemeliharaan Gedung, Kegiatan Siswa, dll.
+* **Selisih Bersih (Net)**: Indikator apakah operasional madrasah mengalami **Surplus (+)** atau **Defisit (−)** pada periode terkait.
+* **Proporsi Visual**: Grafik batang mini berwarna hijau (pemasukan) dan merah (pengeluaran) untuk membandingkan bobot per kategori secara visual.
 
-### 12.5 Cara Export dan Cetak
+---
 
-Semua laporan mendukung dua format unduhan:
+### 12.5 Rekap Tunggakan Siswa
 
-| Format | Kegunaan |
-| --- | --- |
-| **Export PDF** | Laporan siap cetak dengan kop madrasah, format resmi, kolom tanda tangan |
-| **Export Excel** | Data mentah untuk rekonsiliasi atau pengolahan lebih lanjut |
+Laporan analitik untuk membantu bendahara dan wali kelas memantau siswa yang masih memiliki kewajiban biaya pendidikan yang belum terlunasi.
 
-**Langkah umum export:**
+**Fitur Filter:**
+* **Filter Kelas**: Tampilkan semua kelas atau saring hanya untuk rombel tertentu (misal: Kelas 7A, 8B, 9A).
+* **Filter Tingkat Aging (Keterlambatan)**:
+  - *Kritis (> 60 hari)*: Tunggakan lewat 2 bulan dari jatuh tempo (prioritas penagihan/konseling).
+  - *Waspada (31–60 hari)*: Tunggakan antara 1 hingga 2 bulan.
+  - *Perhatian (1–30 hari)*: Tunggakan baru jatuh tempo dalam 30 hari terakhir.
+  - *Belum Jatuh Tempo*: Tagihan aktif yang tanggal jatuh temponya masih di masa mendatang.
 
-1. Pilih jenis laporan dari tab
-2. Isi parameter (periode, filter)
-3. Klik **Tampilkan** untuk pratinjau di layar
-4. Klik **Export PDF** atau **Export Excel**
-5. File diunduh otomatis ke folder unduhan perangkat Anda
+**Data yang Ditampilkan:**
+Nama siswa, NIS, kelas, rincian komponen tagihan yang menunggak, nominal sisa tunggakan, lencana status aging, dan tanggal jatuh tempo.
 
-PDF menggunakan identitas madrasah dari **Sistem → Pengaturan → Identitas Madrasah**. Pastikan data identitas sudah lengkap sebelum mencetak laporan resmi.
+---
+
+### 12.6 Rekap Absensi Guru
+
+Rekapitulasi kehadiran dewan guru dan tenaga kependidikan untuk keperluan monitoring disiplin kerja dan evaluasi honorarium bulanan.
+
+**Fitur:**
+* **Perhitungan Hari Kerja Efektif**: Sistem secara otomatis menghitung jumlah hari aktif KBM (Senin–Sabtu) pada bulan yang dipilih di luar hari libur.
+* **Tingkat Kehadiran Individual**: Menghitung jumlah presensi Hadir, Terlambat, Izin/Sakit, dan Alpa untuk setiap guru yang aktif.
+* **Rasio Kehadiran (%)**: Persentase kehadiran masing-masing guru beserta indikator warna (Hijau ≥ 90%, Oranye 75–89%, Merah < 75%).
+* **Rata-rata Madrasah**: Di baris terbawah disajikan rata-rata kedisiplinan seluruh dewan guru pada bulan tersebut.
+
+---
+
+### 12.7 Format Cetak Resmi (PDF) & Ekspor Excel (CSV)
+
+Setiap lembar laporan di atas telah dilengkapi dengan dua tombol aksi standar di pojok kanan atas:
+
+#### A. Tombol Cetak PDF Resmi (`window.print`)
+Dirancang khusus dengan aturan gaya cetak kedinasan (`@media print`):
+1. **Kop Surat Otomatis**: Menampilkan logo resmi MTs Al-Ittihad Pedaleman, nama yayasan, identitas madrasah, NSM (121236040023), NPSN (69982405), dan alamat lengkap dengan garis ganda standar kedinasan.
+2. **Bersih Tanpa Navigasi**: Sidebar menu kiri, topbar atas, kartu-kartu menu, dan tombol aksi otomatis disembunyikan saat dicetak sehingga kertas hanya berisi dokumen laporan bersih.
+3. **Kolom Tanda Tangan Pengesahan**: Di bagian bawah lembar cetak otomatis tertera titimangsa (*Pedaleman, [Tanggal]*), kolom tanda tangan **Mengetahui: Kepala Madrasah**, dan kolom tanda tangan **Dibuat oleh: Bendahara Madrasah**.
+
+#### B. Tombol Unduh Excel (CSV)
+Mengunduh file spreadsheet `.csv` dengan pengodean UTF-8 BOM sehingga langsung rapi dan kompatibel dibuka di Microsoft Excel, Google Sheets, maupun LibreOffice Calc tanpa teks berantakan.
+
+---
 
 ## Bab 13 — Kalender
 
