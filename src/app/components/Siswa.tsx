@@ -305,11 +305,15 @@ function FloatingSelect({
 type SheetTab = "profil" | "tagihan" | "riwayat";
 
 function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard }: { siswa?: SiswaRow | null; isAdding?: boolean; isReadOnly?: boolean; onClose: () => void; onSave: (data: any) => void; onShowCard?: () => void }) {
-  const { tahunAjaran } = useAppContext();
+  const { tahunAjaran, activityLogs } = useAppContext();
   const [taStart, taEnd] = tahunAjaran.split("/");
   const prevYear = `${parseInt(taStart) - 1}/${taStart}`;
   const nextYear = `${taEnd}/${parseInt(taEnd) + 1}`;
   const [tab, setTab] = useState<SheetTab>("profil");
+  const studentLogs = siswa ? (activityLogs || []).filter(
+    (l) => (siswa.nama && l.deskripsi?.toLowerCase().includes(siswa.nama.toLowerCase())) ||
+           (siswa.nis && l.deskripsi?.includes(siswa.nis))
+  ) : [];
   const [form, setForm] = useState({
     nis: siswa?.nis || "", nisn: siswa?.nisn || "", nama: siswa?.nama || "",
     jk: (siswa?.jk as string) || "L",
@@ -407,27 +411,29 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
         </div>
 
         {/* Tabs */}
-        <div className="px-6 pt-4 pb-3 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
-          <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
-            {(["profil", "tagihan", "riwayat"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={[
-                  "px-4 py-1.5 rounded-md text-sm font-semibold transition-all whitespace-nowrap",
-                  tab === t ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]",
-                ].join(" ")}
-                style={tab === t ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
-              >
-                {TAB_LABELS[t]}
-              </button>
-            ))}
+        {!isAdding && (
+          <div className="px-6 pt-4 pb-3 shrink-0" style={{ borderBottom: "1px solid #E2E8DE" }}>
+            <div className="inline-flex rounded-lg p-1 bg-[#EDF7EC]">
+              {(["profil", "tagihan", "riwayat"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={[
+                    "px-4 py-1.5 rounded-md text-sm font-semibold transition-all whitespace-nowrap",
+                    tab === t ? "bg-white text-[#1C2517]" : "text-[#6B7769] hover:text-[#374040]",
+                  ].join(" ")}
+                  style={tab === t ? { boxShadow: "0 1px 2px rgba(0,0,0,0.08)" } : undefined}
+                >
+                  {TAB_LABELS[t]}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {tab === "profil" ? (
+          {isAdding || tab === "profil" ? (
             <div className="space-y-6">
               {/* ── Data Pribadi ── */}
               <section className="space-y-3">
@@ -641,18 +647,37 @@ function StudentSheet({ siswa, isAdding, isReadOnly, onClose, onSave, onShowCard
               {/* Log Aktivitas Data */}
               <section>
                 <p className="text-[10px] font-semibold text-[#9CA3A0] uppercase tracking-widest mb-4">Log Aktivitas Data</p>
-                <div className="relative pl-4 border-l border-[#E2E8DE] space-y-6 ml-2 mt-2">
-                  <div className="relative">
-                    <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#3E8A2F] border-2 border-white" />
-                    <p className="text-sm font-semibold text-[#1C2517]">Data diperbarui</p>
-                    <p className="text-xs text-[#6B7769] mt-0.5">Oleh Admin Utama • Hari ini, 09:30</p>
+                {siswa ? (
+                  <div className="relative pl-4 border-l border-[#E2E8DE] space-y-6 ml-2 mt-2">
+                    {studentLogs.length > 0 ? (
+                      studentLogs.map((log) => (
+                        <div key={log.id} className="relative">
+                          <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#3E8A2F] border-2 border-white" />
+                          <p className="text-sm font-semibold text-[#1C2517]">{log.tipe}</p>
+                          <p className="text-xs text-[#374040] mt-0.5">{log.deskripsi}</p>
+                          <p className="text-[11px] text-[#6B7769] mt-0.5">
+                            {log.pelaku} • {(() => {
+                              try {
+                                const d = new Date(log.waktu);
+                                return isNaN(d.getTime()) ? log.waktu : d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                              } catch {
+                                return log.waktu;
+                              }
+                            })()}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="relative">
+                        <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#3E8A2F] border-2 border-white" />
+                        <p className="text-sm font-semibold text-[#1C2517]">Siswa Terdaftar</p>
+                        <p className="text-xs text-[#6B7769] mt-0.5">Sistem • Tahun Masuk {siswa.tahunMasuk || "2025"}</p>
+                      </div>
+                    )}
                   </div>
-                  <div className="relative">
-                    <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#D1D5DB] border-2 border-white" />
-                    <p className="text-sm font-semibold text-[#1C2517]">Siswa didaftarkan</p>
-                    <p className="text-xs text-[#6B7769] mt-0.5">Sistem • 10 Juli 2025</p>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-sm text-[#9CA3A0] italic">Belum ada riwayat aktivitas data.</p>
+                )}
               </section>
             </div>
           )}
